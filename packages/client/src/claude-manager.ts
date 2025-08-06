@@ -93,17 +93,10 @@ export class ClaudeManager extends EventEmitter {
         claudeProcess.stdin.write(JSON.stringify(message) + '\n')
         console.log(chalk.gray(`Sent initial prompt: ${initialPrompt}`))
         
-        // Close stdin after sending the message in print mode
-        // This signals Claude to process and exit
-        setTimeout(() => {
-          if (claudeProcess.stdin && !claudeProcess.stdin.destroyed) {
-            claudeProcess.stdin.end()
-          }
-        }, 100)
-      } else if (!initialPrompt && claudeProcess.stdin) {
-        // No initial prompt, close stdin immediately in print mode
-        claudeProcess.stdin.end()
+        // DO NOT close stdin - keep it open for interactive conversation
+        // Claude in --print mode will stay alive waiting for more input
       }
+      // Keep stdin open even without initial prompt for interactive mode
       
       // Create JSONL parser
       const parser = new JsonLinesParser()
@@ -256,21 +249,30 @@ export class ClaudeManager extends EventEmitter {
   }
   
   sendInput(taskId: string, input: string): void {
-    // Since we're using --print mode, we need to start a new Claude process for each input
-    // First, stop the existing process if it exists
-    const existingTask = this.tasks.get(taskId)
-    if (existingTask) {
-      console.log(chalk.yellow('Stopping previous Claude process...'))
-      this.stopClaude(taskId)
-      
-      // Wait a bit for the process to clean up
-      setTimeout(() => {
-        // Start a new Claude process with the input
-        this.startClaude(taskId, existingTask.workingDirectory, input)
-      }, 100)
+    const task = this.tasks.get(taskId)
+    if (!task) {
+      console.log(chalk.red(`No Claude process found for task ${taskId}`))
+      return
+    }
+    
+    // Send input to the existing Claude process
+    if (task.process.stdin && !task.process.stdin.destroyed) {
+      const message = {
+        type: 'user',
+        message: {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: input
+            }
+          ]
+        }
+      }
+      task.process.stdin.write(JSON.stringify(message) + '\n')
+      console.log(chalk.gray(`Sent input to Claude: ${input}`))
     } else {
-      // No existing task, just start a new one
-      this.startClaude(taskId, undefined, input)
+      console.log(chalk.red('Claude process stdin is not available'))
     }
   }
   

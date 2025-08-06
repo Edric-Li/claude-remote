@@ -37,6 +37,7 @@ interface ClaudeOutputItem {
 interface StoreState {
   socket: Socket | null
   connected: boolean
+  connectionInitialized: boolean  // Add this to track if connection attempt has been made
   agents: Agent[]
   selectedAgentId: string | null
   messages: Message[]
@@ -55,6 +56,7 @@ interface StoreState {
 export const useStore = create<StoreState>((set, get) => ({
   socket: null,
   connected: false,
+  connectionInitialized: false,
   agents: [],
   selectedAgentId: null,
   messages: [],
@@ -62,6 +64,9 @@ export const useStore = create<StoreState>((set, get) => ({
   currentTaskId: null,
   
   connect: () => {
+    // Mark as initialized immediately to prevent UI flashing
+    set({ connectionInitialized: true })
+    
     // Prevent multiple connections
     const existingSocket = get().socket
     if (existingSocket && existingSocket.connected) {
@@ -71,7 +76,7 @@ export const useStore = create<StoreState>((set, get) => ({
     const socket = getSocket()
     
     socket.on('connect', () => {
-      set({ socket, connected: true })
+      set({ socket, connected: true, connectionInitialized: true })
       // Use callback to receive the response
       socket.emit('agent:list', (response: { agents: any[] }) => {
         if (response && response.agents) {
@@ -90,7 +95,32 @@ export const useStore = create<StoreState>((set, get) => ({
     })
     
     socket.on('disconnect', () => {
-      set({ connected: false })
+      set({ connected: false, connectionInitialized: true })
+    })
+    
+    socket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error.message)
+      set({ connected: false, connectionInitialized: true })
+    })
+    
+    socket.on('reconnect', (attemptNumber) => {
+      console.info(`Socket reconnected after ${attemptNumber} attempts`)
+      set({ connected: true })
+      // Request agent list after reconnection
+      socket.emit('agent:list', (response: { agents: any[] }) => {
+        if (response && response.agents) {
+          try {
+            set({
+              agents: response.agents.map((a) => ({
+                ...a,
+                connectedAt: new Date(a.connectedAt)
+              }))
+            })
+          } catch (error) {
+            console.error('Failed to process agent list:', error)
+          }
+        }
+      })
     })
     
     socket.on('agent:connected', (data) => {
@@ -230,7 +260,10 @@ export const useStore = create<StoreState>((set, get) => ({
   
   sendMessage: (content) => {
     const { socket, selectedAgentId } = get()
-    if (!socket || !content.trim()) return
+    
+    if (!socket || !content.trim()) {
+      return
+    }
     
     const message: Message = {
       id: Date.now().toString(),

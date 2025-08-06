@@ -1,17 +1,21 @@
 import { useState, useRef, useEffect } from 'react'
-import { Card, Button, Input, Typography, Select, Space } from 'antd'
-import { PlayCircleOutlined, StopOutlined, SendOutlined } from '@ant-design/icons'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { Play, Square, Send, User, Bot, Wrench, CheckCircle, BarChart, Globe } from 'lucide-react'
 import { useStore } from '../store/index.ts'
-import styles from './ClaudePanel.module.css'
+import { Card, CardHeader, CardTitle, CardContent } from './ui/card.tsx'
+import { Button } from './ui/button.tsx'
+import { Input } from './ui/input.tsx'
+import { ScrollArea } from './ui/scroll-area.tsx'
+import { Badge } from './ui/badge.tsx'
+import { cn } from '@/lib/utils.ts'
 
-const { Title, Text } = Typography
-const { TextArea } = Input
-
-export function ClaudePanel(): JSX.Element {
+export function ClaudePanel() {
   const [input, setInput] = useState('')
   const [initialPrompt, setInitialPrompt] = useState('')
   const [isRunning, setIsRunning] = useState(false)
-  const outputRef = useRef<HTMLDivElement>(null)
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const bottomRef = useRef<HTMLDivElement>(null)
   
   const { 
     agents, 
@@ -23,7 +27,7 @@ export function ClaudePanel(): JSX.Element {
     stopClaude 
   } = useStore()
   
-  const selectedAgent = agents.find(a => a.id === selectedAgentId)
+  // const selectedAgent = agents.find(a => a.id === selectedAgentId)
   
   const handleStart = (): void => {
     if (!selectedAgentId) {
@@ -33,7 +37,7 @@ export function ClaudePanel(): JSX.Element {
     
     startClaude(selectedAgentId, undefined, initialPrompt || undefined)
     setIsRunning(true)
-    setInitialPrompt('') // Clear initial prompt after starting
+    setInitialPrompt('')
   }
   
   const handleStop = (): void => {
@@ -45,10 +49,9 @@ export function ClaudePanel(): JSX.Element {
   
   const handleSendInput = (): void => {
     if (input.trim() && currentTaskId) {
-      // Add user input to output display
       useStore.setState((state) => ({
         claudeOutput: [...state.claudeOutput, {
-          type: 'user',
+          type: 'user' as const,
           content: input,
           timestamp: new Date()
         }]
@@ -59,206 +62,259 @@ export function ClaudePanel(): JSX.Element {
     }
   }
   
+  // Auto-scroll to bottom
   useEffect(() => {
-    // Auto-scroll to bottom
-    if (outputRef.current) {
-      outputRef.current.scrollTop = outputRef.current.scrollHeight
-    }
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [claudeOutput])
   
   return (
-    <Card className={styles.container}>
-      <div className={styles.header}>
-        <Title level={4}>Claude Code Control</Title>
-        <Space direction="vertical" style={{ width: '100%' }}>
-          <Space>
-            <Select
-              placeholder="Select an agent"
-              value={selectedAgentId}
-              onChange={(value) => useStore.setState({ selectedAgentId: value })}
-              style={{ 
-                width: 200,
-                backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                borderRadius: '8px'
-              }}
+    <Card className="h-full flex flex-col">
+      <CardHeader className="pb-4">
+        <CardTitle>Claude Code Control</CardTitle>
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <select
+              className="flex h-10 w-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={selectedAgentId || ''}
+              onChange={(e) => useStore.setState({ selectedAgentId: e.target.value || null })}
             >
+              <option value="">Select an agent</option>
               {agents.map(agent => (
-                <Select.Option key={agent.id} value={agent.id}>
+                <option key={agent.id} value={agent.id}>
                   {agent.name}
-                </Select.Option>
+                </option>
               ))}
-            </Select>
+            </select>
             
             {!isRunning ? (
               <Button
-                type="primary"
-                icon={<PlayCircleOutlined />}
                 onClick={handleStart}
                 disabled={!selectedAgentId}
-                style={{
-                  background: 'white',
-                  color: '#667eea',
-                  border: '2px solid white',
-                  fontWeight: '600',
-                  borderRadius: '8px'
-                }}
+                className="gap-2"
               >
+                <Play className="h-4 w-4" />
                 Start Claude
               </Button>
             ) : (
               <Button
-                danger
-                icon={<StopOutlined />}
+                variant="destructive"
                 onClick={handleStop}
-                style={{
-                  background: 'white',
-                  color: '#dc3545',
-                  border: '2px solid white',
-                  fontWeight: '600',
-                  borderRadius: '8px'
-                }}
+                className="gap-2"
               >
+                <Square className="h-4 w-4" />
                 Stop Claude
               </Button>
             )}
-          </Space>
+          </div>
           
           {!isRunning && (
             <Input
               placeholder="Initial prompt (leave empty for default greeting)"
               value={initialPrompt}
               onChange={(e) => setInitialPrompt(e.target.value)}
-              onPressEnter={handleStart}
+              onKeyPress={(e) => e.key === 'Enter' && handleStart()}
               disabled={!selectedAgentId}
-              style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '8px 12px'
-              }}
             />
           )}
-        </Space>
-      </div>
+        </div>
+      </CardHeader>
       
-      <div className={styles.output} ref={outputRef}>
-        {claudeOutput.length === 0 ? (
-          <div style={{ 
-            textAlign: 'center', 
-            color: '#9ca3af', 
-            padding: '40px',
-            fontSize: '14px'
-          }}>
-            Claude output will appear here...
+      <CardContent className="flex-1 flex flex-col gap-4 p-0 px-6 min-h-0">
+        <ScrollArea className="flex-1 pr-4 min-h-0" ref={scrollAreaRef}>
+          <div className="space-y-4 pb-4">
+            {claudeOutput.length === 0 ? (
+              <div className="text-center text-muted-foreground py-12">
+                Claude output will appear here...
+              </div>
+            ) : (
+              claudeOutput.map((item, index) => {
+                if (typeof item === 'string') {
+                  return (
+                    <MessageBubble key={index} type="assistant">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{item}</ReactMarkdown>
+                    </MessageBubble>
+                  )
+                }
+                
+                const { type, content, details, stats, usage } = item
+                
+                if (type === 'user') {
+                  return (
+                    <MessageBubble key={index} type="user">
+                      {content}
+                    </MessageBubble>
+                  )
+                } else if (type === 'assistant') {
+                  return (
+                    <MessageBubble key={index} type="assistant">
+                      <div className="prose prose-sm dark:prose-invert max-w-none">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {content}
+                        </ReactMarkdown>
+                      </div>
+                      {usage && (
+                        <div className="mt-2 flex gap-2 text-xs text-muted-foreground">
+                          <Badge variant="secondary">
+                            {usage.input_tokens} in
+                          </Badge>
+                          <Badge variant="secondary">
+                            {usage.output_tokens} out
+                          </Badge>
+                        </div>
+                      )}
+                    </MessageBubble>
+                  )
+                } else if (type === 'tool') {
+                  return (
+                    <ToolMessage key={index} icon={<Wrench />} title={content}>
+                      {details && (
+                        <pre className="text-xs bg-muted p-2 rounded mt-2 overflow-auto">
+                          {JSON.stringify(details, null, 2).substring(0, 200)}...
+                        </pre>
+                      )}
+                    </ToolMessage>
+                  )
+                } else if (type === 'tool-result') {
+                  return (
+                    <ToolMessage key={index} icon={<CheckCircle />} title="Tool Result">
+                      <div className="text-sm text-muted-foreground">{content}</div>
+                    </ToolMessage>
+                  )
+                } else if (type === 'result') {
+                  return (
+                    <ResultMessage key={index} content={content} stats={stats} />
+                  )
+                } else if (type === 'system') {
+                  return (
+                    <SystemMessage key={index} content={content} />
+                  )
+                }
+                
+                return null
+              })
+            )}
+            <div ref={bottomRef} />
           </div>
-        ) : (
-          claudeOutput.map((item, index) => {
-            // Handle both string (legacy) and object formats
-            if (typeof item === 'string') {
-              return (
-                <div key={index} className={styles.assistantMessage}>
-                  {item}
-                </div>
-              )
-            }
-            
-            // Handle structured message objects
-            const { type, content, details, stats, usage } = item
-            
-            if (type === 'user') {
-              return (
-                <div key={index} className={styles.userMessage}>
-                  {content}
-                </div>
-              )
-            } else if (type === 'assistant') {
-              return (
-                <div key={index} className={styles.assistantMessage}>
-                  {content}
-                  {usage && (
-                    <div className={styles.tokenInfo}>
-                      📊 {usage.input_tokens} in / {usage.output_tokens} out
-                    </div>
-                  )}
-                </div>
-              )
-            } else if (type === 'tool') {
-              return (
-                <div key={index} className={styles.toolMessage}>
-                  <div className={styles.toolHeader}>🔧 {content}</div>
-                  {details && (
-                    <div className={styles.toolDetails}>
-                      {JSON.stringify(details, null, 2).substring(0, 200)}...
-                    </div>
-                  )}
-                </div>
-              )
-            } else if (type === 'tool-result') {
-              return (
-                <div key={index} className={styles.toolResult}>
-                  <div className={styles.toolResultHeader}>✅ Tool Result</div>
-                  <div className={styles.toolResultContent}>{content}</div>
-                </div>
-              )
-            } else if (type === 'result') {
-              return (
-                <div key={index} className={styles.resultInfo}>
-                  <div className={styles.resultHeader}>📊 {content}</div>
-                  {stats && (
-                    <div className={styles.resultStats}>
-                      <span>Turns: {stats.turns}</span>
-                      <span>Tokens: {stats.totalTokens}</span>
-                      <span>Cost: ${stats.cost.toFixed(6)}</span>
-                    </div>
-                  )}
-                </div>
-              )
-            } else if (type === 'system') {
-              return (
-                <div key={index} className={styles.systemMessage}>
-                  🌐 {content}
-                </div>
-              )
-            }
-            
-            return null
-          })
+        </ScrollArea>
+        
+        <div className="flex gap-2 pb-6">
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                handleSendInput()
+              }
+            }}
+            placeholder="Type input for Claude..."
+            disabled={!isRunning}
+            className="flex-1"
+          />
+          <Button
+            onClick={handleSendInput}
+            disabled={!isRunning || !input.trim()}
+            size="icon"
+          >
+            <Send className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// Message components
+function MessageBubble({ 
+  children, 
+  type 
+}: { 
+  children: React.ReactNode
+  type: 'user' | 'assistant' 
+}) {
+  const isUser = type === 'user'
+  
+  return (
+    <div className={cn('flex gap-3', isUser && 'justify-end')}>
+      {!isUser && (
+        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+          <Bot className="h-4 w-4 text-primary" />
+        </div>
+      )}
+      <div
+        className={cn(
+          'px-4 py-3 rounded-lg max-w-[80%]',
+          isUser 
+            ? 'bg-primary text-primary-foreground' 
+            : 'bg-muted'
+        )}
+      >
+        {children}
+      </div>
+      {isUser && (
+        <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+          <User className="h-4 w-4 text-primary-foreground" />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ToolMessage({ 
+  icon, 
+  title, 
+  children 
+}: { 
+  icon: React.ReactNode
+  title: string
+  children?: React.ReactNode 
+}) {
+  return (
+    <div className="flex gap-3">
+      <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+        {icon}
+      </div>
+      <div className="flex-1">
+        <div className="font-medium text-sm">{title}</div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function ResultMessage({ 
+  content, 
+  stats 
+}: { 
+  content: string
+  stats?: any 
+}) {
+  return (
+    <div className="flex gap-3">
+      <div className="h-8 w-8 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
+        <BarChart className="h-4 w-4" />
+      </div>
+      <div className="flex-1 space-y-2">
+        <div className="font-medium text-sm">{content}</div>
+        {stats && (
+          <div className="flex gap-4 text-xs text-muted-foreground">
+            <span>Turns: {stats.turns}</span>
+            <span>Tokens: {stats.totalTokens}</span>
+            <span>Cost: ${stats.cost.toFixed(6)}</span>
+          </div>
         )}
       </div>
-      
-      <div className={styles.inputArea}>
-        <TextArea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onPressEnter={(e) => {
-            if (!e.shiftKey) {
-              e.preventDefault()
-              handleSendInput()
-            }
-          }}
-          placeholder="Type input for Claude..."
-          autoSize={{ minRows: 2, maxRows: 4 }}
-          disabled={!isRunning}
-        />
-        <Button
-          type="primary"
-          icon={<SendOutlined />}
-          onClick={handleSendInput}
-          disabled={!isRunning || !input.trim()}
-          style={{
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            border: 'none',
-            borderRadius: '8px',
-            fontWeight: '600',
-            height: '40px',
-            paddingLeft: '20px',
-            paddingRight: '20px',
-            boxShadow: '0 2px 4px rgba(102, 126, 234, 0.3)'
-          }}
-        >
-          Send
-        </Button>
+    </div>
+  )
+}
+
+function SystemMessage({ content }: { content: string }) {
+  return (
+    <div className="flex gap-3">
+      <div className="h-8 w-8 rounded-full bg-border flex items-center justify-center flex-shrink-0">
+        <Globe className="h-4 w-4" />
       </div>
-    </Card>
+      <div className="text-sm text-muted-foreground">{content}</div>
+    </div>
   )
 }
