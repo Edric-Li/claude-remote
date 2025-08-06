@@ -1,0 +1,29 @@
+{
+  "name": "claude-remote",
+  "version": "0.1.0",
+  "description": "Distributed Claude scheduling system",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:server": "pnpm --filter @claude-remote/server dev",
+    "dev:web": "pnpm --filter @claude-remote/web dev",
+    "dev": "concurrently -n server,web \"pnpm run dev:server\" \"pnpm run dev:web\"",
+    "build": "pnpm -r build",
+    "clean": "pnpm -r clean && rm -rf node_modules",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "concurrently": "^9.1.2",
+    "@playwright/test": "^1.49.1"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.0"
+}
