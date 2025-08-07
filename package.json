@@ -1,14 +1,14 @@
 {
-  "name": "claude-remote",
+  "name": "ai-orchestra",
   "version": "0.1.0",
-  "description": "Distributed Claude scheduling system",
+  "description": "Orchestrate Your AI Workers - Distributed AI Coding Platform",
   "private": true,
   "workspaces": [
     "packages/*"
   ],
   "scripts": {
-    "dev:server": "pnpm --filter @claude-remote/server dev",
-    "dev:web": "pnpm --filter @claude-remote/web dev",
+    "dev:server": "pnpm --filter @ai-orchestra/server dev",
+    "dev:web": "pnpm --filter @ai-orchestra/web dev",
     "dev": "concurrently -n server,web \"pnpm run dev:server\" \"pnpm run dev:web\"",
     "build": "pnpm -r build",
     "clean": "pnpm -r clean && rm -rf node_modules",

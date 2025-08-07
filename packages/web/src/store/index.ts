@@ -16,7 +16,7 @@ interface Message {
   timestamp: Date
 }
 
-interface ClaudeOutputItem {
+interface WorkerOutputItem {
   type: 'user' | 'assistant' | 'tool' | 'tool-result' | 'result' | 'system'
   content: string
   timestamp: Date
@@ -41,16 +41,16 @@ interface StoreState {
   agents: Agent[]
   selectedAgentId: string | null
   messages: Message[]
-  claudeOutput: (string | ClaudeOutputItem)[]
+  workerOutput: (string | WorkerOutputItem)[]
   currentTaskId: string | null
   
   connect: () => void
   disconnect: () => void
   selectAgent: (agentId: string | null) => void
   sendMessage: (content: string) => void
-  startClaude: (agentId: string, workingDirectory?: string, initialPrompt?: string) => void
-  sendClaudeInput: (agentId: string, taskId: string, input: string) => void
-  stopClaude: (agentId: string, taskId: string) => void
+  startWorker: (agentId: string, workingDirectory?: string, initialPrompt?: string) => void
+  sendWorkerInput: (agentId: string, taskId: string, input: string) => void
+  stopWorker: (agentId: string, taskId: string) => void
 }
 
 export const useStore = create<StoreState>((set, get) => ({
@@ -60,7 +60,7 @@ export const useStore = create<StoreState>((set, get) => ({
   agents: [],
   selectedAgentId: null,
   messages: [],
-  claudeOutput: [],
+  workerOutput: [],
   currentTaskId: null,
   
   connect: () => {
@@ -162,12 +162,11 @@ export const useStore = create<StoreState>((set, get) => ({
       }))
     })
     
-    // Claude event handlers
-    // Removed claude:output handler to avoid duplicate messages
-    // All messages are now handled through claude:message event
+    // Worker event handlers
+    // All messages are handled through worker:message event
     
-    socket.on('claude:status', (data) => {
-      // Claude status update
+    socket.on('worker:status', (data) => {
+      // Worker status update
       if (data.status === 'started') {
         set({ currentTaskId: data.taskId })
       } else if (data.status === 'stopped' || data.status === 'error') {
@@ -175,17 +174,17 @@ export const useStore = create<StoreState>((set, get) => ({
       }
     })
     
-    socket.on('claude:message', (data) => {
-      // Claude message received
+    socket.on('worker:message', (data) => {
+      // Worker message received
       const { message } = data
       
       // Handle different message types
       if (message.type === 'system' && message.subtype === 'init') {
         // Show initialization info
         set((state) => ({
-          claudeOutput: [...state.claudeOutput, {
+          workerOutput: [...state.workerOutput, {
             type: 'system',
-            content: `Claude initialized | Model: ${message.model} | ${message.tools?.length || 0} tools available`,
+            content: `Worker initialized | Model: ${message.model} | ${message.tools?.length || 0} tools available`,
             timestamp: new Date()
           }]
         }))
@@ -194,7 +193,7 @@ export const useStore = create<StoreState>((set, get) => ({
         for (const contentItem of message.message.content) {
           if (contentItem.type === 'text' && contentItem.text?.trim()) {
             set((state) => ({
-              claudeOutput: [...state.claudeOutput, {
+              workerOutput: [...state.workerOutput, {
                 type: 'assistant',
                 content: contentItem.text,
                 timestamp: new Date(),
@@ -203,7 +202,7 @@ export const useStore = create<StoreState>((set, get) => ({
             }))
           } else if (contentItem.type === 'tool_use') {
             set((state) => ({
-              claudeOutput: [...state.claudeOutput, {
+              workerOutput: [...state.workerOutput, {
                 type: 'tool',
                 content: `Using ${contentItem.name}`,
                 details: contentItem.input,
@@ -218,7 +217,7 @@ export const useStore = create<StoreState>((set, get) => ({
           if (contentItem.type === 'tool_result') {
             const preview = contentItem.content?.substring(0, 200) || ''
             set((state) => ({
-              claudeOutput: [...state.claudeOutput, {
+              workerOutput: [...state.workerOutput, {
                 type: 'tool-result',
                 content: preview + (preview.length < (contentItem.content?.length || 0) ? '...' : ''),
                 timestamp: new Date()
@@ -229,7 +228,7 @@ export const useStore = create<StoreState>((set, get) => ({
       } else if (message.type === 'result') {
         // Show detailed stats
         set((state) => ({
-          claudeOutput: [...state.claudeOutput, {
+          workerOutput: [...state.workerOutput, {
             type: 'result',
             content: `Task completed in ${message.duration_ms}ms`,
             stats: {
@@ -283,14 +282,14 @@ export const useStore = create<StoreState>((set, get) => ({
     })
   },
   
-  startClaude: (agentId, workingDirectory, initialPrompt) => {
+  startWorker: (agentId, workingDirectory, initialPrompt) => {
     const { socket } = get()
     if (!socket) return
     
     const taskId = `task-${Date.now()}`
-    set({ claudeOutput: [], currentTaskId: taskId })
+    set({ workerOutput: [], currentTaskId: taskId })
     
-    socket.emit('claude:start', {
+    socket.emit('worker:start', {
       agentId,
       taskId,
       workingDirectory,
@@ -298,22 +297,22 @@ export const useStore = create<StoreState>((set, get) => ({
     })
   },
   
-  sendClaudeInput: (agentId, taskId, input) => {
+  sendWorkerInput: (agentId, taskId, input) => {
     const { socket } = get()
     if (!socket) return
     
-    socket.emit('claude:input', {
+    socket.emit('worker:input', {
       agentId,
       taskId,
       input
     })
   },
   
-  stopClaude: (agentId, taskId) => {
+  stopWorker: (agentId, taskId) => {
     const { socket } = get()
     if (!socket) return
     
-    socket.emit('claude:stop', {
+    socket.emit('worker:stop', {
       agentId,
       taskId
     })

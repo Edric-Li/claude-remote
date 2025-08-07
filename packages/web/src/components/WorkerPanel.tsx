@@ -10,7 +10,7 @@ import { ScrollArea } from './ui/scroll-area.tsx'
 import { Badge } from './ui/badge.tsx'
 import { cn } from '@/lib/utils.ts'
 
-export function ClaudePanel() {
+export function WorkerPanel() {
   const [input, setInput] = useState('')
   const [initialPrompt, setInitialPrompt] = useState('')
   const [isRunning, setIsRunning] = useState(false)
@@ -20,11 +20,11 @@ export function ClaudePanel() {
   const { 
     agents, 
     selectedAgentId, 
-    claudeOutput, 
+    workerOutput, 
     currentTaskId,
-    startClaude, 
-    sendClaudeInput,
-    stopClaude 
+    startWorker, 
+    sendWorkerInput,
+    stopWorker 
   } = useStore()
   
   // const selectedAgent = agents.find(a => a.id === selectedAgentId)
@@ -35,14 +35,14 @@ export function ClaudePanel() {
       return
     }
     
-    startClaude(selectedAgentId, undefined, initialPrompt || undefined)
+    startWorker(selectedAgentId, undefined, initialPrompt || undefined)
     setIsRunning(true)
     setInitialPrompt('')
   }
   
   const handleStop = (): void => {
     if (currentTaskId) {
-      stopClaude(selectedAgentId!, currentTaskId)
+      stopWorker(selectedAgentId!, currentTaskId)
       setIsRunning(false)
     }
   }
@@ -50,14 +50,14 @@ export function ClaudePanel() {
   const handleSendInput = (): void => {
     if (input.trim() && currentTaskId) {
       useStore.setState((state) => ({
-        claudeOutput: [...state.claudeOutput, {
+        workerOutput: [...state.workerOutput, {
           type: 'user' as const,
           content: input,
           timestamp: new Date()
         }]
       }))
       
-      sendClaudeInput(selectedAgentId!, currentTaskId, input)
+      sendWorkerInput(selectedAgentId!, currentTaskId, input)
       setInput('')
     }
   }
@@ -65,12 +65,12 @@ export function ClaudePanel() {
   // Auto-scroll to bottom
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [claudeOutput])
+  }, [workerOutput])
   
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="pb-4">
-        <CardTitle>Claude Code Control</CardTitle>
+        <CardTitle>Worker Control</CardTitle>
         <div className="space-y-3">
           <div className="flex gap-2">
             <select
@@ -93,7 +93,7 @@ export function ClaudePanel() {
                 className="gap-2"
               >
                 <Play className="h-4 w-4" />
-                Start Claude
+                Start Worker
               </Button>
             ) : (
               <Button
@@ -102,7 +102,7 @@ export function ClaudePanel() {
                 className="gap-2"
               >
                 <Square className="h-4 w-4" />
-                Stop Claude
+                Stop Worker
               </Button>
             )}
           </div>
@@ -122,12 +122,12 @@ export function ClaudePanel() {
       <CardContent className="flex-1 flex flex-col gap-4 p-0 px-6 min-h-0">
         <ScrollArea className="flex-1 pr-4 min-h-0" ref={scrollAreaRef}>
           <div className="space-y-4 pb-4">
-            {claudeOutput.length === 0 ? (
+            {workerOutput.length === 0 ? (
               <div className="text-center text-muted-foreground py-12">
-                Claude output will appear here...
+                Worker output will appear here...
               </div>
             ) : (
-              claudeOutput.map((item, index) => {
+              workerOutput.map((item, index) => {
                 if (typeof item === 'string') {
                   return (
                     <MessageBubble key={index} type="assistant">
@@ -207,7 +207,7 @@ export function ClaudePanel() {
                 handleSendInput()
               }
             }}
-            placeholder="Type input for Claude..."
+            placeholder="Type input for Worker..."
             disabled={!isRunning}
             className="flex-1"
           />

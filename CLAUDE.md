@@ -1,6 +1,6 @@
-# Claude-Remote 开发规范
+# AI Orchestra 开发规范
 
-本文档定义了 Claude-Remote 项目的编码规范和最佳实践。所有贡献者都应遵循这些规范。
+本文档定义了 AI Orchestra 项目的编码规范和最佳实践。所有贡献者都应遵循这些规范。
 
 ## 1. TypeScript 规范
 

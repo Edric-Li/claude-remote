@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AgentList } from './components/AgentList.tsx'
 import { ChatPanel } from './components/ChatPanel.tsx'
-import { ClaudePanel } from './components/ClaudePanel.tsx'
+import { WorkerPanel } from './components/WorkerPanel.tsx'
 import { useStore } from './store/index.ts'
 import { MessageCircle, Bot } from 'lucide-react'
 
@@ -18,13 +18,13 @@ export function App() {
     }
   }, [connect, disconnect])
   
-  const [activeTab, setActiveTab] = useState<'chat' | 'claude'>('chat')
+  const [activeTab, setActiveTab] = useState<'chat' | 'worker'>('chat')
   
   return (
     <div className="h-screen flex flex-col bg-background">
       {/* Header */}
       <header className="bg-primary text-primary-foreground px-6 py-4 shadow-md">
-        <h1 className="text-2xl font-bold">Claude Remote - MVP</h1>
+        <h1 className="text-2xl font-bold">AI Orchestra</h1>
       </header>
       
       {/* Main Layout */}
@@ -51,22 +51,22 @@ export function App() {
                 Chat
               </button>
               <button
-                onClick={() => setActiveTab('claude')}
+                onClick={() => setActiveTab('worker')}
                 className={`px-6 py-3 font-medium transition-colors flex items-center gap-2 ${
-                  activeTab === 'claude'
+                  activeTab === 'worker'
                     ? 'text-primary border-b-2 border-primary'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <Bot className="h-4 w-4" />
-                Claude Control
+                Worker Control
               </button>
             </div>
           </div>
           
           {/* Tab Content */}
           <div className="flex-1 overflow-hidden">
-            {activeTab === 'chat' ? <ChatPanel /> : <ClaudePanel />}
+            {activeTab === 'chat' ? <ChatPanel /> : <WorkerPanel />}
           </div>
         </main>
       </div>

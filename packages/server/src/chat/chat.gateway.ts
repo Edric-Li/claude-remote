@@ -95,7 +95,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('chat:message')
   handleChatMessage(
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() _client: Socket,
     @MessageBody() data: { to?: string; content: string }
   ): void {
     const message: ChatMessage = {
@@ -120,7 +120,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('chat:reply')
   handleChatReply(
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() _client: Socket,
     @MessageBody() data: { agentId: string; content: string }
   ): void {
     console.log(`Received reply from agent ${data.agentId}: ${data.content}`)
@@ -140,17 +140,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     console.log('Broadcasted reply to all web clients')
   }
 
-  @SubscribeMessage('claude:start')
-  handleClaudeStart(
-    @ConnectedSocket() client: Socket,
+  @SubscribeMessage('worker:start')
+  handleWorkerStart(
+    @ConnectedSocket() _client: Socket,
     @MessageBody() data: { agentId: string; taskId: string; workingDirectory?: string; initialPrompt?: string }
   ): void {
-    console.log(`Starting Claude for agent ${data.agentId}, task ${data.taskId}`)
+    console.log(`Starting Worker for agent ${data.agentId}, task ${data.taskId}`)
     
     // Forward to specific agent
     const agent = this.agents.get(data.agentId)
     if (agent) {
-      this.server.to(agent.socketId).emit('claude:start', {
+      this.server.to(agent.socketId).emit('worker:start', {
         taskId: data.taskId,
         workingDirectory: data.workingDirectory,
         initialPrompt: data.initialPrompt
@@ -158,51 +158,51 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  @SubscribeMessage('claude:input')
-  handleClaudeInput(
-    @ConnectedSocket() client: Socket,
+  @SubscribeMessage('worker:input')
+  handleWorkerInput(
+    @ConnectedSocket() _client: Socket,
     @MessageBody() data: { agentId: string; taskId: string; input: string }
   ): void {
-    console.log(`Sending input to Claude: ${data.input}`)
+    console.log(`Sending input to Worker: ${data.input}`)
     
     // Forward to specific agent
     const agent = this.agents.get(data.agentId)
     if (agent) {
-      this.server.to(agent.socketId).emit('claude:input', {
+      this.server.to(agent.socketId).emit('worker:input', {
         taskId: data.taskId,
         input: data.input
       })
     }
   }
 
-  @SubscribeMessage('claude:output')
-  handleClaudeOutput(
-    @ConnectedSocket() client: Socket,
+  @SubscribeMessage('worker:output')
+  handleWorkerOutput(
+    @ConnectedSocket() _client: Socket,
     @MessageBody() data: { taskId: string; output: string; outputType: 'stdout' | 'stderr' }
   ): void {
-    // Broadcast Claude output to all web clients
-    this.server.emit('claude:output', data)
+    // Broadcast Worker output to all web clients
+    this.server.emit('worker:output', data)
   }
 
-  @SubscribeMessage('claude:status')
-  handleClaudeStatus(
-    @ConnectedSocket() client: Socket,
+  @SubscribeMessage('worker:status')
+  handleWorkerStatus(
+    @ConnectedSocket() _client: Socket,
     @MessageBody() data: { taskId: string; status: string; error?: string; exitCode?: number }
   ): void {
-    console.log(`Claude status for task ${data.taskId}: ${data.status}`)
+    console.log(`Worker status for task ${data.taskId}: ${data.status}`)
     
     // Broadcast status to all web clients
-    this.server.emit('claude:status', data)
+    this.server.emit('worker:status', data)
   }
 
-  @SubscribeMessage('claude:message')
-  handleClaudeMessage(
-    @ConnectedSocket() client: Socket,
+  @SubscribeMessage('worker:message')
+  handleWorkerMessage(
+    @ConnectedSocket() _client: Socket,
     @MessageBody() data: { taskId: string; message: any }
   ): void {
-    console.log(`Claude message for task ${data.taskId}:`, data.message.type)
+    console.log(`Worker message for task ${data.taskId}:`, data.message.type)
     
-    // Broadcast structured Claude messages to all web clients
-    this.server.emit('claude:message', data)
+    // Broadcast structured Worker messages to all web clients
+    this.server.emit('worker:message', data)
   }
 }

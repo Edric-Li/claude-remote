@@ -1,8 +1,8 @@
-# Claude-Remote 系统需求文档
+# AI Orchestra 系统需求文档
 
 ## 1. 项目概述
 
-Claude-Remote 是一个分布式的 Claude Code 调度系统，类似于 Jenkins 的 Master-Agent 架构。系统允许用户通过中心化的 Server 端管理和调度分布在不同机器上的 Claude Code 实例，实现自动化的代码审查、测试等开发任务。
+AI Orchestra 是一个分布式的 AI 编码平台，采用 Master-Agent-Worker 架构。系统允许用户通过中心化的 Server 端管理和调度分布在不同机器上的多种 AI 工具（如 Claude、QwenCoder 等），实现自动化的代码开发、审查、测试等任务。
 
 ## 2. 核心概念
 
@@ -12,18 +12,24 @@ Claude-Remote 是一个分布式的 Claude Code 调度系统，类似于 Jenkins
 - 负责任务调度和分配
 - 管理所有 Agent 和项目
 
-### 2.2 Agent（执行节点）
-- 分布式的执行单元
-- 运行在不同机器上
-- 执行 Claude Code 命令
+### 2.2 Agent（机器节点）
+- 运行在不同机器上的管理节点
+- 管理多个 Worker 实例
+- 资源监控和调度
 - 实时反馈执行状态
 
-### 2.3 项目（Project）
+### 2.3 Worker（执行单元）
+- 实际执行任务的单元
+- 支持多种 AI 工具（Claude、QwenCoder 等）
+- 可配置名称、头像、能力
+- 并发执行任务
+
+### 2.4 项目（Project）
 - 代码仓库的抽象
 - 包含仓库地址和认证信息
 - 所有任务基于项目执行
 
-### 2.4 任务（Task）
+### 2.5 任务（Task）
 - 具体的执行单元
 - 基于特定项目
 - 由 Agent 执行
@@ -57,11 +63,11 @@ Claude-Remote 是一个分布式的 Claude Code 调度系统，类似于 Jenkins
 ### 3.5 实时监控
 - 实时查看任务执行日志
 - 监控文件变化情况
-- 查看 Claude Code 的操作过程
+- 查看各种 AI 工具的操作过程
 - 任务进度和状态跟踪
 
 ### 3.6 交互式决策
-- Claude 需要用户确认时推送到 Server
+- AI 工具需要用户确认时推送到 Server
 - Web 界面展示选择项（Yes/No 等）
 - 用户决策后继续执行
 - 支持预授权自动运行模式
@@ -136,6 +142,11 @@ Claude-Remote 是一个分布式的 Claude Code 调度系统，类似于 Jenkins
 - 传输加密
 - 权限控制
 
+### 6.5 多 AI 工具支持
+- 插件式架构支持新工具
+- 统一的任务接口
+- 智能路由选择最适合的 Worker
+
 ## 7. 实施阶段
 
 ### 第一阶段：基础功能（MVP）
@@ -148,12 +159,12 @@ Claude-Remote 是一个分布式的 Claude Code 调度系统，类似于 Jenkins
 - 项目创建和管理
 - 基础任务下发和执行
 - 实时日志推送
-- 单个 Claude Code 进程管理
+- 单个 AI 工具进程管理
 
 **验收标准**：
 - 能够成功注册 Agent
 - 能够创建项目和任务
-- 能够执行简单的 Claude 命令
+- 能够执行简单的 AI 工具命令
 - 能够查看实时日志
 
 ### 第二阶段：核心功能
@@ -213,7 +224,7 @@ Claude-Remote 是一个分布式的 Claude Code 调度系统，类似于 Jenkins
 ## 8. 约束和限制
 
 ### 8.1 环境要求
-- Agent 机器必须安装 Claude Code
+- Agent 机器必须安装相应的 AI 工具
 - 需要 Node.js 运行环境
 - 需要 Git 访问权限
 

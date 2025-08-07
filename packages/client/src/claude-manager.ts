@@ -218,7 +218,7 @@ export class ClaudeManager extends EventEmitter {
     }
     
     // Handle process exit
-    claudeProcess.on('exit', (code, signal) => {
+    claudeProcess.on('exit', (code, _signal) => {
       console.log(chalk.yellow(`\nClaude process exited with code ${code}`))
       this.tasks.delete(taskId)
       this.emit('status', {
@@ -290,7 +290,7 @@ export class ClaudeManager extends EventEmitter {
   
   stopAll(): void {
     console.log(chalk.yellow('Stopping all Claude processes'))
-    for (const [taskId, task] of this.tasks) {
+    for (const [_taskId, task] of this.tasks) {
       task.process.kill()
     }
     this.tasks.clear()

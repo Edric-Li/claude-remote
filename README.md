@@ -1,6 +1,6 @@
-# Claude-Remote MVP
+# AI Orchestra
 
-A minimal viable product for Claude-Remote system with Server, Agent, and Web chat interface.
+🎼 **Orchestrate Your AI Workers** - A distributed AI coding platform that manages multiple AI workers across different machines.
 
 ## Quick Start
 
@@ -22,14 +22,14 @@ pnpm run dev:web
 ```
 Web interface will be available at http://localhost:5173
 
-### 4. Start an Agent
+### 4. Start an Agent (Machine Node)
 In another terminal:
 ```bash
 cd packages/client
 pnpm run dev -- start --name "Agent-1"
 ```
 
-You can start multiple agents with different names:
+You can start multiple agents on different machines:
 ```bash
 pnpm run dev -- start --name "Agent-2" --server http://localhost:3000
 ```

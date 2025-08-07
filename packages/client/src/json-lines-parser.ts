@@ -11,7 +11,7 @@ export class JsonLinesParser extends Transform {
     super({ objectMode: true })
   }
 
-  _transform(chunk: Buffer | string, encoding: string, callback: TransformCallback): void {
+  _transform(chunk: Buffer | string, _encoding: string, callback: TransformCallback): void {
     // Append new data to buffer
     this.buffer += chunk.toString()
     

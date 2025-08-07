@@ -5,8 +5,8 @@ import { startAgent } from './agent.js'
 const program = new Command()
 
 program
-  .name('claude-remote-agent')
-  .description('Claude Remote Agent - Connect to Claude Remote Server')
+  .name('ai-orchestra-agent')
+  .description('AI Orchestra Agent - Connect to AI Orchestra Server')
   .version('0.1.0')
 
 program

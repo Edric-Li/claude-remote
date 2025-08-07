@@ -1,10 +1,10 @@
 {
-  "name": "@claude-remote/client",
+  "name": "@ai-orchestra/client",
   "version": "0.1.0",
   "type": "module",
   "bin": {
-    "claude-remote-agent": "./dist/cli.js",
-    "claude-remote-agent-claude": "./dist/agent-with-claude.js"
+    "ai-orchestra-agent": "./dist/cli.js",
+    "ai-orchestra-worker": "./dist/agent-with-claude.js"
   },
   "scripts": {
     "dev": "tsx src/cli.ts",
