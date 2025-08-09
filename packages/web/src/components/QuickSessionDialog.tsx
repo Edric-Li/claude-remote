@@ -13,8 +13,7 @@ import { Input } from './ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { useAuthStore } from '../store/auth.store'
 import { API_BASE_URL } from '../config'
-import { httpGet } from '../utils/httpClient'
-import { Loader2, GitBranch, Bot, Sparkles, Zap } from 'lucide-react'
+import { Loader2, GitBranch, Sparkles, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Repository {
@@ -34,6 +33,7 @@ interface QuickSessionDialogProps {
 interface SessionData {
   name: string
   repositoryId: string
+  repositoryName?: string
   aiTool: string
   autoAssignWorker: boolean
 }

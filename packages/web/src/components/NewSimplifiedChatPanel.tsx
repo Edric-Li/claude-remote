@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Send, Bot, User, Loader2, CheckCircle, AlertCircle, Zap } from 'lucide-react'
 import { useStore } from '../store'
-import { useSessionStore } from '../store/session.store'
+import { useSessionStore, useSessionStoreBase } from '../store/session.store'
 import dayjs from 'dayjs'
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card'
 import { Button } from './ui/button'
@@ -16,16 +16,20 @@ export function NewSimplifiedChatPanel() {
   const [inputValue, setInputValue] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
   const [currentProgress, setCurrentProgress] = useState<any[]>([])
-  const [tokenUsage, setTokenUsage] = useState<{ input: number; output: number } | null>(null)
   const [currentTool, setCurrentTool] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   
   const { socket, connected } = useStore()
-  const { currentSession, addMessage } = useSessionStore()
+  const { currentSession, addMessage, updateSession } = useSessionStore()
   
-  // 调试：打印currentSession变化
+  // 当会话变化时，如果有 workerId 且消息为空，尝试加载历史
   useEffect(() => {
-    console.log('[NewSimplifiedChatPanel] currentSession变化:', currentSession)
+    if (currentSession?.workerId && currentSession.messages.length === 0) {
+      // 使用 setTimeout 确保 WebSocket 已连接
+      setTimeout(() => {
+        useSessionStoreBase.getState().loadMessages(currentSession.id)
+      }, 500)
+    }
   }, [currentSession])
   
   // 自动滚动到底部
@@ -39,11 +43,8 @@ export function NewSimplifiedChatPanel() {
   useEffect(() => {
     if (!socket || !currentSession) return
     
-    console.log('[NewSimplifiedChatPanel] Setting up worker message listeners for session:', currentSession.id)
-    
     // 监听Worker消息
     const handleWorkerMessage = (data: any) => {
-      console.log('[NewSimplifiedChatPanel] Received worker message:', data)
       
       if (data.agentId !== currentSession.agentId) return
       
@@ -65,7 +66,6 @@ export function NewSimplifiedChatPanel() {
           const messageHash = btoa(encodeURIComponent(messageContent)).substring(0, 32)
           
           if (!processedMessages.current.has(messageHash)) {
-            console.log('[NewSimplifiedChatPanel] Adding unique assistant message:', messageContent.substring(0, 100) + '...')
             processedMessages.current.add(messageHash)
             
             addMessage(currentSession.id, {
@@ -79,12 +79,22 @@ export function NewSimplifiedChatPanel() {
             })
             setIsProcessing(false)
           } else {
-            console.log('[NewSimplifiedChatPanel] Duplicate assistant message detected and skipped')
           }
         }
       } else if (message.type === 'system') {
         // 处理系统消息
         if (message.subtype === 'init') {
+          // 保存 Claude 的真实 sessionId 到元数据中
+          if (message.sessionId && message.sessionId !== currentSession.id) {
+            // 更新会话的 metadata，存储 Claude sessionId
+            updateSession(currentSession.id, {
+              metadata: {
+                ...currentSession.metadata,
+                claudeSessionId: message.sessionId
+              }
+            })
+          }
+          
           addMessage(currentSession.id, {
             from: 'system',
             content: `系统初始化完成 | 模型: ${message.model} | ${message.tools?.length || 0} 个工具可用`
@@ -102,14 +112,12 @@ export function NewSimplifiedChatPanel() {
     
     // 监听Worker状态
     const handleWorkerStatus = (data: any) => {
-      console.log('[NewSimplifiedChatPanel] Worker status update:', data)
       
       if (data.agentId !== currentSession.agentId) return
       
       if (data.status === 'started') {
         setIsProcessing(true)
         setCurrentProgress([])
-        setTokenUsage(null)
         setCurrentTool(null)
       } else if (data.status === 'stopped' || data.status === 'completed' || data.status === 'error') {
         setIsProcessing(false)
@@ -126,7 +134,6 @@ export function NewSimplifiedChatPanel() {
     
     // 监听工具调用
     const handleToolUse = (data: any) => {
-      console.log('[NewSimplifiedChatPanel] Tool use:', data)
       
       if (data.agentId !== currentSession.agentId) return
       
@@ -142,17 +149,10 @@ export function NewSimplifiedChatPanel() {
     
     // 监听系统信息（token使用等）
     const handleSystemInfo = (data: any) => {
-      console.log('[NewSimplifiedChatPanel] System info:', data)
       
       if (data.agentId !== currentSession.agentId) return
       
       const { info } = data
-      if (info.type === 'token_usage' && info.usage) {
-        setTokenUsage({
-          input: info.usage.input_tokens || 0,
-          output: info.usage.output_tokens || 0
-        })
-      }
       
       setCurrentProgress(prev => [...prev, {
         type: 'system',
@@ -163,7 +163,6 @@ export function NewSimplifiedChatPanel() {
     
     // 监听处理进度
     const handleProgress = (data: any) => {
-      console.log('[NewSimplifiedChatPanel] Progress:', data)
       
       if (data.agentId !== currentSession.agentId) return
       
@@ -196,7 +195,6 @@ export function NewSimplifiedChatPanel() {
     socket.on('worker:progress', handleProgress)
     
     return () => {
-      console.log('[NewSimplifiedChatPanel] Cleaning up worker message listeners for session:', currentSession?.id)
       socket.off('worker:message', handleWorkerMessage)
       socket.off('worker:status', handleWorkerStatus)
       socket.off('worker:tool-use', handleToolUse)
@@ -209,20 +207,11 @@ export function NewSimplifiedChatPanel() {
   useEffect(() => {
     processedMessages.current.clear()
     setCurrentProgress([])
-    setTokenUsage(null)
     setCurrentTool(null)
   }, [currentSession?.id])
   
   const handleSend = () => {
     if (!inputValue.trim() || !currentSession || !socket || !connected) return
-    
-    console.log('[ChatPanel] 发送消息:', {
-      content: inputValue,
-      sessionId: currentSession.id,
-      agentId: currentSession.agentId,
-      workerId: currentSession.workerId,
-      tool: currentSession.aiTool
-    })
     
     // 检查Worker是否已分配
     if (!currentSession.agentId || !currentSession.workerId) {
@@ -240,14 +229,14 @@ export function NewSimplifiedChatPanel() {
       content: inputValue
     })
     
-    // 发送消息到Worker
+    // 发送消息到Worker，包含会话ID用于对话历史
     const messageData = {
       agentId: currentSession.agentId,
       taskId: currentSession.workerId,
-      input: inputValue
+      input: inputValue,
+      sessionId: currentSession.id  // 添加会话ID以支持对话历史
     }
     
-    console.log('[ChatPanel] 发送worker:input:', messageData)
     socket.emit('worker:input', messageData)
     
     setInputValue('')
@@ -341,13 +330,6 @@ export function NewSimplifiedChatPanel() {
               )}
             </div>
 
-            {/* Token 使用信息 */}
-            {tokenUsage && (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Zap className="h-3 w-3" />
-                <span>{tokenUsage.input}↑ {tokenUsage.output}↓</span>
-              </div>
-            )}
             
             {/* Worker ID */}
             {hasWorker && (
@@ -456,44 +438,81 @@ export function NewSimplifiedChatPanel() {
                     <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center flex-shrink-0">
                       <Loader2 className="h-4 w-4 text-white animate-spin" />
                     </div>
-                    <div className="bg-muted/50 px-4 py-3 rounded-lg max-w-[70%] space-y-2">
+                    <div className="bg-muted/50 px-4 py-3 rounded-lg max-w-[80%] space-y-3">
                       <div className="flex items-center justify-between gap-3">
-                        <span className="font-medium text-sm text-blue-600">处理中...</span>
+                        <span className="font-medium text-sm text-blue-600">
+                          {currentTool ? `正在使用 ${currentTool}...` : '处理中...'}
+                        </span>
                         <span className="text-xs text-muted-foreground">
                           {dayjs().format('HH:mm:ss')}
                         </span>
                       </div>
-                      <div className="space-y-1">
-                        {currentProgress.slice(-3).map((progress, index) => (
-                          <div key={index} className="text-xs text-muted-foreground">
+                      
+                      
+                      {/* 最近处理步骤 */}
+                      <div className="space-y-2 max-h-32 overflow-y-auto">
+                        <div className="text-xs font-medium text-muted-foreground">最近活动:</div>
+                        {currentProgress.slice(-5).map((progress, index) => (
+                          <div key={index} className="text-xs border-l-2 border-gray-200 pl-2 py-1">
                             {progress.type === 'tool' && (
-                              <div className="flex items-center gap-1">
-                                <Zap className="h-3 w-3" />
-                                <span>使用工具: {progress.tool}</span>
-                              </div>
-                            )}
-                            {progress.type === 'system' && progress.info.type === 'token_usage' && (
-                              <div className="flex items-center gap-1">
-                                <span>Tokens: {progress.info.usage.input_tokens}↑ {progress.info.usage.output_tokens}↓</span>
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1 font-medium text-purple-700">
+                                  <Zap className="h-3 w-3" />
+                                  <span>工具调用: {progress.tool}</span>
+                                </div>
+                                {progress.input && (
+                                  <div className="text-muted-foreground pl-4">
+                                    参数: {JSON.stringify(progress.input, null, 0).substring(0, 100)}
+                                    {JSON.stringify(progress.input).length > 100 && '...'}
+                                  </div>
+                                )}
                               </div>
                             )}
                             {progress.type === 'tool_start' && (
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1 text-orange-600">
                                 <Loader2 className="h-3 w-3 animate-spin" />
-                                <span>启动 {progress.tool}...</span>
+                                <span>启动 {progress.tool}</span>
                               </div>
                             )}
                             {progress.type === 'tool_result' && (
-                              <div className="flex items-center gap-1">
-                                <CheckCircle className="h-3 w-3" />
-                                <span>完成 {progress.tool}</span>
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1 text-green-600 font-medium">
+                                  <CheckCircle className="h-3 w-3" />
+                                  <span>完成 {progress.tool || progress.name}</span>
+                                </div>
+                                {progress.result && (
+                                  <div className="text-muted-foreground pl-4 bg-green-50 px-2 py-1 rounded text-xs">
+                                    结果: {typeof progress.result === 'string' ? 
+                                      progress.result.substring(0, 150) :
+                                      JSON.stringify(progress.result).substring(0, 150)
+                                    }
+                                    {(typeof progress.result === 'string' ? progress.result : JSON.stringify(progress.result)).length > 150 && '...'}
+                                  </div>
+                                )}
                               </div>
                             )}
                             {progress.type === 'text_chunk' && (
-                              <div className="flex items-center gap-1">
-                                <span>生成文本...</span>
+                              <div className="flex items-center gap-1 text-gray-600">
+                                <span>💭 生成回复中...</span>
                               </div>
                             )}
+                            {progress.type === 'error' && (
+                              <div className="flex items-center gap-1 text-red-600">
+                                <AlertCircle className="h-3 w-3" />
+                                <span>错误: {progress.error}</span>
+                              </div>
+                            )}
+                            {progress.type === 'unknown' && progress.data && (
+                              <div className="text-gray-500">
+                                <span>其他: {progress.data.type || 'unknown'}</span>
+                                {progress.data.message && (
+                                  <div className="pl-4 text-xs">{progress.data.message}</div>
+                                )}
+                              </div>
+                            )}
+                            <div className="text-xs text-gray-400 pl-4">
+                              {dayjs(progress.timestamp).format('HH:mm:ss.SSS')}
+                            </div>
                           </div>
                         ))}
                       </div>

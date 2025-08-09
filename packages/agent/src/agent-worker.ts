@@ -6,7 +6,8 @@ import * as readline from 'node:readline'
 import { RepositoryManager, RepositoryConfig, WorkspaceInfo } from './services/repository-manager'
 import { spawn } from 'child_process'
 import * as path from 'path'
-import { ClaudeCodeWorker } from './workers/claude-code.worker'
+import { ClaudeSDKWorker } from './workers/claude-sdk.worker'
+import { ClaudeHistoryReader } from './services/claude-history-reader'
 
 interface AgentWorkerOptions {
   serverUrl: string
@@ -40,7 +41,8 @@ export class AgentWorker {
   private currentWorkspace: WorkspaceInfo | null = null
   private rl: readline.Interface
   private spinner: ora.Ora
-  private claudeWorkers: Map<string, ClaudeCodeWorker> = new Map()
+  private claudeWorkers: Map<string, ClaudeSDKWorker> = new Map()
+  private historyReader: ClaudeHistoryReader = new ClaudeHistoryReader()
 
   constructor(private options: AgentWorkerOptions) {
     // 使用环境变量或默认的 agent ID（从数据库中获取的现有 agent）
@@ -145,83 +147,33 @@ export class AgentWorker {
       workingDirectory?: string
       initialPrompt?: string
       claudeConfig?: ClaudeConfig
+      sessionId?: string
+      claudeSessionId?: string  // Claude的真实会话ID
+      conversationHistory?: Array<{
+        role: 'human' | 'assistant'
+        content: string
+      }>
     }) => {
       console.log(chalk.cyan(`\n🚀 Starting Claude worker for task: ${data.taskId}`))
+      console.log(chalk.yellow(`📝 sessionId: ${data.sessionId}, claudeSessionId: ${data.claudeSessionId}`))
       
       try {
-        // 创建 Claude Worker 实例
-        const worker = new ClaudeCodeWorker({
+        // 创建 Claude SDK Worker 实例
+        // 优先使用 claudeSessionId（用于恢复），否则让Claude生成新的
+        const worker = new ClaudeSDKWorker({
           workingDirectory: data.workingDirectory || process.cwd(),
           apiKey: data.claudeConfig?.authToken || process.env.ANTHROPIC_API_KEY,
           baseUrl: data.claudeConfig?.baseUrl,
           model: data.claudeConfig?.model,
           maxTokens: data.claudeConfig?.maxTokens,
           temperature: data.claudeConfig?.temperature,
-          timeout: data.claudeConfig?.timeout
+          timeout: data.claudeConfig?.timeout,
+          sessionId: data.claudeSessionId || undefined,  // 使用Claude的sessionId用于恢复
+          conversationHistory: data.conversationHistory
         })
         
-        // 设置事件监听 - 使用消息去重机制
-        let messageBuffer = ''
-        const sentMessages = new Set() // 用于去重的消息集合
-        
-        // 监听助手消息事件
-        worker.on('assistant-message', (message) => {
-          // 创建消息内容的哈希来去重
-          if (message.message && message.message.content) {
-            const textContent = message.message.content
-              .filter((item: any) => item.type === 'text' && item.text)
-              .map((item: any) => item.text)
-              .join('')
-            
-            if (textContent.trim()) {
-              const messageHash = Buffer.from(textContent.trim()).toString('base64').substring(0, 32)
-              
-              if (!sentMessages.has(messageHash)) {
-                console.log(`Sending unique assistant message (hash: ${messageHash}):`, textContent.substring(0, 100) + '...')
-                
-                this.socket.emit('worker:message', {
-                  agentId: this.agentId,
-                  taskId: data.taskId,
-                  message: message  // 直接发送原始助手消息
-                })
-                
-                sentMessages.add(messageHash)
-              } else {
-                console.log(`Duplicate assistant message detected and skipped (hash: ${messageHash})`)
-              }
-            }
-          }
-        })
-        
-        // 监听工具调用事件
-        worker.on('tool-use', (toolData) => {
-          console.log(`Tool use detected:`, toolData)
-          this.socket.emit('worker:tool-use', {
-            agentId: this.agentId,
-            taskId: data.taskId,
-            toolUse: toolData
-          })
-        })
-        
-        // 监听系统消息（包含 token 信息）
-        worker.on('system-info', (info) => {
-          console.log(`System info:`, info)
-          this.socket.emit('worker:system-info', {
-            agentId: this.agentId,
-            taskId: data.taskId,
-            info
-          })
-        })
-        
-        // 监听处理进度
-        worker.on('progress', (progress) => {
-          console.log(`Processing progress:`, progress)
-          this.socket.emit('worker:progress', {
-            agentId: this.agentId,
-            taskId: data.taskId,
-            progress
-          })
-        })
+        // 设置事件监听器
+        this.setupWorkerEventListeners(worker, data.taskId)
         
         // 在响应完成时通知任务完成
         worker.on('response-complete', () => {
@@ -239,15 +191,20 @@ export class AgentWorker {
             taskId: data.taskId,
             status: 'started'
           })
-          
-          // 发送初始化消息
+        })
+        
+        // 监听系统初始化事件
+        worker.on('system-init', (init) => {
+          console.log(chalk.blue(`🎯 System initialized: sessionId=${init.sessionId}, model=${init.model}`))
           this.socket.emit('worker:message', {
             taskId: data.taskId,
             message: {
               type: 'system',
               subtype: 'init',
-              model: 'claude-3-sonnet',
-              tools: ['read', 'write', 'execute', 'search']
+              sessionId: init.sessionId,
+              model: init.model || 'claude-3-sonnet',
+              tools: init.tools || ['read', 'write', 'execute', 'search'],
+              cwd: init.cwd
             }
           })
         })
@@ -291,8 +248,14 @@ export class AgentWorker {
     this.socket.on('worker:input', async (data: {
       taskId: string
       input: string
+      sessionId?: string
+      conversationHistory?: Array<{
+        role: 'human' | 'assistant'
+        content: string
+      }>
     }) => {
       console.log(chalk.blue(`📝 Sending input to Claude: ${data.input.substring(0, 100)}...`))
+      console.log(chalk.yellow(`🔍 Debug - sessionId: ${data.sessionId}, conversationHistory length: ${data.conversationHistory?.length || 0}`))
       
       const worker = this.claudeWorkers.get(data.taskId)
       if (!worker) {
@@ -306,6 +269,7 @@ export class AgentWorker {
       }
       
       try {
+        // 直接使用当前 worker，Claude SDK 会自动处理 --resume
         await worker.sendCommand(data.input)
       } catch (error) {
         console.error(chalk.red(`❌ Failed to send input to Claude: ${error.message}`))
@@ -331,6 +295,92 @@ export class AgentWorker {
         this.socket.emit('worker:status', {
           taskId: data.taskId,
           status: 'stopped'
+        })
+      }
+    })
+    
+    // 处理历史记录获取请求
+    this.socket.on('history:fetch', async (data: {
+      sessionId: string
+      requestId: string
+      taskId?: string
+    }) => {
+      console.log(chalk.blue(`📚 Fetching history for session: ${data.sessionId}`))
+      
+      try {
+        // 尝试通过 taskId 找到对应的 worker
+        let claudeSessionId = data.sessionId
+        
+        if (data.taskId) {
+          const worker = this.claudeWorkers.get(data.taskId)
+          if (worker) {
+            const actualSessionId = worker.getSessionId()
+            if (actualSessionId) {
+              claudeSessionId = actualSessionId
+              console.log(chalk.yellow(`📝 Using Claude sessionId: ${claudeSessionId} for task: ${data.taskId}`))
+            }
+          }
+        }
+        
+        // 如果没有找到 worker，尝试查找所有 worker
+        if (claudeSessionId === data.sessionId) {
+          for (const [taskId, worker] of this.claudeWorkers) {
+            const sessionId = worker.getSessionId()
+            if (sessionId) {
+              console.log(chalk.yellow(`📝 Found Claude sessionId: ${sessionId} in worker: ${taskId}`))
+              claudeSessionId = sessionId
+              break
+            }
+          }
+        }
+        
+        const messages = await this.historyReader.fetchConversation(claudeSessionId)
+        
+        this.socket.emit('history:response', {
+          requestId: data.requestId,
+          sessionId: data.sessionId,
+          messages: messages,
+          success: true
+        })
+        
+        console.log(chalk.green(`✅ Sent ${messages.length} messages for session: ${data.sessionId}`))
+      } catch (error) {
+        console.error(chalk.red(`❌ Failed to fetch history: ${error.message}`))
+        
+        this.socket.emit('history:response', {
+          requestId: data.requestId,
+          sessionId: data.sessionId,
+          messages: [],
+          success: false,
+          error: error.message
+        })
+      }
+    })
+    
+    // 处理会话列表获取请求
+    this.socket.on('history:list', async (data: {
+      requestId: string
+    }) => {
+      console.log(chalk.blue(`📚 Fetching conversation list`))
+      
+      try {
+        const conversations = await this.historyReader.listConversations()
+        
+        this.socket.emit('history:list:response', {
+          requestId: data.requestId,
+          conversations: conversations,
+          success: true
+        })
+        
+        console.log(chalk.green(`✅ Sent ${conversations.length} conversations`))
+      } catch (error) {
+        console.error(chalk.red(`❌ Failed to list conversations: ${error.message}`))
+        
+        this.socket.emit('history:list:response', {
+          requestId: data.requestId,
+          conversations: [],
+          success: false,
+          error: error.message
         })
       }
     })
@@ -502,13 +552,123 @@ export class AgentWorker {
   }
 
   private registerWorker(): void {
-    // 注册 worker
+    // 先注册为 agent
+    this.socket.emit('agent:register', {
+      agentId: this.agentId,
+      name: this.options.name
+    })
+    
+    // 然后注册 worker
     this.socket.emit('worker:register', {
       workerId: this.agentId,
       agentId: this.agentId,
       name: this.options.name,
       capabilities: this.options.capabilities || ['claude-code', 'cursor', 'qucoder'],
       status: 'idle'
+    })
+  }
+
+  /**
+   * 设置Worker事件监听器
+   */
+  private setupWorkerEventListeners(worker: ClaudeSDKWorker, taskId: string): void {
+    // 使用消息去重机制
+    let messageBuffer = ''
+    const sentMessages = new Set() // 用于去重的消息集合
+    
+    // 监听助手消息事件
+    worker.on('assistant-message', (message) => {
+      // 创建消息内容的哈希来去重
+      if (message.message && message.message.content) {
+        const textContent = message.message.content
+          .filter((item: any) => item.type === 'text' && item.text)
+          .map((item: any) => item.text)
+          .join('')
+        
+        if (textContent.trim()) {
+          const messageHash = Buffer.from(textContent.trim()).toString('base64').substring(0, 32)
+          
+          if (!sentMessages.has(messageHash)) {
+            console.log(`Sending unique assistant message (hash: ${messageHash}):`, textContent.substring(0, 100) + '...')
+            
+            this.socket.emit('worker:message', {
+              agentId: this.agentId,
+              taskId: taskId,
+              message: message  // 直接发送原始助手消息
+            })
+            
+            sentMessages.add(messageHash)
+          } else {
+            console.log(`Duplicate assistant message detected and skipped (hash: ${messageHash})`)
+          }
+        }
+      }
+    })
+    
+    // 监听工具调用事件
+    worker.on('tool-use', (toolData) => {
+      console.log(`Tool use detected:`, toolData)
+      this.socket.emit('worker:tool-use', {
+        agentId: this.agentId,
+        taskId: taskId,
+        toolUse: toolData
+      })
+    })
+    
+    // 监听系统消息（包含 token 信息）
+    worker.on('system-info', (info) => {
+      console.log(`System info:`, info)
+      this.socket.emit('worker:system-info', {
+        agentId: this.agentId,
+        taskId: taskId,
+        info
+      })
+    })
+    
+    // 监听处理进度
+    worker.on('progress', (progress) => {
+      console.log(`Processing progress:`, progress)
+      this.socket.emit('worker:progress', {
+        agentId: this.agentId,
+        taskId: taskId,
+        progress
+      })
+    })
+    
+    // 监听思考过程
+    worker.on('thinking', (thinking) => {
+      console.log(`Thinking process:`, thinking)
+      const sessionId = worker.getSessionId()
+      this.socket.emit('worker:thinking', {
+        agentId: this.agentId,
+        taskId: taskId,
+        sessionId: sessionId,
+        thinking
+      })
+    })
+    
+    // 监听 Todo 列表
+    worker.on('todo-list', (todoList) => {
+      console.log(`Todo list update:`, todoList)
+      const sessionId = worker.getSessionId()
+      this.socket.emit('worker:todo-list', {
+        agentId: this.agentId,
+        taskId: taskId,
+        sessionId: sessionId,
+        todoList
+      })
+    })
+    
+    // 监听 Token 使用统计
+    worker.on('token-usage', (usage) => {
+      console.log(`Token usage:`, usage)
+      const sessionId = worker.getSessionId()
+      this.socket.emit('worker:token-usage', {
+        agentId: this.agentId,
+        taskId: taskId,
+        sessionId: sessionId,
+        usage
+      })
     })
   }
 

@@ -237,7 +237,7 @@ export class HttpClient {
 }
 
 // 导出便捷的函数接口
-export const httpGet = HttpClient.getJson
-export const httpPost = HttpClient.postJson  
-export const httpPut = HttpClient.putJson
+export const httpGet = <T>(url: string, config?: RequestConfig) => HttpClient.getJson<T>(url, config)
+export const httpPost = <T>(url: string, data?: any, config?: RequestConfig) => HttpClient.postJson<T>(url, data, config)
+export const httpPut = <T>(url: string, data?: any, config?: RequestConfig) => HttpClient.putJson<T>(url, data, config)
 export const httpDelete = (url: string, config?: RequestConfig) => HttpClient.delete(url, config)

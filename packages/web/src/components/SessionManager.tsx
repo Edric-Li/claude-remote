@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Plus, MessageSquare, Clock, Search, MoreVertical } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -23,7 +23,7 @@ interface Session {
   name: string
   repositoryName: string
   aiTool: string
-  status: 'active' | 'paused' | 'completed'
+  status: 'active' | 'paused' | 'completed' | 'archived'
   lastMessage?: string
   lastActivity: Date
   messageCount: number
@@ -40,10 +40,8 @@ export function SessionManager({
   onSessionSelect, 
   onNewSession 
 }: SessionManagerProps) {
-  const { sessions, deleteSession, renameSession } = useSessionStore()
+  const { sessions, deleteSession } = useSessionStore()
   const [searchQuery, setSearchQuery] = useState('')
-  const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
-  const [editingName, setEditingName] = useState('')
   
   // 转换会话数据格式
   const formattedSessions = sessions.map(s => ({
@@ -81,6 +79,7 @@ export function SessionManager({
       case 'active': return 'bg-green-500'
       case 'paused': return 'bg-yellow-500'
       case 'completed': return 'bg-gray-400'
+      case 'archived': return 'bg-gray-600'
     }
   }
   
@@ -134,10 +133,6 @@ export function SessionManager({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => {
-            setEditingSessionId(session.id)
-            setEditingName(session.name)
-          }}>重命名</DropdownMenuItem>
           <DropdownMenuItem>复制会话</DropdownMenuItem>
           <DropdownMenuItem>导出历史</DropdownMenuItem>
           <DropdownMenuItem 

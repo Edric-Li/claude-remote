@@ -7,11 +7,9 @@ import { useStore } from '../store'
 import { useSessionStore } from '../store/session.store'
 import { Server, Copy, CheckCircle, LogOut, Shield, Activity, User, AlertCircle } from 'lucide-react'
 import { Button } from '../components/ui/button'
-import { SERVER_URL, API_BASE_URL } from '../config'
+import { SERVER_URL } from '../config'
 import { RadixBackground } from '../components/RadixBackground'
 import { useAuthStore } from '../store/auth.store'
-import '../utils/debug' // 引入调试工具
-import '../utils/session-debug' // 引入会话调试工具
 
 export function NewSimplifiedHomePage() {
   const navigate = useNavigate()
@@ -19,11 +17,12 @@ export function NewSimplifiedHomePage() {
   const { user, logout, isAuthenticated, accessToken } = useAuthStore()
   const { 
     currentSessionId, 
-    selectSession, 
+    selectSession: baseSelectSession, 
     createSession,
     loadSessions,
     assignWorker,
-    addMessage
+    addMessage,
+    sessions
   } = useSessionStore()
   
   const [copied, setCopied] = useState(false)
@@ -32,7 +31,6 @@ export function NewSimplifiedHomePage() {
   // 检查认证状态
   useEffect(() => {
     if (!isAuthenticated || !accessToken) {
-      console.log('Not authenticated, redirecting to login')
       navigate('/login')
     }
   }, [isAuthenticated, accessToken, navigate])
@@ -41,13 +39,18 @@ export function NewSimplifiedHomePage() {
   useEffect(() => {
     if (isAuthenticated) {
       connect()
-      loadSessions()
+      // 延迟一下确保 token 已设置
+      setTimeout(() => {
+        loadSessions().catch(err => {
+          console.error('Failed to load sessions:', err)
+        })
+      }, 100)
     }
     
     return () => {
       disconnect()
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, loadSessions, connect, disconnect])
   
   const copyServerUrl = () => {
     navigator.clipboard.writeText(SERVER_URL)
@@ -60,13 +63,56 @@ export function NewSimplifiedHomePage() {
     navigate('/login')
   }
   
+  // 包装selectSession，在选择会话时检查是否需要启动Worker
+  const selectSession = (sessionId: string) => {
+    baseSelectSession(sessionId)
+    
+    // 查找选中的会话
+    const session = sessions.find(s => s.id === sessionId)
+    if (!session) return
+    
+    // 如果会话有claudeSessionId但没有workerId，说明需要恢复Worker
+    if (session.metadata?.claudeSessionId && !session.workerId) {
+      
+      // 检查是否有可用的Agent
+      if (agents.length === 0) {
+        console.error('没有可用的Agent')
+        addMessage(session.id, {
+          from: 'system',
+          content: '⚠️ 暂无可用的Agent，请等待Agent上线'
+        })
+        return
+      }
+      
+      // 随机选择一个Agent
+      const randomAgent = agents[Math.floor(Math.random() * agents.length)]
+      const workerId = `task-${Date.now()}`
+      
+      // 更新会话，分配Worker和Agent
+      assignWorker(session.id, workerId, randomAgent.id)
+      
+      // 通过WebSocket启动Worker，使用claudeSessionId恢复
+      if (socket && socket.connected) {
+        socket.emit('worker:start', {
+          agentId: randomAgent.id,
+          taskId: workerId,
+          tool: session.aiTool,
+          workingDirectory: `/tmp/repos/${session.repositoryName}`,
+          sessionId: session.id,
+          claudeSessionId: session.metadata.claudeSessionId  // 使用存储的Claude会话ID恢复
+        })
+        
+        addMessage(session.id, {
+          from: 'system',
+          content: `🔄 正在恢复会话...`
+        })
+      }
+    }
+  }
+  
   // 创建新会话并自动启动Worker
   const handleCreateSession = async (data: any) => {
     try {
-      console.log('=== 开始创建会话 ===')
-      console.log('输入数据:', data)
-      console.log('当前可用Agents:', agents)
-      console.log('Socket连接状态:', socket?.connected)
       
       // 1. 创建本地会话
       const session = await createSession({
@@ -77,7 +123,6 @@ export function NewSimplifiedHomePage() {
         branch: 'main'
       })
       
-      console.log('会话创建成功:', session)
       
       // 2. 检查是否有可用的Agent
       if (agents.length === 0) {
@@ -95,26 +140,12 @@ export function NewSimplifiedHomePage() {
       const randomAgent = agents[Math.floor(Math.random() * agents.length)]
       const workerId = `task-${Date.now()}`
       
-      console.log('分配Agent和Worker:', {
-        agent: randomAgent,
-        workerId: workerId
-      })
-      
       // 4. 更新会话，分配Worker和Agent
       assignWorker(session.id, workerId, randomAgent.id)
       
       // 5. 选中新创建的会话
       selectSession(session.id)
       
-      // 调试：检查选中后的状态
-      setTimeout(() => {
-        const state = useSessionStore.getState()
-        console.log('选中会话后的状态:', {
-          currentSessionId: state.currentSessionId,
-          currentSession: state.currentSession,
-          sessions: state.sessions
-        })
-      }, 100)
       
       // 6. 通过WebSocket启动Worker
       if (!socket || !socket.connected) {
@@ -127,13 +158,7 @@ export function NewSimplifiedHomePage() {
         return
       }
       
-      console.log('发送worker:start命令:', {
-        agentId: randomAgent.id,
-        taskId: workerId,
-        tool: data.aiTool
-      })
-      
-      // 发送启动Worker命令
+      // 发送启动Worker命令，包含sessionId用于历史恢复
       socket.emit('worker:start', {
         agentId: randomAgent.id,
         taskId: workerId,
@@ -141,7 +166,9 @@ export function NewSimplifiedHomePage() {
         workingDirectory: `/tmp/repos/${data.repositoryName}`,
         initialPrompt: `你是一个AI编程助手，正在使用 ${data.aiTool} 工具。
 当前工作仓库：${data.repositoryName}
-请帮助我完成编程任务。`
+请帮助我完成编程任务。`,
+        sessionId: session.id,  // 我们的数据库会话ID
+        claudeSessionId: session.metadata?.claudeSessionId  // Claude的真实会话ID（如果有的话）
       })
       
       // 添加启动消息
@@ -152,7 +179,6 @@ export function NewSimplifiedHomePage() {
       
       // 监听Worker启动状态
       const handleWorkerStatus = (status: any) => {
-        console.log('Worker状态更新:', status)
         
         if (status.taskId !== workerId) return
         

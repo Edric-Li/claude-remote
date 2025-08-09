@@ -13,6 +13,7 @@ import { ModuleRef } from '@nestjs/core'
 import { AgentService } from '../services/agent.service'
 import { WorkerService } from '../services/worker.service'
 import { TaskService } from '../services/task.service'
+import { SessionService } from '../services/session.service'
 import { OnEvent } from '@nestjs/event-emitter'
 
 interface ConnectedAgent {
@@ -52,6 +53,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly workerService: WorkerService,
     @Inject(forwardRef(() => TaskService))
     private readonly taskService: TaskService,
+    @Inject(forwardRef(() => SessionService))
+    private readonly sessionService: SessionService,
     private readonly moduleRef: ModuleRef
   ) {
     // Services will be used for agent/worker management
@@ -219,11 +222,22 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('worker:start')
-  handleWorkerStart(
-    @ConnectedSocket() _client: Socket,
-    @MessageBody() data: { agentId: string; taskId: string; workingDirectory?: string; initialPrompt?: string }
-  ): void {
+  async handleWorkerStart(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { 
+      agentId: string; 
+      taskId: string; 
+      workingDirectory?: string; 
+      initialPrompt?: string;
+      sessionId?: string;
+      claudeSessionId?: string;
+    }
+  ): Promise<void> {
     console.log(`Starting Worker for agent ${data.agentId}, task ${data.taskId}`)
+    console.log(`sessionId: ${data.sessionId}, claudeSessionId: ${data.claudeSessionId}`)
+    
+    // 不再从数据库获取历史，直接传递 sessionId 给 Agent
+    // Agent 会从 Claude 本地历史读取
     
     // Forward to specific agent
     const agent = this.connectedAgents.get(data.agentId)
@@ -231,24 +245,31 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.server.to(agent.socketId).emit('worker:start', {
         taskId: data.taskId,
         workingDirectory: data.workingDirectory,
-        initialPrompt: data.initialPrompt
+        initialPrompt: data.initialPrompt,
+        sessionId: data.sessionId,
+        claudeSessionId: data.claudeSessionId
+        // 不再传递 conversationHistory，Agent 会使用 --resume
       })
     }
   }
 
   @SubscribeMessage('worker:input')
-  handleWorkerInput(
-    @ConnectedSocket() _client: Socket,
-    @MessageBody() data: { agentId: string; taskId: string; input: string }
-  ): void {
+  async handleWorkerInput(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { agentId: string; taskId: string; input: string; sessionId?: string }
+  ): Promise<void> {
     console.log(`Sending input to Worker: ${data.input}`)
+    
+    // 不再从数据库获取历史，直接传递 sessionId 给 Agent
     
     // Forward to specific agent
     const agent = this.connectedAgents.get(data.agentId)
     if (agent) {
       this.server.to(agent.socketId).emit('worker:input', {
         taskId: data.taskId,
-        input: data.input
+        input: data.input,
+        sessionId: data.sessionId
+        // 不再传递 conversationHistory，Agent 会使用 --resume
       })
     }
   }
@@ -515,5 +536,36 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @OnEvent('task.failed')
   handleTaskFailed(data: any): void {
     this.server.emit('task:failed', data)
+  }
+
+  // 处理从 Agent 获取历史记录
+  @SubscribeMessage('history:response')
+  handleHistoryResponse(
+    @ConnectedSocket() _client: Socket,
+    @MessageBody() data: {
+      requestId: string
+      sessionId: string
+      messages: any[]
+      success: boolean
+      error?: string
+    }
+  ): void {
+    // 转发给请求的客户端
+    this.server.emit('history:data', data)
+  }
+
+  // 处理会话列表响应
+  @SubscribeMessage('history:list:response')
+  handleHistoryListResponse(
+    @ConnectedSocket() _client: Socket,
+    @MessageBody() data: {
+      requestId: string
+      conversations: any[]
+      success: boolean
+      error?: string
+    }
+  ): void {
+    // 转发给请求的客户端
+    this.server.emit('history:list:data', data)
   }
 }

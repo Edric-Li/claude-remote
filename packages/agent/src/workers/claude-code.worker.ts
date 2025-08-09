@@ -11,6 +11,11 @@ export interface ClaudeCodeConfig {
   temperature?: number
   timeout?: number
   maxRetries?: number
+  sessionId?: string
+  conversationHistory?: Array<{
+    role: 'human' | 'assistant'
+    content: string
+  }>
 }
 
 export interface ClaudeSession {
@@ -50,7 +55,7 @@ export class ClaudeCodeWorker extends EventEmitter {
   }
   
   /**
-   * 发送命令到 Claude Code - 使用非交互式模式
+   * 发送命令到 Claude Code - 使用非交互式模式，支持对话历史
    */
   async sendCommand(command: string): Promise<void> {
     if (this.status !== 'idle') {
@@ -76,6 +81,18 @@ export class ClaudeCodeWorker extends EventEmitter {
         '--output-format', 'stream-json', // JSONL 输出格式
         '--verbose' // 详细输出
       ]
+      
+      // 优先使用对话历史，如果没有历史记录则尝试使用resume模式
+      if (this.config.conversationHistory && this.config.conversationHistory.length > 0) {
+        // 使用对话历史构建上下文，通过system prompt传递
+        const historyContent = this.buildConversationContext(this.config.conversationHistory)
+        console.log(`Using conversation history with ${this.config.conversationHistory.length} messages:`, historyContent.substring(0, 200) + '...')
+        args.push('--append-system-prompt', historyContent)
+      } else if (this.config.sessionId) {
+        // 如果没有对话历史但有会话ID，尝试resume模式
+        console.log(`Using resume mode with session ID: ${this.config.sessionId}`)
+        args.unshift('--resume', this.config.sessionId)
+      }
       
       // 添加配置参数
       if (this.config.model) {
@@ -459,6 +476,31 @@ export class ClaudeCodeWorker extends EventEmitter {
     }
   }
   
+  /**
+   * 构建对话上下文
+   */
+  private buildConversationContext(history: Array<{ role: 'human' | 'assistant'; content: string }>): string {
+    let context = '以下是之前的对话历史：\n\n'
+    
+    for (const message of history) {
+      if (message.role === 'human') {
+        context += `Human: ${message.content}\n\n`
+      } else {
+        context += `Assistant: ${message.content}\n\n`
+      }
+    }
+    
+    context += '请基于以上对话历史继续对话。\n'
+    return context
+  }
+
+  /**
+   * 获取配置的公共方法
+   */
+  getConfig(): ClaudeCodeConfig {
+    return { ...this.config }
+  }
+
   /**
    * 终止Worker并清理资源
    */
