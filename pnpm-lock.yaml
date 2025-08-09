@@ -37,13 +37,13 @@ importers:
         specifier: ^4.1.2
         version: 4.1.2
       fs-extra:
-        specifier: ^11.2.0
+        specifier: ^11.3.1
         version: 11.3.1
       ora:
         specifier: ^5.4.1
         version: 5.4.1
       simple-git:
-        specifier: ^3.20.0
+        specifier: ^3.28.0
         version: 3.28.0
       socket.io-client:
         specifier: ^4.5.4

@@ -99,7 +99,9 @@ export function NewSimplifiedHomePage() {
           tool: session.aiTool,
           workingDirectory: `/tmp/repos/${session.repositoryName}`,
           sessionId: session.id,
-          claudeSessionId: session.metadata.claudeSessionId  // 使用存储的Claude会话ID恢复
+          claudeSessionId: session.metadata.claudeSessionId,  // 使用存储的Claude会话ID恢复
+          repositoryId: session.repositoryId,  // 传递仓库ID
+          repositoryName: session.repositoryName  // 传递仓库名称
         })
         
         addMessage(session.id, {
@@ -158,7 +160,7 @@ export function NewSimplifiedHomePage() {
         return
       }
       
-      // 发送启动Worker命令，包含sessionId用于历史恢复
+      // 发送启动Worker命令，包含sessionId用于历史恢复和仓库信息
       socket.emit('worker:start', {
         agentId: randomAgent.id,
         taskId: workerId,
@@ -168,7 +170,9 @@ export function NewSimplifiedHomePage() {
 当前工作仓库：${data.repositoryName}
 请帮助我完成编程任务。`,
         sessionId: session.id,  // 我们的数据库会话ID
-        claudeSessionId: session.metadata?.claudeSessionId  // Claude的真实会话ID（如果有的话）
+        claudeSessionId: session.metadata?.claudeSessionId,  // Claude的真实会话ID（如果有的话）
+        repositoryId: data.repositoryId,  // 传递仓库ID
+        repositoryName: data.repositoryName  // 传递仓库名称
       })
       
       // 添加启动消息

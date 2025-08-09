@@ -149,6 +149,7 @@ export class AgentWorker {
       claudeConfig?: ClaudeConfig
       sessionId?: string
       claudeSessionId?: string  // Claude的真实会话ID
+      repository?: RepositoryConfig
       conversationHistory?: Array<{
         role: 'human' | 'assistant'
         content: string
@@ -158,10 +159,33 @@ export class AgentWorker {
       console.log(chalk.yellow(`📝 sessionId: ${data.sessionId}, claudeSessionId: ${data.claudeSessionId}`))
       
       try {
+        // 如果有仓库信息，先确保仓库被克隆
+        let workingDirectory = data.workingDirectory || process.cwd()
+        
+        if (data.repository) {
+          console.log(chalk.blue(`📦 Ensuring repository: ${data.repository.name}`))
+          try {
+            // 创建工作区（会自动克隆或更新仓库）
+            const workspace = await this.repositoryManager.createWorkspace(
+              data.repository,
+              data.taskId
+            )
+            workingDirectory = workspace.path
+            console.log(chalk.green(`✅ Repository ready at: ${workingDirectory}`))
+            
+            // 保存工作区信息，以便后续清理
+            this.currentWorkspace = workspace
+          } catch (repoError) {
+            console.error(chalk.red(`❌ Failed to setup repository: ${repoError.message}`))
+            // 如果仓库克隆失败，继续使用默认目录
+            console.log(chalk.yellow(`⚠️ Using default directory: ${workingDirectory}`))
+          }
+        }
+        
         // 创建 Claude SDK Worker 实例
         // 优先使用 claudeSessionId（用于恢复），否则让Claude生成新的
         const worker = new ClaudeSDKWorker({
-          workingDirectory: data.workingDirectory || process.cwd(),
+          workingDirectory: workingDirectory,  // 使用仓库的工作目录
           apiKey: data.claudeConfig?.authToken || process.env.ANTHROPIC_API_KEY,
           baseUrl: data.claudeConfig?.baseUrl,
           model: data.claudeConfig?.model,
@@ -291,6 +315,13 @@ export class AgentWorker {
       if (worker) {
         await worker.shutdown()
         this.claudeWorkers.delete(data.taskId)
+        
+        // 清理工作区
+        if (this.currentWorkspace && this.currentWorkspace.id.startsWith(data.taskId)) {
+          console.log(chalk.yellow(`🧹 Cleaning up workspace for task: ${data.taskId}`))
+          await this.repositoryManager.cleanupWorkspace(this.currentWorkspace.id)
+          this.currentWorkspace = null
+        }
         
         this.socket.emit('worker:status', {
           taskId: data.taskId,

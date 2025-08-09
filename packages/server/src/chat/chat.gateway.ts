@@ -231,13 +231,25 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       initialPrompt?: string;
       sessionId?: string;
       claudeSessionId?: string;
+      repositoryId?: string;
+      repositoryName?: string;
     }
   ): Promise<void> {
     console.log(`Starting Worker for agent ${data.agentId}, task ${data.taskId}`)
     console.log(`sessionId: ${data.sessionId}, claudeSessionId: ${data.claudeSessionId}`)
+    console.log(`repositoryId: ${data.repositoryId}, repositoryName: ${data.repositoryName}`)
     
-    // 不再从数据库获取历史，直接传递 sessionId 给 Agent
-    // Agent 会从 Claude 本地历史读取
+    // 如果有repositoryId，从数据库获取仓库信息
+    let repository = null
+    if (data.repositoryId) {
+      try {
+        const repoService = this.moduleRef.get('RepositoryService', { strict: false })
+        repository = await repoService.findOne(data.repositoryId)
+        console.log(`Found repository: ${repository?.name}`)
+      } catch (error) {
+        console.error('Failed to get repository:', error)
+      }
+    }
     
     // Forward to specific agent
     const agent = this.connectedAgents.get(data.agentId)
@@ -247,8 +259,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         workingDirectory: data.workingDirectory,
         initialPrompt: data.initialPrompt,
         sessionId: data.sessionId,
-        claudeSessionId: data.claudeSessionId
-        // 不再传递 conversationHistory，Agent 会使用 --resume
+        claudeSessionId: data.claudeSessionId,
+        repository: repository ? {
+          id: repository.id,
+          name: repository.name,
+          url: repository.url,
+          branch: repository.branch,
+          credentials: repository.credentials,
+          settings: repository.settings
+        } : null
       })
     }
   }
