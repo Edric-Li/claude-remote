@@ -1,6 +1,6 @@
 import React from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { HomePage } from './pages/HomePage'
+import { NewSimplifiedHomePage } from './pages/NewSimplifiedHomePage'
 import { AdminPage } from './pages/AdminPage'
 import { LoginPage } from './pages/LoginPage'
 import { PrivateRoute } from './components/PrivateRoute'
@@ -19,7 +19,7 @@ export function App() {
         
         {/* 需要登录的路由 */}
         <Route element={<PrivateRoute />}>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<NewSimplifiedHomePage />} />
           <Route path="/admin" element={<AdminPage />} />
         </Route>
       </Routes>

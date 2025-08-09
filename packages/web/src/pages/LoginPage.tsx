@@ -1,12 +1,13 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Eye, EyeOff } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { Eye, EyeOff, Info } from 'lucide-react'
 import { useAuthStore } from '../store/auth.store'
 import { RadixBackground } from '../components/RadixBackground'
 
 export function LoginPage() {
   const navigate = useNavigate()
-  const { login, isLoading, error } = useAuthStore()
+  const location = useLocation()
+  const { login, isLoading, error, isAuthenticated } = useAuthStore()
   
   const [isLogin, setIsLogin] = useState(true)
   const [showPassword, setShowPassword] = useState(false)
@@ -17,6 +18,14 @@ export function LoginPage() {
     nickname: ''
   })
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
+  
+  // 如果已登录，自动跳转
+  useEffect(() => {
+    if (isAuthenticated) {
+      const from = location.state?.from?.pathname || '/'
+      navigate(from, { replace: true })
+    }
+  }, [isAuthenticated, navigate, location])
 
   // 验证表单
   const validateForm = (): boolean => {
@@ -88,8 +97,9 @@ export function LoginPage() {
         useAuthStore.getState().setAuth(data.user, data.accessToken, data.refreshToken)
       }
       
-      // 跳转到主页
-      navigate('/')
+      // 跳转到之前的页面或主页
+      const from = location.state?.from?.pathname || '/'
+      navigate(from, { replace: true })
     } catch (err: any) {
       console.error('Auth error:', err)
       // 错误已经在 store 中处理
@@ -247,10 +257,15 @@ export function LoginPage() {
 
           {/* 测试账号提示 */}
           {isLogin && (
-            <div className="mt-4 pt-4 border-t border-border">
-              <p className="text-xs text-muted-foreground text-center">
-                测试账号：demo / demo123
-              </p>
+            <div className="mt-4 pt-4 border-t border-border space-y-2">
+              <div className="flex items-center gap-2 p-2 bg-blue-500/10 border border-blue-500/20 rounded-md">
+                <Info className="h-4 w-4 text-blue-400 flex-shrink-0" />
+                <div className="text-xs text-blue-400">
+                  <p className="font-medium">测试账号</p>
+                  <p>用户名：demo 密码：demo123</p>
+                  <p>用户名：test 密码：test123</p>
+                </div>
+              </div>
             </div>
           )}
         </div>

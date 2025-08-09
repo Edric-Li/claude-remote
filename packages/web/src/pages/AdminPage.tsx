@@ -6,7 +6,8 @@ import {
   ArrowLeft, Settings, Database, Activity, Shield, 
   RefreshCw, Download, Trash2, Plus, Server, 
   HardDrive, Cpu, Clock, AlertCircle, Lock,
-  Key, Globe, FileText, Zap, Bot, Eye, EyeOff, GitBranch
+  Key, Globe, FileText, Zap, Bot, Eye, EyeOff, GitBranch,
+  CheckCircle
 } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card'
@@ -881,11 +882,19 @@ function SecurityPanel() {
 function ClaudeConfigPanel() {
   const [config, setConfig] = useState({
     baseUrl: '',
-    authToken: ''
+    authToken: '',
+    model: 'claude-3-5-sonnet-20241022',
+    maxTokens: 4000,
+    temperature: 0.7,
+    timeout: 30000
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [testing, setTesting] = useState(false)
   const [showToken, setShowToken] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'success' | 'error'>('unknown')
 
   useEffect(() => {
     fetchClaudeConfig()
@@ -893,13 +902,72 @@ function ClaudeConfigPanel() {
 
   const fetchClaudeConfig = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/claude/config`)
+      setError(null)
+      // 获取当前token
+      const authStorage = localStorage.getItem('auth-storage')
+      const authState = authStorage ? JSON.parse(authStorage) : null
+      const token = authState?.state?.accessToken
+
+      let response = await fetch(`${API_BASE_URL}/api/claude/config`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      // 如果401错误，尝试刷新token
+      if (response.status === 401) {
+        try {
+          console.log('Token过期，尝试刷新...')
+          // 手动调用refresh API
+          const refreshToken = authState?.state?.refreshToken
+          
+          if (refreshToken) {
+            const refreshResponse = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              }
+            })
+            
+            if (refreshResponse.ok) {
+              const refreshData = await refreshResponse.json()
+              // 更新localStorage
+              const updatedState = {...authState}
+              updatedState.state.accessToken = refreshData.accessToken
+              if (refreshData.refreshToken) {
+                updatedState.state.refreshToken = refreshData.refreshToken
+              }
+              localStorage.setItem('auth-storage', JSON.stringify(updatedState))
+              
+              // 使用新token重试
+              response = await fetch(`${API_BASE_URL}/api/claude/config`, {
+                headers: {
+                  'Authorization': `Bearer ${refreshData.accessToken}`
+                }
+              })
+            }
+          }
+        } catch (refreshError) {
+          console.error('Token刷新失败:', refreshError)
+          setError('认证失败，请重新登录')
+          return
+        }
+      }
+
       if (response.ok) {
         const data = await response.json()
         setConfig(data)
+        // 检查是否有完整配置
+        if (data.baseUrl && data.authToken) {
+          setConnectionStatus('unknown')
+        }
+      } else {
+        setError(`获取配置失败: HTTP ${response.status}`)
       }
     } catch (error) {
       console.error('Failed to fetch Claude config:', error)
+      setError(error instanceof Error ? error.message : '获取配置失败')
     } finally {
       setLoading(false)
     }
@@ -907,43 +975,227 @@ function ClaudeConfigPanel() {
 
   const saveConfig = async () => {
     setSaving(true)
+    setError(null)
+    setSuccess(null)
+    
+    // 验证配置
+    if (!config.baseUrl.trim()) {
+      setError('请填写 Base URL')
+      setSaving(false)
+      return
+    }
+    
+    if (!config.authToken.trim()) {
+      setError('请填写 Auth Token')
+      setSaving(false)
+      return
+    }
+    
+    // 验证URL格式
     try {
-      const response = await fetch(`${API_BASE_URL}/api/claude/config`, {
+      new URL(config.baseUrl)
+    } catch {
+      setError('Base URL 格式不正确，请输入有效的URL')
+      setSaving(false)
+      return
+    }
+    
+    try {
+      // 获取当前token
+      const authStorage = localStorage.getItem('auth-storage')
+      const authState = authStorage ? JSON.parse(authStorage) : null
+      const token = authState?.state?.accessToken
+
+      let response = await fetch(`${API_BASE_URL}/api/claude/config`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          baseUrl: config.baseUrl,
+          authToken: config.authToken,
+          model: config.model,
+          maxTokens: config.maxTokens,
+          temperature: config.temperature,
+          timeout: config.timeout
+        })
       })
+
+      // 如果401错误，尝试刷新token
+      if (response.status === 401) {
+        try {
+          console.log('Token过期，尝试刷新...')
+          const refreshToken = authState?.state?.refreshToken
+          
+          if (refreshToken) {
+            const refreshResponse = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              }
+            })
+            
+            if (refreshResponse.ok) {
+              const refreshData = await refreshResponse.json()
+              // 更新localStorage
+              const updatedState = {...authState}
+              updatedState.state.accessToken = refreshData.accessToken
+              if (refreshData.refreshToken) {
+                updatedState.state.refreshToken = refreshData.refreshToken
+              }
+              localStorage.setItem('auth-storage', JSON.stringify(updatedState))
+              
+              // 使用新token重试
+              response = await fetch(`${API_BASE_URL}/api/claude/config`, {
+                method: 'PUT',
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${refreshData.accessToken}`
+                },
+                body: JSON.stringify({
+                  baseUrl: config.baseUrl,
+                  authToken: config.authToken,
+                  model: config.model,
+                  maxTokens: config.maxTokens,
+                  temperature: config.temperature,
+                  timeout: config.timeout
+                })
+              })
+            }
+          }
+        } catch (refreshError) {
+          console.error('Token刷新失败:', refreshError)
+          setError('认证失败，请重新登录')
+          return
+        }
+      }
       
       if (response.ok) {
-        alert('Claude 配置已保存')
+        setSuccess('配置保存成功')
+        setConnectionStatus('unknown') // 重置连接状态，需要重新测试
+        // 3秒后清除成功消息
+        setTimeout(() => setSuccess(null), 3000)
       } else {
-        alert('保存失败')
+        const errorData = await response.json().catch(() => null)
+        setError(errorData?.message || `保存失败: HTTP ${response.status}`)
       }
     } catch (error) {
       console.error('Failed to save Claude config:', error)
-      alert('保存失败')
+      setError(error instanceof Error ? error.message : '保存失败，请检查网络连接')
     } finally {
       setSaving(false)
     }
   }
 
   const testConnection = async () => {
+    setTesting(true)
+    setError(null)
+    setSuccess(null)
+    setConnectionStatus('unknown')
+    
+    // 验证配置
+    if (!config.baseUrl.trim() || !config.authToken.trim()) {
+      setError('请先填写完整的配置信息')
+      setTesting(false)
+      return
+    }
+    
     try {
-      const response = await fetch(`${API_BASE_URL}/api/claude/test`, {
+      // 获取当前token
+      const authStorage = localStorage.getItem('auth-storage')
+      const authState = authStorage ? JSON.parse(authStorage) : null
+      const token = authState?.state?.accessToken
+
+      let response = await fetch(`${API_BASE_URL}/api/claude/test`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ baseUrl: config.baseUrl, authToken: config.authToken })
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          baseUrl: config.baseUrl, 
+          authToken: config.authToken,
+          model: config.model,
+          maxTokens: config.maxTokens,
+          temperature: config.temperature
+        })
       })
+
+      // 如果401错误，尝试刷新token
+      if (response.status === 401) {
+        try {
+          console.log('Token过期，尝试刷新...')
+          const refreshToken = authState?.state?.refreshToken
+          
+          if (refreshToken) {
+            const refreshResponse = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              }
+            })
+            
+            if (refreshResponse.ok) {
+              const refreshData = await refreshResponse.json()
+              // 更新localStorage
+              const updatedState = {...authState}
+              updatedState.state.accessToken = refreshData.accessToken
+              if (refreshData.refreshToken) {
+                updatedState.state.refreshToken = refreshData.refreshToken
+              }
+              localStorage.setItem('auth-storage', JSON.stringify(updatedState))
+              
+              // 使用新token重试
+              response = await fetch(`${API_BASE_URL}/api/claude/test`, {
+                method: 'POST',
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${refreshData.accessToken}`
+                },
+                body: JSON.stringify({ 
+          baseUrl: config.baseUrl, 
+          authToken: config.authToken,
+          model: config.model,
+          maxTokens: config.maxTokens,
+          temperature: config.temperature
+        })
+              })
+            }
+          }
+        } catch (refreshError) {
+          console.error('Token刷新失败:', refreshError)
+          setError('认证失败，请重新登录')
+          setConnectionStatus('error')
+          return
+        }
+      }
+      
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '')
+        setError(`测试请求失败: HTTP ${response.status} ${errorText}`)
+        setConnectionStatus('error')
+        return
+      }
       
       const result = await response.json()
       if (result.success) {
-        alert('连接测试成功！')
+        setSuccess('✅ Claude API 连接测试成功！')
+        setConnectionStatus('success')
+        // 5秒后清除成功消息
+        setTimeout(() => setSuccess(null), 5000)
       } else {
-        alert(`连接测试失败: ${result.error}`)
+        setError(`❌ 连接测试失败: ${result.error || '未知错误'}`)
+        setConnectionStatus('error')
       }
     } catch (error) {
       console.error('Failed to test connection:', error)
-      alert('连接测试失败')
+      setError(error instanceof Error ? error.message : '连接测试失败，请检查网络连接')
+      setConnectionStatus('error')
+    } finally {
+      setTesting(false)
     }
   }
 
@@ -960,6 +1212,27 @@ function ClaudeConfigPanel() {
       <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent">
         Claude 配置
       </h2>
+      
+      {/* 错误和成功消息 */}
+      {error && (
+        <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-red-400" />
+            <span className="text-sm text-red-400 font-medium">错误</span>
+          </div>
+          <p className="text-sm text-red-300 mt-1">{error}</p>
+        </div>
+      )}
+      
+      {success && (
+        <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="h-4 w-4 text-green-400" />
+            <span className="text-sm text-green-400 font-medium">成功</span>
+          </div>
+          <p className="text-sm text-green-300 mt-1">{success}</p>
+        </div>
+      )}
       
       {/* API配置 */}
       <Card className="backdrop-blur-md bg-card/60 border-purple-500/20">
@@ -979,7 +1252,7 @@ function ClaudeConfigPanel() {
               className="border-purple-500/20 bg-purple-500/5 placeholder:text-muted-foreground/50"
             />
             <p className="text-xs text-muted-foreground">
-              Claude API 的基础地址，默认为官方地址
+              Claude API 的基础地址，默认为官方地址 (https://api.anthropic.com)
             </p>
           </div>
           
@@ -1008,8 +1281,93 @@ function ClaudeConfigPanel() {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              您的 Claude API 密钥，请妥善保管
+              您的 Claude API 密钥，格式为 sk-ant-api03-... 请妥善保管
             </p>
+          </div>
+        </CardContent>
+      </Card>
+      
+      {/* 高级配置 */}
+      <Card className="backdrop-blur-md bg-card/60 border-purple-500/20">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-4 w-4 text-purple-400" />
+            高级配置
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-purple-400">模型</Label>
+              <Select 
+                value={config.model}
+                onValueChange={(value) => setConfig({ ...config, model: value })}
+              >
+                <SelectTrigger className="border-purple-500/20 bg-purple-500/5">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet (最新)</SelectItem>
+                  <SelectItem value="claude-3-sonnet-20240229">Claude 3 Sonnet</SelectItem>
+                  <SelectItem value="claude-3-haiku-20240307">Claude 3 Haiku</SelectItem>
+                  <SelectItem value="claude-3-opus-20240229">Claude 3 Opus</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                选择要使用的 Claude 模型
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-purple-400">最大 Token 数</Label>
+              <Input 
+                type="number"
+                min="1"
+                max="200000"
+                placeholder="4000" 
+                value={config.maxTokens}
+                onChange={(e) => setConfig({ ...config, maxTokens: parseInt(e.target.value) || 4000 })}
+                className="border-purple-500/20 bg-purple-500/5 placeholder:text-muted-foreground/50"
+              />
+              <p className="text-xs text-muted-foreground">
+                单次对话的最大 token 数量 (1-200000)
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-purple-400">温度 (Temperature)</Label>
+              <div className="flex items-center gap-3">
+                <Input 
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={config.temperature}
+                  onChange={(e) => setConfig({ ...config, temperature: parseFloat(e.target.value) })}
+                  className="flex-1"
+                />
+                <span className="text-sm text-purple-400 font-mono w-12">{config.temperature}</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                控制回复的随机性，0 表示最确定，1 表示最随机
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-purple-400">请求超时 (秒)</Label>
+              <Input 
+                type="number"
+                min="1"
+                max="300"
+                placeholder="30" 
+                value={config.timeout / 1000}
+                onChange={(e) => setConfig({ ...config, timeout: (parseInt(e.target.value) || 30) * 1000 })}
+                className="border-purple-500/20 bg-purple-500/5 placeholder:text-muted-foreground/50"
+              />
+              <p className="text-xs text-muted-foreground">
+                API 请求超时时间 (1-300 秒)
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -1017,30 +1375,71 @@ function ClaudeConfigPanel() {
       {/* 操作按钮 */}
       <Card className="backdrop-blur-md bg-card/60 border-purple-500/20">
         <CardContent className="pt-6">
-          <div className="flex gap-3">
-            <Button 
-              onClick={saveConfig}
-              disabled={saving}
-              className="bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700"
-            >
-              {saving ? '保存中...' : '保存配置'}
-            </Button>
-            <Button 
-              onClick={testConnection}
-              variant="outline"
-              className="border-purple-500/20 hover:bg-purple-500/10 text-purple-400"
-              disabled={!config.baseUrl || !config.authToken}
-            >
-              测试连接
-            </Button>
-            <Button 
-              onClick={fetchClaudeConfig}
-              variant="outline"
-              className="border-purple-500/20 hover:bg-purple-500/10 text-purple-400"
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              重新加载
-            </Button>
+          <div className="flex flex-col gap-4">
+            {/* 连接状态指示器 */}
+            {connectionStatus !== 'unknown' && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-purple-500/5 border border-purple-500/10">
+                <div className={`w-2 h-2 rounded-full ${
+                  connectionStatus === 'success' ? 'bg-green-500' : 'bg-red-500'
+                } animate-pulse`} />
+                <span className="text-sm text-muted-foreground">
+                  连接状态: {
+                    connectionStatus === 'success' ? '✅ 连接正常' : '❌ 连接失败'
+                  }
+                </span>
+              </div>
+            )}
+            
+            <div className="flex gap-3">
+              <Button 
+                onClick={saveConfig}
+                disabled={saving || loading}
+                className="bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-600"
+              >
+                {saving ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    保存中...
+                  </>
+                ) : (
+                  '保存配置'
+                )}
+              </Button>
+              
+              <Button 
+                onClick={testConnection}
+                variant="outline"
+                className="border-purple-500/20 hover:bg-purple-500/10 text-purple-400 disabled:border-gray-500/20 disabled:text-gray-400"
+                disabled={testing || !config.baseUrl.trim() || !config.authToken.trim()}
+              >
+                {testing ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    测试中...
+                  </>
+                ) : (
+                  '测试连接'
+                )}
+              </Button>
+              
+              <Button 
+                onClick={() => {
+                  setError(null)
+                  setSuccess(null)
+                  fetchClaudeConfig()
+                }}
+                variant="outline"
+                className="border-purple-500/20 hover:bg-purple-500/10 text-purple-400 disabled:border-gray-500/20 disabled:text-gray-400"
+                disabled={loading}
+              >
+                {loading ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                重新加载
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

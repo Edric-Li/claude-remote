@@ -22,7 +22,7 @@ export interface WorkerOutputMessage {
 export interface WorkerStatusMessage {
   type: 'worker:status'
   taskId: string
-  status: 'started' | 'stopped' | 'error'
+  status: 'started' | 'stopped' | 'completed' | 'error'
   error?: string
   exitCode?: number
 }

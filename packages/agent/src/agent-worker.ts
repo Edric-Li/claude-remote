@@ -6,6 +6,7 @@ import * as readline from 'node:readline'
 import { RepositoryManager, RepositoryConfig, WorkspaceInfo } from './services/repository-manager'
 import { spawn } from 'child_process'
 import * as path from 'path'
+import { ClaudeCodeWorker } from './workers/claude-code.worker'
 
 interface AgentWorkerOptions {
   serverUrl: string
@@ -14,9 +15,19 @@ interface AgentWorkerOptions {
   capabilities?: string[]
 }
 
+interface ClaudeConfig {
+  baseUrl: string
+  authToken: string
+  model: string
+  maxTokens: number
+  temperature: number
+  timeout: number
+}
+
 interface TaskAssignment {
   taskId: string
   repository: RepositoryConfig
+  claudeConfig?: ClaudeConfig
   command: string
   args?: string[]
   env?: Record<string, string>
@@ -29,9 +40,11 @@ export class AgentWorker {
   private currentWorkspace: WorkspaceInfo | null = null
   private rl: readline.Interface
   private spinner: ora.Ora
+  private claudeWorkers: Map<string, ClaudeCodeWorker> = new Map()
 
   constructor(private options: AgentWorkerOptions) {
-    this.agentId = uuidv4()
+    // 使用环境变量或默认的 agent ID（从数据库中获取的现有 agent）
+    this.agentId = process.env.AGENT_ID || '7db5fab9-2f91-4d74-9072-47ac34911fc6'
     this.repositoryManager = new RepositoryManager()
     this.spinner = ora('Initializing agent worker...')
     
@@ -58,6 +71,7 @@ export class AgentWorker {
   private setupEventHandlers(): void {
     this.socket.on('connect', () => {
       this.spinner.succeed(chalk.green('Connected to server'))
+      console.log(chalk.blue(`Agent ID: ${this.agentId}`))
       console.log(chalk.blue(`Socket ID: ${this.socket.id}`))
       console.log(chalk.blue(`Agent Name: ${this.options.name}`))
       
@@ -121,6 +135,203 @@ export class AgentWorker {
       if (this.currentWorkspace) {
         await this.repositoryManager.cleanupWorkspace(this.currentWorkspace.id)
         this.currentWorkspace = null
+      }
+    })
+    
+    // 处理 Worker 启动请求
+    this.socket.on('worker:start', async (data: {
+      taskId: string
+      tool?: string
+      workingDirectory?: string
+      initialPrompt?: string
+      claudeConfig?: ClaudeConfig
+    }) => {
+      console.log(chalk.cyan(`\n🚀 Starting Claude worker for task: ${data.taskId}`))
+      
+      try {
+        // 创建 Claude Worker 实例
+        const worker = new ClaudeCodeWorker({
+          workingDirectory: data.workingDirectory || process.cwd(),
+          apiKey: data.claudeConfig?.authToken || process.env.ANTHROPIC_API_KEY,
+          baseUrl: data.claudeConfig?.baseUrl,
+          model: data.claudeConfig?.model,
+          maxTokens: data.claudeConfig?.maxTokens,
+          temperature: data.claudeConfig?.temperature,
+          timeout: data.claudeConfig?.timeout
+        })
+        
+        // 设置事件监听 - 使用消息去重机制
+        let messageBuffer = ''
+        const sentMessages = new Set() // 用于去重的消息集合
+        
+        // 监听助手消息事件
+        worker.on('assistant-message', (message) => {
+          // 创建消息内容的哈希来去重
+          if (message.message && message.message.content) {
+            const textContent = message.message.content
+              .filter((item: any) => item.type === 'text' && item.text)
+              .map((item: any) => item.text)
+              .join('')
+            
+            if (textContent.trim()) {
+              const messageHash = Buffer.from(textContent.trim()).toString('base64').substring(0, 32)
+              
+              if (!sentMessages.has(messageHash)) {
+                console.log(`Sending unique assistant message (hash: ${messageHash}):`, textContent.substring(0, 100) + '...')
+                
+                this.socket.emit('worker:message', {
+                  agentId: this.agentId,
+                  taskId: data.taskId,
+                  message: message  // 直接发送原始助手消息
+                })
+                
+                sentMessages.add(messageHash)
+              } else {
+                console.log(`Duplicate assistant message detected and skipped (hash: ${messageHash})`)
+              }
+            }
+          }
+        })
+        
+        // 监听工具调用事件
+        worker.on('tool-use', (toolData) => {
+          console.log(`Tool use detected:`, toolData)
+          this.socket.emit('worker:tool-use', {
+            agentId: this.agentId,
+            taskId: data.taskId,
+            toolUse: toolData
+          })
+        })
+        
+        // 监听系统消息（包含 token 信息）
+        worker.on('system-info', (info) => {
+          console.log(`System info:`, info)
+          this.socket.emit('worker:system-info', {
+            agentId: this.agentId,
+            taskId: data.taskId,
+            info
+          })
+        })
+        
+        // 监听处理进度
+        worker.on('progress', (progress) => {
+          console.log(`Processing progress:`, progress)
+          this.socket.emit('worker:progress', {
+            agentId: this.agentId,
+            taskId: data.taskId,
+            progress
+          })
+        })
+        
+        // 在响应完成时通知任务完成
+        worker.on('response-complete', () => {
+          // 通知任务完成
+          console.log(chalk.green(`✅ Claude worker task completed: ${data.taskId}`))
+          this.socket.emit('worker:status', {
+            taskId: data.taskId,
+            status: 'completed'
+          })
+        })
+        
+        worker.on('ready', () => {
+          console.log(chalk.green(`✅ Claude worker ready for task: ${data.taskId}`))
+          this.socket.emit('worker:status', {
+            taskId: data.taskId,
+            status: 'started'
+          })
+          
+          // 发送初始化消息
+          this.socket.emit('worker:message', {
+            taskId: data.taskId,
+            message: {
+              type: 'system',
+              subtype: 'init',
+              model: 'claude-3-sonnet',
+              tools: ['read', 'write', 'execute', 'search']
+            }
+          })
+        })
+        
+        worker.on('error', (error) => {
+          console.error(chalk.red(`❌ Claude worker error: ${error.message}`))
+          this.socket.emit('worker:status', {
+            taskId: data.taskId,
+            status: 'error',
+            error: error.message
+          })
+        })
+        
+        // 启动 Worker
+        try {
+          await worker.spawn()
+          // 保存 Worker 实例 - 只有在成功启动后才保存
+          this.claudeWorkers.set(data.taskId, worker)
+          console.log(chalk.green(`✅ Worker saved for task: ${data.taskId}`))
+        } catch (spawnError) {
+          console.error(chalk.red(`❌ Failed to spawn Claude process: ${spawnError.message}`))
+          throw spawnError
+        }
+        
+        // 如果有初始提示，发送给 Claude
+        if (data.initialPrompt) {
+          await worker.sendCommand(data.initialPrompt)
+        }
+        
+      } catch (error) {
+        console.error(chalk.red(`❌ Failed to start Claude worker: ${error.message}`))
+        this.socket.emit('worker:status', {
+          taskId: data.taskId,
+          status: 'error',
+          error: error.message
+        })
+      }
+    })
+    
+    // 处理 Worker 输入
+    this.socket.on('worker:input', async (data: {
+      taskId: string
+      input: string
+    }) => {
+      console.log(chalk.blue(`📝 Sending input to Claude: ${data.input.substring(0, 100)}...`))
+      
+      const worker = this.claudeWorkers.get(data.taskId)
+      if (!worker) {
+        console.error(chalk.red(`❌ No worker found for task: ${data.taskId}`))
+        this.socket.emit('worker:status', {
+          taskId: data.taskId,
+          status: 'error',
+          error: 'Worker not found'
+        })
+        return
+      }
+      
+      try {
+        await worker.sendCommand(data.input)
+      } catch (error) {
+        console.error(chalk.red(`❌ Failed to send input to Claude: ${error.message}`))
+        this.socket.emit('worker:status', {
+          taskId: data.taskId,
+          status: 'error',
+          error: error.message
+        })
+      }
+    })
+    
+    // 处理 Worker 停止请求
+    this.socket.on('worker:stop', async (data: {
+      taskId: string
+    }) => {
+      console.log(chalk.yellow(`⏹ Stopping Claude worker for task: ${data.taskId}`))
+      
+      const worker = this.claudeWorkers.get(data.taskId)
+      if (worker) {
+        await worker.shutdown()
+        this.claudeWorkers.delete(data.taskId)
+        
+        this.socket.emit('worker:status', {
+          taskId: data.taskId,
+          status: 'stopped'
+        })
       }
     })
   }

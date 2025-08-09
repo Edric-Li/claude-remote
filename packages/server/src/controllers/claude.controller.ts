@@ -11,12 +11,25 @@ export class ClaudeController {
   }
 
   @Put('config')
-  async updateConfig(@Body() config: { baseUrl: string; authToken: string }) {
+  async updateConfig(@Body() config: { 
+    baseUrl: string; 
+    authToken: string;
+    model?: string;
+    maxTokens?: number;
+    temperature?: number;
+    timeout?: number;
+  }) {
     return this.claudeService.saveConfig(config)
   }
 
   @Post('test')
-  async testConnection(@Body() config: { baseUrl: string; authToken: string }) {
+  async testConnection(@Body() config: { 
+    baseUrl: string; 
+    authToken: string;
+    model?: string;
+    maxTokens?: number;
+    temperature?: number;
+  }) {
     return this.claudeService.testConnection(config)
   }
 }

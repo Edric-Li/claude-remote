@@ -9,6 +9,7 @@ import { TaskModule } from './modules/task.module'
 import { AdminModule } from './modules/admin.module'
 import { AuthModule } from './modules/auth/auth.module'
 import { RepositoryModule } from './modules/repository.module'
+import { SessionModule } from './modules/session.module'
 import { getDatabaseConfig } from './config/database.config'
 import { AgentSimpleController } from './controllers/agent-simple.controller'
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard'
@@ -27,7 +28,8 @@ import { ConfigEntity } from './entities/config.entity'
     WorkerModule,
     TaskModule,
     AdminModule,
-    RepositoryModule
+    RepositoryModule,
+    SessionModule
   ],
   controllers: [AgentSimpleController, ClaudeController],
   providers: [

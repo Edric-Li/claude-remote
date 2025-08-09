@@ -17,12 +17,18 @@
     "sourceMap": true,
     "moduleResolution": "node"
   },
-  "include": ["src/**/*"],
+  "include": [
+    "src/agent-worker.ts",
+    "src/index.ts",
+    "src/services/**/*",
+    "src/workers/claude-code.worker.ts"
+  ],
   "exclude": [
     "node_modules", 
     "dist", 
     "**/*.test.ts",
     "src/example/**/*",
-    "src/workers/**/*"
+    "src/workers/cursor.worker.ts",
+    "src/workers/qucoder.worker.ts"
   ]
 }

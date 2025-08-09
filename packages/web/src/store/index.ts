@@ -90,10 +90,18 @@ export const useStore = create<StoreState>((set, get) => ({
     
     const socket = getSocket()
     
+    // 在开发环境暴露socket到全局，方便调试
+    if (import.meta.env.DEV) {
+      (window as any).__socket = socket
+      console.log('🔍 WebSocket已暴露到 window.__socket，可在控制台调试')
+    }
+    
     socket.on('connect', () => {
+      console.log('✅ WebSocket已连接')
       set({ socket, connected: true, connectionInitialized: true })
       // Use callback to receive the response
       socket.emit('agent:list', (response: { agents: any[] }) => {
+        console.log('📋 Agent列表:', response)
         if (response && response.agents) {
           try {
             set({
@@ -184,80 +192,13 @@ export const useStore = create<StoreState>((set, get) => ({
       // Worker status update
       if (data.status === 'started') {
         set({ currentTaskId: data.taskId })
-      } else if (data.status === 'stopped' || data.status === 'error') {
+      } else if (data.status === 'stopped' || data.status === 'completed' || data.status === 'error') {
         set({ currentTaskId: null })
       }
     })
     
-    socket.on('worker:message', (data) => {
-      // Worker message received
-      const { message } = data
-      
-      // Handle different message types
-      if (message.type === 'system' && message.subtype === 'init') {
-        // Show initialization info
-        set((state) => ({
-          workerOutput: [...state.workerOutput, {
-            type: 'system',
-            content: `Worker initialized | Model: ${message.model} | ${message.tools?.length || 0} tools available`,
-            timestamp: new Date()
-          }]
-        }))
-      } else if (message.type === 'assistant' && message.message?.content) {
-        // Handle assistant messages with multiple content types
-        for (const contentItem of message.message.content) {
-          if (contentItem.type === 'text' && contentItem.text?.trim()) {
-            set((state) => ({
-              workerOutput: [...state.workerOutput, {
-                type: 'assistant',
-                content: contentItem.text,
-                timestamp: new Date(),
-                usage: message.message.usage
-              }]
-            }))
-          } else if (contentItem.type === 'tool_use') {
-            set((state) => ({
-              workerOutput: [...state.workerOutput, {
-                type: 'tool',
-                content: `Using ${contentItem.name}`,
-                details: contentItem.input,
-                timestamp: new Date()
-              }]
-            }))
-          }
-        }
-      } else if (message.type === 'user' && message.message?.content) {
-        // Handle tool results
-        for (const contentItem of message.message.content) {
-          if (contentItem.type === 'tool_result') {
-            const preview = contentItem.content?.substring(0, 200) || ''
-            set((state) => ({
-              workerOutput: [...state.workerOutput, {
-                type: 'tool-result',
-                content: preview + (preview.length < (contentItem.content?.length || 0) ? '...' : ''),
-                timestamp: new Date()
-              }]
-            }))
-          }
-        }
-      } else if (message.type === 'result') {
-        // Show detailed stats
-        set((state) => ({
-          workerOutput: [...state.workerOutput, {
-            type: 'result',
-            content: `Task completed in ${message.duration_ms}ms`,
-            stats: {
-              duration: message.duration_ms,
-              apiTime: message.duration_api_ms,
-              turns: message.num_turns,
-              totalTokens: message.usage ? message.usage.input_tokens + message.usage.output_tokens : 0,
-              cost: message.total_cost_usd || 0
-            },
-            timestamp: new Date()
-          }]
-        }))
-      }
-    })
+    // NOTE: worker:message 监听器已移至 NewSimplifiedChatPanel 组件中处理
+    // 避免重复监听导致的消息重复问题
     
     // Connect the socket
     socket.connect()

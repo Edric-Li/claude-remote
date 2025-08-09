@@ -43,6 +43,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   server!: Server
 
   private connectedAgents = new Map<string, ConnectedAgent>()
+  private recentMessages = new Map<string, number>() // 用于消息去重
 
   constructor(
     @Inject(forwardRef(() => AgentService))
@@ -275,9 +276,51 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('worker:message')
   handleWorkerMessage(
     @ConnectedSocket() _client: Socket,
-    @MessageBody() data: { taskId: string; message: any }
+    @MessageBody() data: { taskId: string; message: any; agentId?: string }
   ): void {
     console.log(`Worker message for task ${data.taskId}:`, data.message.type)
+    
+    // 实施消息去重机制 - 基于内容哈希
+    if (data.message.type === 'assistant' && data.message.message?.content) {
+      // 提取消息内容
+      const textContents = []
+      for (const contentItem of data.message.message.content) {
+        if (contentItem.type === 'text' && contentItem.text?.trim()) {
+          textContents.push(contentItem.text)
+        }
+      }
+      
+      if (textContents.length > 0) {
+        const messageContent = textContents.join('')
+        // 创建消息哈希（任务ID + 内容）
+        const messageKey = `${data.taskId}:${Buffer.from(messageContent).toString('base64').substring(0, 32)}`
+        
+        // 检查是否已发送过相同消息（使用内存缓存，5分钟过期）
+        if (!this.recentMessages) {
+          this.recentMessages = new Map()
+        }
+        
+        const now = Date.now()
+        const fiveMinutesAgo = now - 5 * 60 * 1000
+        
+        // 清理过期消息
+        for (const [key, timestamp] of this.recentMessages.entries()) {
+          if (timestamp < fiveMinutesAgo) {
+            this.recentMessages.delete(key)
+          }
+        }
+        
+        // 检查重复消息
+        if (this.recentMessages.has(messageKey)) {
+          console.log(`Duplicate assistant message detected and blocked for task ${data.taskId}`)
+          return // 直接返回，不转发重复消息
+        }
+        
+        // 记录消息哈希
+        this.recentMessages.set(messageKey, now)
+        console.log(`Unique assistant message forwarded for task ${data.taskId}`)
+      }
+    }
     
     // Broadcast structured Worker messages to all web clients
     this.server.emit('worker:message', data)
@@ -422,6 +465,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
     }
     
+    // Get Claude configuration
+    let claudeConfig = null
+    try {
+      const claudeService = this.moduleRef.get('ClaudeService', { strict: false })
+      claudeConfig = await claudeService.getConfig()
+    } catch (error) {
+      console.error('Failed to get Claude config:', error)
+    }
+    
     // Send task to specific worker
     this.server.to(`worker:${data.workerId}`).emit('task:assign', {
       taskId: data.task.id,
@@ -432,6 +484,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         branch: repository.branch,
         credentials: repository.credentials,
         settings: repository.settings
+      } : null,
+      claudeConfig: claudeConfig ? {
+        baseUrl: claudeConfig.baseUrl,
+        authToken: claudeConfig.authToken,
+        model: claudeConfig.model,
+        maxTokens: claudeConfig.maxTokens,
+        temperature: claudeConfig.temperature,
+        timeout: claudeConfig.timeout
       } : null,
       command: data.task.command || 'claude',
       args: data.task.args || [],

@@ -1,8 +1,36 @@
-import { Navigate, Outlet } from 'react-router-dom'
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/auth.store'
+import { useEffect } from 'react'
+import { Loader2 } from 'lucide-react'
 
 export function PrivateRoute() {
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const { isAuthenticated, isLoading, accessToken } = useAuthStore()
+  const location = useLocation()
   
-  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />
+  // 检查localStorage中的token
+  useEffect(() => {
+    // 如果没有token，直接跳转到登录页
+    if (!accessToken && !isLoading) {
+      console.log('No access token found, redirecting to login')
+    }
+  }, [accessToken, isLoading])
+  
+  // 加载中状态
+  if (isLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+          <p className="text-sm text-muted-foreground">验证登录状态...</p>
+        </div>
+      </div>
+    )
+  }
+  
+  // 未登录，重定向到登录页，并保存当前路径
+  if (!isAuthenticated || !accessToken) {
+    return <Navigate to="/login" state={{ from: location }} replace />
+  }
+  
+  return <Outlet />
 }
