@@ -344,6 +344,48 @@ import { TaskItem } from './TaskItem'
 import styles from './TaskList.module.css'
 ```
 
+## 16. 仓库管理功能
+
+### 支持的仓库类型
+1. **Git仓库** - 支持 GitHub、GitLab、Bitbucket 等
+2. **本地目录** - 本地文件系统路径
+3. **SVN仓库** - 计划支持
+
+### 认证方式
+#### HTTPS认证
+- **GitHub**: Personal Access Token (PAT)
+  - 格式：直接填入 token，如 `ghp_xxxxxxxxxxxx`
+- **GitLab**: Personal/Project Access Token
+  - 格式：直接填入 token
+- **Bitbucket**: App Password
+  - 格式：`username:app_password`
+- **通用Git**: 
+  - 格式：`username:password`
+
+#### SSH认证（计划支持）
+- 需要配置 SSH Key
+- URL格式：`git@github.com:user/repo.git`
+
+### 仓库验证
+创建或更新仓库时，系统会自动：
+- 验证 URL 格式的正确性
+- 测试认证信息是否有效
+- 检查仓库是否可访问
+- 获取分支列表和默认分支
+
+### 错误处理
+系统能识别以下错误类型：
+- **认证失败** - 用户名密码或Token不正确
+- **主机无法解析** - URL格式错误或网络问题
+- **仓库不存在** - 仓库不存在或无访问权限
+- **连接超时** - 网络问题或需要配置代理
+
+### 工作区管理
+- **缓存机制**: Agent端缓存仓库，避免重复克隆
+- **隔离环境**: 每个任务在独立的工作区执行
+- **自动清理**: 根据配置自动清理过期工作区
+- **资源控制**: 限制最大工作区数量，防止资源耗尽
+
 ## 总结
 
 遵循这些规范将帮助我们：

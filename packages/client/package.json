@@ -9,7 +9,12 @@
   "scripts": {
     "dev": "tsx src/cli.ts",
     "build": "tsc",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "link": "npm link",
+    "unlink": "npm unlink",
+    "test:simple": "tsx src/agent-simple.ts",
+    "test:auth": "tsx src/agent-auth.ts",
+    "test:auto": "tsx src/test-agent-auto.ts"
   },
   "dependencies": {
     "commander": "^12.1.0",

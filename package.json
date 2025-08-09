@@ -9,8 +9,11 @@
   "scripts": {
     "dev:server": "pnpm --filter @ai-orchestra/server dev",
     "dev:web": "pnpm --filter @ai-orchestra/web dev",
+    "dev:agent": "pnpm --filter @ai-orchestra/agent dev",
     "dev": "concurrently -n server,web \"pnpm run dev:server\" \"pnpm run dev:web\"",
+    "dev:all": "concurrently -n server,web,agent \"pnpm run dev:server\" \"pnpm run dev:web\" \"pnpm run dev:agent\"",
     "build": "pnpm -r build",
+    "build:agent": "pnpm --filter @ai-orchestra/agent build",
     "clean": "pnpm -r clean && rm -rf node_modules",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"

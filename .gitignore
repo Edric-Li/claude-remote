@@ -8,6 +8,7 @@ coverage/
 test-results/
 playwright-report/
 playwright/.cache/
+e2e/
 
 # Production
 dist/
@@ -20,6 +21,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+dev.log
 
 # Environment variables
 .env
@@ -42,9 +44,26 @@ lerna-debug.log*
 # Cache
 .eslintcache
 .cache/
+.parcel-cache/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+packages/server/data/
+
+# Backups
+backups/
+*.backup
+*.bak
 
 # Temporary files
 *.tmp
 *.temp
 tmp/
 temp/
+
+# Test files
+test-*.js
+test-*.sh
+browser-test.js

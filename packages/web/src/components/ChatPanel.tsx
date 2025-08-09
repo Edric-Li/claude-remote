@@ -10,7 +10,11 @@ import { Input } from './ui/input.tsx'
 import { ScrollArea } from './ui/scroll-area.tsx'
 import { cn } from '@/lib/utils.ts'
 
-export function ChatPanel() {
+interface ChatPanelProps {
+  selectedTool?: 'claude' | 'qwcoder' | null
+}
+
+export function ChatPanel({ selectedTool }: ChatPanelProps) {
   const [inputValue, setInputValue] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
@@ -35,7 +39,7 @@ export function ChatPanel() {
   
   const handleSend = (): void => {
     if (inputValue.trim()) {
-      sendMessage(inputValue)
+      sendMessage(inputValue, selectedTool || undefined)
       setInputValue('')
     }
   }
@@ -48,7 +52,13 @@ export function ChatPanel() {
     <Card className="h-full flex flex-col">
       <CardHeader className="pb-4">
         <CardTitle className="flex items-center gap-2">
-          {selectedAgent ? (
+          {selectedTool ? (
+            <>
+              <Bot className="h-5 w-5" />
+              {selectedTool === 'claude' ? 'Claude 对话' : 'QwCoder 对话'}
+              {selectedAgent && <span className="text-sm text-muted-foreground ml-2">({selectedAgent.name})</span>}
+            </>
+          ) : selectedAgent ? (
             <>
               <MessageSquare className="h-5 w-5" />
               Chat with {selectedAgent.name}

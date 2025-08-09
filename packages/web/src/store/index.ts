@@ -34,6 +34,13 @@ interface WorkerOutputItem {
   }
 }
 
+interface Worker {
+  id: string
+  agentId: string
+  status: 'idle' | 'busy'
+  tool?: 'claude' | 'qwcoder'
+}
+
 interface StoreState {
   socket: Socket | null
   connected: boolean
@@ -43,14 +50,19 @@ interface StoreState {
   messages: Message[]
   workerOutput: (string | WorkerOutputItem)[]
   currentTaskId: string | null
+  workers: Worker[]
+  selectedWorkerId: string | null
+  selectedTool: 'claude' | 'qwcoder' | null
   
   connect: () => void
   disconnect: () => void
   selectAgent: (agentId: string | null) => void
-  sendMessage: (content: string) => void
+  sendMessage: (content: string, tool?: 'claude' | 'qwcoder') => void
   startWorker: (agentId: string, workingDirectory?: string, initialPrompt?: string) => void
   sendWorkerInput: (agentId: string, taskId: string, input: string) => void
   stopWorker: (agentId: string, taskId: string) => void
+  selectRandomWorker: (tool: 'claude' | 'qwcoder') => string | null
+  setSelectedTool: (tool: 'claude' | 'qwcoder' | null) => void
 }
 
 export const useStore = create<StoreState>((set, get) => ({
@@ -62,6 +74,9 @@ export const useStore = create<StoreState>((set, get) => ({
   messages: [],
   workerOutput: [],
   currentTaskId: null,
+  workers: [],
+  selectedWorkerId: null,
+  selectedTool: null,
   
   connect: () => {
     // Mark as initialized immediately to prevent UI flashing
@@ -257,29 +272,43 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ selectedAgentId: agentId })
   },
   
-  sendMessage: (content) => {
-    const { socket, selectedAgentId } = get()
+  sendMessage: (content, tool) => {
+    const { socket, selectedAgentId, selectedWorkerId, selectedTool } = get()
     
     if (!socket || !content.trim()) {
       return
     }
+    
+    const currentTool = tool || selectedTool
+    const targetAgentId = selectedWorkerId ? 
+      get().workers.find(w => w.id === selectedWorkerId)?.agentId : 
+      selectedAgentId
     
     const message: Message = {
       id: Date.now().toString(),
       from: 'web',
       content,
       timestamp: new Date(),
-      agentId: selectedAgentId || undefined // Add target agent ID
+      agentId: targetAgentId || undefined
     }
     
     set((state) => ({
       messages: [...state.messages, message]
     }))
     
-    socket.emit('chat:message', {
-      to: selectedAgentId,
-      content
-    })
+    // 如果选择了工具，发送到对应的 worker
+    if (currentTool) {
+      socket.emit('worker:message', {
+        agentId: targetAgentId,
+        tool: currentTool,
+        content
+      })
+    } else {
+      socket.emit('chat:message', {
+        to: targetAgentId,
+        content
+      })
+    }
   },
   
   startWorker: (agentId, workingDirectory, initialPrompt) => {
@@ -316,5 +345,40 @@ export const useStore = create<StoreState>((set, get) => ({
       agentId,
       taskId
     })
+  },
+  
+  selectRandomWorker: (tool) => {
+    const { agents } = get()
+    
+    // 如果没有可用的 agent，返回 null
+    if (agents.length === 0) {
+      return null
+    }
+    
+    // 随机选择一个 agent
+    const randomIndex = Math.floor(Math.random() * agents.length)
+    const selectedAgent = agents[randomIndex]
+    
+    // 创建一个新的 worker
+    const workerId = `worker-${Date.now()}`
+    const newWorker: Worker = {
+      id: workerId,
+      agentId: selectedAgent.id,
+      status: 'idle',
+      tool
+    }
+    
+    set((state) => ({
+      workers: [...state.workers, newWorker],
+      selectedWorkerId: workerId,
+      selectedAgentId: selectedAgent.id,
+      selectedTool: tool
+    }))
+    
+    return workerId
+  },
+  
+  setSelectedTool: (tool) => {
+    set({ selectedTool: tool })
   }
 }))

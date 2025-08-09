@@ -1,0 +1,244 @@
+/* Radix UI 风格主题 */
+
+@layer base {
+  :root {
+    /* 深色背景 - 更接近 Radix UI */
+    --background: 249 10% 7%;
+    --foreground: 0 0% 95%;
+    
+    /* 卡片背景 */
+    --card: 248 10% 10%;
+    --card-foreground: 0 0% 95%;
+    
+    /* 弹窗 */
+    --popover: 248 10% 12%;
+    --popover-foreground: 0 0% 95%;
+    
+    /* 主色调 - 紫色 */
+    --primary: 272 51% 54%;
+    --primary-foreground: 0 0% 98%;
+    
+    /* 次要色 */
+    --secondary: 247 7% 14%;
+    --secondary-foreground: 0 0% 90%;
+    
+    /* 静音色 */
+    --muted: 247 7% 18%;
+    --muted-foreground: 250 8% 60%;
+    
+    /* 强调色 */
+    --accent: 247 7% 22%;
+    --accent-foreground: 0 0% 95%;
+    
+    /* 警告色 */
+    --destructive: 0 70% 60%;
+    --destructive-foreground: 0 0% 98%;
+    
+    /* 边框 */
+    --border: 247 7% 14%;
+    --input: 247 7% 12%;
+    --ring: 272 51% 54%;
+    
+    /* 圆角 */
+    --radius: 0.5rem;
+  }
+
+  .light {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    
+    --primary: 263 90% 51%;
+    --primary-foreground: 0 0% 98%;
+    
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 263 90% 51%;
+  }
+}
+
+/* Radix 风格渐变背景 */
+.radix-bg {
+  background: radial-gradient(ellipse 80% 80% at 50% -20%, rgba(139, 92, 246, 0.12), transparent);
+  background-color: hsl(var(--background));
+}
+
+/* 卡片样式 */
+.radix-card {
+  background: rgba(20, 16, 29, 0.6);
+  backdrop-filter: blur(16px) saturate(1.2);
+  border: 1px solid rgba(139, 92, 246, 0.08);
+  box-shadow: 
+    0 0 0 1px rgba(139, 92, 246, 0.04),
+    0 20px 40px -8px rgba(0, 0, 0, 0.25),
+    0 8px 16px -4px rgba(0, 0, 0, 0.15);
+  position: relative;
+}
+
+.radix-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), transparent);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* 输入框样式 */
+.radix-input {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  color: rgb(20, 16, 29);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 14px;
+}
+
+.radix-input:hover:not(:focus) {
+  border-color: rgba(139, 92, 246, 0.3);
+  background: rgba(255, 255, 255, 1);
+}
+
+.radix-input:focus {
+  outline: none;
+  border-color: rgba(139, 92, 246, 0.6);
+  box-shadow: 
+    0 0 0 1px rgba(139, 92, 246, 0.6),
+    0 0 0 4px rgba(139, 92, 246, 0.1);
+  background: rgba(255, 255, 255, 1);
+}
+
+.radix-input::placeholder {
+  color: rgba(20, 16, 29, 0.4);
+}
+
+/* 按钮样式 */
+.radix-button {
+  background: linear-gradient(135deg, hsl(272 51% 54%), hsl(272 51% 48%));
+  color: white;
+  font-weight: 500;
+  font-size: 14px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    0 1px 2px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.radix-button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.1));
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.radix-button:hover::before {
+  opacity: 1;
+}
+
+.radix-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 
+    0 4px 8px rgba(139, 92, 246, 0.25),
+    0 2px 4px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.radix-button:active {
+  transform: translateY(0);
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    0 1px 2px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* 标签样式 */
+.radix-label {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* 链接样式 */
+.radix-link {
+  color: rgba(168, 139, 250, 0.9);
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  font-weight: 450;
+}
+
+.radix-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(168, 139, 250, 0.7);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.radix-link:hover {
+  color: rgba(168, 139, 250, 1);
+}
+
+.radix-link:hover::after {
+  transform: scaleX(1);
+}
+
+/* 动画 */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-slide-down {
+  animation: slideDown 0.4s ease;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease;
+}

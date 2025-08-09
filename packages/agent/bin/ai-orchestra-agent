@@ -1,0 +1,69 @@
+#!/usr/bin/env node
+
+const { AgentWorker } = require('../dist/agent-worker')
+
+// 解析命令行参数
+const args = process.argv.slice(2)
+let serverUrl = 'http://localhost:3000'
+let agentName = `Agent-${process.pid}`
+let authToken = ''
+
+// 简单的参数解析
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === '--server' || args[i] === '-s') {
+    serverUrl = args[i + 1]
+    i++
+  } else if (args[i] === '--name' || args[i] === '-n') {
+    agentName = args[i + 1]
+    i++
+  } else if (args[i] === '--key' || args[i] === '-k') {
+    authToken = args[i + 1]
+    i++
+  } else if (args[i] === '--help' || args[i] === '-h') {
+    console.log(`
+AI Orchestra Agent Worker
+
+Usage:
+  ai-orchestra-agent [options]
+
+Options:
+  -s, --server <url>   Server URL (default: http://localhost:3000)
+  -n, --name <name>    Agent name (default: Agent-<pid>)
+  -k, --key <key>      Authentication key
+  -h, --help           Show this help message
+
+Example:
+  ai-orchestra-agent --key YOUR-SECRET-KEY --server http://localhost:3000 --name "My Agent"
+`)
+    process.exit(0)
+  }
+}
+
+// 创建并启动 Agent Worker
+const worker = new AgentWorker({
+  serverUrl,
+  name: agentName,
+  token: authToken,
+  capabilities: ['claude-code', 'cursor', 'qucoder']
+})
+
+console.log('🚀 Starting AI Orchestra Agent Worker...')
+console.log(`📡 Server: ${serverUrl}`)
+console.log(`🤖 Agent: ${agentName}`)
+console.log(`🔑 Key: ${authToken ? '***' + authToken.slice(-4) : 'None'}`)
+console.log('')
+
+worker.start().catch(error => {
+  console.error('❌ Failed to start agent:', error.message)
+  process.exit(1)
+})
+
+// 优雅关闭
+process.on('SIGINT', () => {
+  console.log('\n\n👋 Received shutdown signal...')
+  worker.stop()
+})
+
+process.on('SIGTERM', () => {
+  worker.stop()
+})

@@ -8,12 +8,19 @@ import {
   MessageBody
 } from '@nestjs/websockets'
 import { Server, Socket } from 'socket.io'
+import { Inject, forwardRef } from '@nestjs/common'
+import { ModuleRef } from '@nestjs/core'
+import { AgentService } from '../services/agent.service'
+import { WorkerService } from '../services/worker.service'
+import { TaskService } from '../services/task.service'
+import { OnEvent } from '@nestjs/event-emitter'
 
-interface Agent {
+interface ConnectedAgent {
   id: string
   name: string
   socketId: string
   connectedAt: Date
+  agentId: string  // Database ID
 }
 
 interface ChatMessage {
@@ -35,26 +42,43 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server
 
-  private agents = new Map<string, Agent>()
+  private connectedAgents = new Map<string, ConnectedAgent>()
+
+  constructor(
+    @Inject(forwardRef(() => AgentService))
+    private readonly agentService: AgentService,
+    @Inject(forwardRef(() => WorkerService))
+    private readonly workerService: WorkerService,
+    @Inject(forwardRef(() => TaskService))
+    private readonly taskService: TaskService,
+    private readonly moduleRef: ModuleRef
+  ) {
+    // Services will be used for agent/worker management
+  }
 
   handleConnection(client: Socket): void {
     console.log(`Client connected: ${client.id}`)
-    
-    // Log all incoming events for debugging
-    client.onAny((eventName, ...args) => {
-      console.log(`[${client.id}] Event: ${eventName}`, args)
-    })
   }
 
-  handleDisconnect(client: Socket): void {
+  async handleDisconnect(client: Socket): Promise<void> {
     console.log(`Client disconnected: ${client.id}`)
     
-    // Remove agent if it was registered
-    for (const [agentId, agent] of this.agents.entries()) {
+    // Remove agent if it was registered and update database status
+    for (const [agentId, agent] of this.connectedAgents.entries()) {
       if (agent.socketId === client.id) {
-        this.agents.delete(agentId)
+        this.connectedAgents.delete(agentId)
+        
+        // Update database status to offline
+        try {
+          await this.agentService.updateAgentStatus(agentId, {
+            status: 'offline'
+          })
+        } catch (error) {
+          console.error(`Failed to update agent status to offline: ${agentId}`, error)
+        }
+        
         this.server.emit('agent:disconnected', { agentId })
-        console.log(`Agent ${agentId} disconnected`)
+        console.log(`Agent ${agent.name} (${agentId}) disconnected`)
         break
       }
     }
@@ -65,14 +89,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { agentId: string; name: string }
   ): void {
-    const agent: Agent = {
+    const agent: ConnectedAgent = {
       id: data.agentId,
       name: data.name,
       socketId: client.id,
-      connectedAt: new Date()
+      connectedAt: new Date(),
+      agentId: data.agentId
     }
     
-    this.agents.set(data.agentId, agent)
+    this.connectedAgents.set(data.agentId, agent)
     
     // Join agent-specific room
     client.join(`agent:${data.agentId}`)
@@ -87,9 +112,61 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     console.log(`Agent registered: ${data.agentId} (${data.name})`)
   }
 
+  @SubscribeMessage('agent:authenticate')
+  async handleAgentAuthenticate(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { name: string; secretKey: string }
+  ): Promise<void> {
+    try {
+      const agent = await this.agentService.validateAgentKey(data.secretKey)
+      
+      if (!agent || agent.name !== data.name) {
+        const reason = !agent ? 'Invalid secret key' : 'Agent name mismatch'
+        client.emit('agent:auth_failed', { message: reason })
+        console.log(`Authentication failed for ${data.name}: ${reason}`)
+        return
+      }
+
+      await this.agentService.updateAgentStatus(agent.id, {
+        status: 'connected',
+        lastSeenAt: new Date(),
+        ipAddress: client.handshake.address
+      })
+
+      const connectedAgent: ConnectedAgent = {
+        id: agent.id,
+        name: agent.name,
+        socketId: client.id,
+        connectedAt: new Date(),
+        agentId: agent.id
+      }
+      
+      this.connectedAgents.set(agent.id, connectedAgent)
+      client.join(`agent:${agent.id}`)
+      
+      client.emit('agent:authenticated', {
+        agentId: agent.id,
+        name: agent.name,
+        status: 'connected',
+        hostname: agent.hostname
+      })
+      
+      this.server.emit('agent:connected', {
+        agentId: agent.id,
+        name: agent.name,
+        connectedAt: connectedAgent.connectedAt
+      })
+      
+      console.log(`Agent authenticated: ${agent.name} (${agent.id})`)
+    } catch (error) {
+      console.error('Authentication error:', error)
+      client.emit('agent:auth_failed', { message: 'Authentication error' })
+    }
+  }
+
   @SubscribeMessage('agent:list')
-  handleAgentList(): { agents: Array<Omit<Agent, 'socketId'>> } {
-    const agentList = Array.from(this.agents.values()).map(({ socketId, ...agent }) => agent)
+  handleAgentList(): { agents: Array<Omit<ConnectedAgent, 'socketId'>> } {
+    const agentList = Array.from(this.connectedAgents.values()).map(({ socketId, ...agent }) => agent)
     return { agents: agentList }
   }
 
@@ -112,7 +189,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       })
     } else {
       // Broadcast to all agents
-      for (const agent of this.agents.values()) {
+      for (const agent of this.connectedAgents.values()) {
         this.server.to(agent.socketId).emit('chat:message', message)
       }
     }
@@ -148,7 +225,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     console.log(`Starting Worker for agent ${data.agentId}, task ${data.taskId}`)
     
     // Forward to specific agent
-    const agent = this.agents.get(data.agentId)
+    const agent = this.connectedAgents.get(data.agentId)
     if (agent) {
       this.server.to(agent.socketId).emit('worker:start', {
         taskId: data.taskId,
@@ -166,7 +243,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     console.log(`Sending input to Worker: ${data.input}`)
     
     // Forward to specific agent
-    const agent = this.agents.get(data.agentId)
+    const agent = this.connectedAgents.get(data.agentId)
     if (agent) {
       this.server.to(agent.socketId).emit('worker:input', {
         taskId: data.taskId,
@@ -204,5 +281,179 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     
     // Broadcast structured Worker messages to all web clients
     this.server.emit('worker:message', data)
+  }
+
+  // Worker Registration and Management
+  @SubscribeMessage('worker:register')
+  async handleWorkerRegister(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { 
+      workerId: string
+      name: string
+      agentId: string
+      capabilities?: string[]
+      status?: string
+      currentTask?: string
+    }
+  ): Promise<void> {
+    try {
+      // 转换 capabilities 格式
+      const registerData = {
+        workerId: data.workerId,
+        name: data.name,
+        agentId: data.agentId,
+        capabilities: data.capabilities ? {
+          supportedTools: data.capabilities,
+          maxConcurrentTasks: 1,
+          resourceLimits: {
+            maxMemory: 4096,
+            maxCpu: 100,
+            maxDiskIO: 1000
+          }
+        } : undefined
+      }
+      
+      const worker = await this.workerService.registerWorker(registerData)
+      
+      // Store worker socket mapping
+      client.data.workerId = worker.id
+      client.join(`worker:${worker.id}`)
+      
+      client.emit('worker:registered', {
+        workerId: worker.id,
+        status: 'success'
+      })
+      
+      // Notify all clients about new worker
+      this.server.emit('worker:connected', {
+        workerId: worker.id,
+        name: worker.name,
+        agentId: worker.agentId,
+        status: worker.status,
+        capabilities: worker.capabilities
+      })
+      
+      console.log(`Worker registered: ${worker.name} (${worker.id})`)
+    } catch (error) {
+      console.error('Worker registration error:', error)
+      client.emit('worker:error', { 
+        message: 'Failed to register worker',
+        error: error.message 
+      })
+    }
+  }
+
+  @SubscribeMessage('worker:heartbeat')
+  async handleWorkerHeartbeat(
+    @ConnectedSocket() _client: Socket,
+    @MessageBody() data: any
+  ): Promise<void> {
+    try {
+      await this.workerService.handleHeartbeat(data)
+    } catch (error) {
+      console.error('Worker heartbeat error:', error)
+    }
+  }
+
+  @SubscribeMessage('worker:task:complete')
+  async handleWorkerTaskComplete(
+    @ConnectedSocket() _client: Socket,
+    @MessageBody() data: {
+      taskId: string
+      workerId: string
+      result: any
+      executionTime: number
+    }
+  ): Promise<void> {
+    try {
+      await this.taskService.completeTask(data.taskId, data.result, data.executionTime)
+      
+      // Notify all clients
+      this.server.emit('task:completed', {
+        taskId: data.taskId,
+        workerId: data.workerId,
+        result: data.result
+      })
+    } catch (error) {
+      console.error('Task completion error:', error)
+    }
+  }
+
+  @SubscribeMessage('worker:task:failed')
+  async handleWorkerTaskFailed(
+    @ConnectedSocket() _client: Socket,
+    @MessageBody() data: {
+      taskId: string
+      workerId: string
+      error: string
+      executionTime?: number
+    }
+  ): Promise<void> {
+    try {
+      await this.taskService.failTask(data.taskId, data.error, data.executionTime)
+      
+      // Notify all clients
+      this.server.emit('task:failed', {
+        taskId: data.taskId,
+        workerId: data.workerId,
+        error: data.error
+      })
+    } catch (error) {
+      console.error('Task failure error:', error)
+    }
+  }
+
+  // Task Events
+  @OnEvent('task.created')
+  handleTaskCreated(task: any): void {
+    this.server.emit('task:created', task)
+  }
+
+  @OnEvent('task.assigned')
+  async handleTaskAssigned(data: { task: any; workerId: string; agentId: string }): Promise<void> {
+    // Get repository configuration if task has repositoryId
+    let repository = null
+    if (data.task.repositoryId) {
+      try {
+        const repoService = this.moduleRef.get('RepositoryService', { strict: false })
+        repository = await repoService.findOne(data.task.repositoryId)
+      } catch (error) {
+        console.error('Failed to get repository:', error)
+      }
+    }
+    
+    // Send task to specific worker
+    this.server.to(`worker:${data.workerId}`).emit('task:assign', {
+      taskId: data.task.id,
+      repository: repository ? {
+        id: repository.id,
+        name: repository.name,
+        url: repository.url,
+        branch: repository.branch,
+        credentials: repository.credentials,
+        settings: repository.settings
+      } : null,
+      command: data.task.command || 'claude',
+      args: data.task.args || [],
+      env: data.task.env || {}
+    })
+    
+    // Notify all clients
+    this.server.emit('task:assigned', data)
+  }
+
+  @OnEvent('task.started')
+  handleTaskStarted(task: any): void {
+    this.server.emit('task:started', task)
+  }
+
+  @OnEvent('task.completed')
+  handleTaskCompleted(data: any): void {
+    this.server.emit('task:completed', data)
+  }
+
+  @OnEvent('task.failed')
+  handleTaskFailed(data: any): void {
+    this.server.emit('task:failed', data)
   }
 }

@@ -1,0 +1,268 @@
+/* 科技简洁风主题样式 */
+
+@layer base {
+  :root {
+    /* 科技蓝绿色调 */
+    --background: 220 23% 5%;
+    --foreground: 210 20% 98%;
+    
+    /* 深色卡片 */
+    --card: 220 19% 8%;
+    --card-foreground: 210 20% 98%;
+    
+    /* 弹窗 */
+    --popover: 220 19% 10%;
+    --popover-foreground: 210 20% 98%;
+    
+    /* 科技蓝主色 */
+    --primary: 200 100% 50%;
+    --primary-foreground: 220 23% 5%;
+    
+    /* 次要颜色 - 青色 */
+    --secondary: 180 100% 40%;
+    --secondary-foreground: 220 23% 5%;
+    
+    /* 静音色 */
+    --muted: 220 14% 15%;
+    --muted-foreground: 220 9% 60%;
+    
+    /* 强调色 - 紫色 */
+    --accent: 280 100% 60%;
+    --accent-foreground: 220 23% 5%;
+    
+    /* 警告色 */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 20% 98%;
+    
+    /* 边框 */
+    --border: 220 13% 20%;
+    --input: 220 13% 18%;
+    --ring: 200 100% 50%;
+    
+    /* 圆角 */
+    --radius: 0.75rem;
+  }
+
+  .light {
+    --background: 210 20% 98%;
+    --foreground: 220 23% 5%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 220 23% 5%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 23% 5%;
+    
+    --primary: 200 100% 40%;
+    --primary-foreground: 210 20% 98%;
+    
+    --secondary: 180 70% 50%;
+    --secondary-foreground: 210 20% 98%;
+    
+    --muted: 210 20% 95%;
+    --muted-foreground: 220 9% 40%;
+    
+    --accent: 280 70% 50%;
+    --accent-foreground: 210 20% 98%;
+    
+    --destructive: 0 84% 50%;
+    --destructive-foreground: 210 20% 98%;
+    
+    --border: 220 13% 85%;
+    --input: 220 13% 90%;
+    --ring: 200 100% 40%;
+  }
+}
+
+/* 玻璃态效果 */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-dark {
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 渐变背景 */
+.gradient-bg {
+  background: linear-gradient(135deg, 
+    hsl(200 100% 50% / 0.1) 0%, 
+    hsl(280 100% 60% / 0.1) 100%);
+}
+
+.gradient-primary {
+  background: linear-gradient(135deg, 
+    hsl(200 100% 50%) 0%, 
+    hsl(180 100% 40%) 100%);
+}
+
+.gradient-accent {
+  background: linear-gradient(135deg, 
+    hsl(280 100% 60%) 0%, 
+    hsl(200 100% 50%) 100%);
+}
+
+/* 发光效果 */
+.glow-primary {
+  box-shadow: 0 0 20px hsl(200 100% 50% / 0.3);
+}
+
+.glow-accent {
+  box-shadow: 0 0 20px hsl(280 100% 60% / 0.3);
+}
+
+.glow-text {
+  text-shadow: 0 0 10px currentColor;
+}
+
+/* 霓虹边框 */
+.neon-border {
+  position: relative;
+  border: 1px solid transparent;
+  background: linear-gradient(hsl(var(--card)), hsl(var(--card))) padding-box,
+              linear-gradient(135deg, hsl(200 100% 50%), hsl(280 100% 60%)) border-box;
+}
+
+/* 网格背景 */
+.grid-bg {
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+/* 点阵背景 */
+.dots-bg {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* 动画 */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* 悬浮效果 */
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+/* 科技字体 */
+.tech-font {
+  font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+/* 代码字体 */
+.code-font {
+  font-family: 'JetBrains Mono', 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+}
+
+/* 扫描线效果 */
+@keyframes scan {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100vh);
+  }
+}
+
+.scan-line::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, 
+    transparent, 
+    hsl(200 100% 50% / 0.8), 
+    transparent);
+  animation: scan 3s linear infinite;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* 边框动画 */
+@keyframes border-flow {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.animated-border {
+  background: linear-gradient(90deg, 
+    hsl(200 100% 50%), 
+    hsl(280 100% 60%), 
+    hsl(200 100% 50%));
+  background-size: 200% 100%;
+  animation: border-flow 3s ease infinite;
+}
+
+/* 数据加载动画 */
+.data-loader {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid hsl(var(--primary) / 0.2);
+  border-top-color: hsl(var(--primary));
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
