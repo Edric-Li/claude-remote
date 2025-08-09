@@ -4,6 +4,7 @@ import { Repository } from 'typeorm'
 import { Session, SessionMessage } from '../entities/session.entity'
 import { RepositoryEntity } from '../entities/repository.entity'
 import { User } from '../entities/user.entity'
+import { EventEmitter2 } from '@nestjs/event-emitter'
 
 @Injectable()
 export class SessionService {
@@ -15,7 +16,8 @@ export class SessionService {
     @InjectRepository(RepositoryEntity)
     private readonly repositoryEntityRepository: Repository<RepositoryEntity>,
     @InjectRepository(User)
-    private readonly userRepository: Repository<User>
+    private readonly userRepository: Repository<User>,
+    private readonly eventEmitter: EventEmitter2
   ) {}
 
   /**
@@ -51,6 +53,19 @@ export class SessionService {
     })
 
     const savedSession = await this.sessionRepository.save(session)
+
+    // 触发仓库预克隆事件，通知所有连接的 Agent
+    this.eventEmitter.emit('repository.prepare', {
+      sessionId: savedSession.id,
+      repository: {
+        id: repository.id,
+        name: repository.name,
+        url: repository.url,
+        branch: repository.branch || 'main',
+        credentials: repository.credentials,
+        settings: repository.settings
+      }
+    })
 
     // 返回包含仓库信息的完整会话
     return {

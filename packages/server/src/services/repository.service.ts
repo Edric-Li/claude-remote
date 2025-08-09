@@ -49,6 +49,11 @@ export class RepositoryService {
     return repo
   }
 
+  async findOneWithCredentials(id: string) {
+    // 内部使用，返回包含真实凭据的仓库信息
+    return await this.repositoryRepo.findOne({ where: { id } })
+  }
+
   async update(id: string, data: Partial<RepositoryEntity>) {
     // 如果更新凭据，需要加密
     if (data.credentials && data.credentials !== '******') {

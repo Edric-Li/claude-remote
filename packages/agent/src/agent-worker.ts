@@ -43,6 +43,7 @@ export class AgentWorker {
   private spinner: ora.Ora
   private claudeWorkers: Map<string, ClaudeSDKWorker> = new Map()
   private historyReader: ClaudeHistoryReader = new ClaudeHistoryReader()
+  private taskSessionMap: Map<string, string> = new Map() // taskId -> sessionId
 
   constructor(private options: AgentWorkerOptions) {
     // 使用环境变量或默认的 agent ID（从数据库中获取的现有 agent）
@@ -125,6 +126,44 @@ export class AgentWorker {
       }, 5000)
     })
 
+    // 处理仓库准备（在会话创建时预先克隆）
+    this.socket.on('repository:prepare', async (data: { sessionId: string; repository: any }) => {
+      console.log(chalk.cyan(`\n📦 Preparing repository for session: ${data.sessionId}`))
+      console.log(chalk.blue(`Repository: ${data.repository.name} (${data.repository.url})`))
+      
+      try {
+        // 使用 RepositoryManager 预先克隆仓库到缓存
+        const cachePath = await this.repositoryManager.ensureRepository({
+          id: data.repository.id,
+          name: data.repository.name,
+          url: data.repository.url,
+          branch: data.repository.branch,
+          credentials: data.repository.credentials,
+          settings: data.repository.settings
+        })
+        
+        console.log(chalk.green(`✅ Repository cached at: ${cachePath}`))
+        
+        // 通知服务器仓库已准备就绪
+        this.socket.emit('repository:ready', {
+          sessionId: data.sessionId,
+          agentId: this.agentId,
+          repositoryId: data.repository.id,
+          cachePath: cachePath
+        })
+      } catch (error) {
+        console.error(chalk.red(`❌ Failed to prepare repository: ${error.message}`))
+        
+        // 通知服务器仓库准备失败
+        this.socket.emit('repository:prepare_failed', {
+          sessionId: data.sessionId,
+          agentId: this.agentId,
+          repositoryId: data.repository.id,
+          error: error.message
+        })
+      }
+    })
+
     // 处理任务分配
     this.socket.on('task:assign', async (task: TaskAssignment) => {
       console.log(chalk.cyan(`\n📋 Received task: ${task.taskId}`))
@@ -157,6 +196,11 @@ export class AgentWorker {
     }) => {
       console.log(chalk.cyan(`\n🚀 Starting Claude worker for task: ${data.taskId}`))
       console.log(chalk.yellow(`📝 sessionId: ${data.sessionId}, claudeSessionId: ${data.claudeSessionId}`))
+      
+      // 保存sessionId与taskId的映射关系
+      if (data.sessionId) {
+        this.taskSessionMap.set(data.taskId, data.sessionId)
+      }
       
       try {
         // 如果有仓库信息，先确保仓库被克隆
@@ -205,6 +249,8 @@ export class AgentWorker {
           console.log(chalk.green(`✅ Claude worker task completed: ${data.taskId}`))
           this.socket.emit('worker:status', {
             taskId: data.taskId,
+            sessionId: data.sessionId,
+            agentId: this.agentId,
             status: 'completed'
           })
         })
@@ -213,6 +259,8 @@ export class AgentWorker {
           console.log(chalk.green(`✅ Claude worker ready for task: ${data.taskId}`))
           this.socket.emit('worker:status', {
             taskId: data.taskId,
+            sessionId: data.sessionId,
+            agentId: this.agentId,
             status: 'started'
           })
         })
@@ -222,6 +270,8 @@ export class AgentWorker {
           console.log(chalk.blue(`🎯 System initialized: sessionId=${init.sessionId}, model=${init.model}`))
           this.socket.emit('worker:message', {
             taskId: data.taskId,
+            sessionId: data.sessionId,
+            agentId: this.agentId,
             message: {
               type: 'system',
               subtype: 'init',
@@ -237,6 +287,8 @@ export class AgentWorker {
           console.error(chalk.red(`❌ Claude worker error: ${error.message}`))
           this.socket.emit('worker:status', {
             taskId: data.taskId,
+            sessionId: data.sessionId,
+            agentId: this.agentId,
             status: 'error',
             error: error.message
           })
@@ -625,6 +677,7 @@ export class AgentWorker {
             this.socket.emit('worker:message', {
               agentId: this.agentId,
               taskId: taskId,
+              sessionId: this.taskSessionMap.get(taskId), // 添加sessionId
               message: message  // 直接发送原始助手消息
             })
             
@@ -642,6 +695,7 @@ export class AgentWorker {
       this.socket.emit('worker:tool-use', {
         agentId: this.agentId,
         taskId: taskId,
+        sessionId: this.taskSessionMap.get(taskId), // 添加sessionId
         toolUse: toolData
       })
     })
@@ -652,6 +706,7 @@ export class AgentWorker {
       this.socket.emit('worker:system-info', {
         agentId: this.agentId,
         taskId: taskId,
+        sessionId: this.taskSessionMap.get(taskId), // 添加sessionId
         info
       })
     })
@@ -662,6 +717,7 @@ export class AgentWorker {
       this.socket.emit('worker:progress', {
         agentId: this.agentId,
         taskId: taskId,
+        sessionId: this.taskSessionMap.get(taskId), // 添加sessionId
         progress
       })
     })

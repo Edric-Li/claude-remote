@@ -14,23 +14,38 @@ import { Badge } from './ui/badge'
 
 export function NewSimplifiedChatPanel() {
   const [inputValue, setInputValue] = useState('')
-  const [isProcessing, setIsProcessing] = useState(false)
   const [currentProgress, setCurrentProgress] = useState<any[]>([])
   const [currentTool, setCurrentTool] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   
   const { socket, connected } = useStore()
-  const { currentSession, addMessage, updateSession } = useSessionStore()
+  const { currentSession, addMessage, updateSession, setProcessingStatus } = useSessionStore()
   
-  // 当会话变化时，如果有 workerId 且消息为空，尝试加载历史
+  // 从session的metadata中获取isProcessing状态
+  const isProcessing = currentSession?.metadata?.isProcessing || false
+  
+  // 当会话变化时，加入/离开Socket.io房间
   useEffect(() => {
-    if (currentSession?.workerId && currentSession.messages.length === 0) {
+    if (!socket || !currentSession) return
+    
+    // 加入新会话的房间
+    socket.emit('session:join', { sessionId: currentSession.id })
+    console.log(`Joined session room: ${currentSession.id}`)
+    
+    // 如果有 workerId 且消息为空，尝试加载历史
+    if (currentSession.workerId && currentSession.messages.length === 0) {
       // 使用 setTimeout 确保 WebSocket 已连接
       setTimeout(() => {
         useSessionStoreBase.getState().loadMessages(currentSession.id)
       }, 500)
     }
-  }, [currentSession])
+    
+    // 清理函数：离开之前的会话房间
+    return () => {
+      socket.emit('session:leave', { sessionId: currentSession.id })
+      console.log(`Left session room: ${currentSession.id}`)
+    }
+  }, [currentSession?.id, socket])
   
   // 自动滚动到底部
   useEffect(() => {
@@ -45,8 +60,9 @@ export function NewSimplifiedChatPanel() {
     
     // 监听Worker消息
     const handleWorkerMessage = (data: any) => {
-      
-      if (data.agentId !== currentSession.agentId) return
+      // 由于服务器现在只发送给正确的会话房间，我们不再需要在客户端过滤
+      // 但保留agentId检查作为额外保障
+      if (data.agentId && data.agentId !== currentSession.agentId) return
       
       const { message } = data
       
@@ -77,7 +93,9 @@ export function NewSimplifiedChatPanel() {
                 usage: message.message.usage
               }
             })
-            setIsProcessing(false)
+            if (currentSession) {
+              setProcessingStatus(currentSession.id, false)
+            }
           } else {
           }
         }
@@ -106,21 +124,28 @@ export function NewSimplifiedChatPanel() {
           from: 'system',
           content: `❌ 错误: ${message.error || '未知错误'}`
         })
-        setIsProcessing(false)
+        if (currentSession) {
+          setProcessingStatus(currentSession.id, false)
+        }
       }
     }
     
     // 监听Worker状态
     const handleWorkerStatus = (data: any) => {
-      
-      if (data.agentId !== currentSession.agentId) return
+      // 由于服务器现在只发送给正确的会话房间，我们不再需要在客户端过滤
+      // 但保留agentId检查作为额外保障
+      if (data.agentId && data.agentId !== currentSession.agentId) return
       
       if (data.status === 'started') {
-        setIsProcessing(true)
+        if (currentSession) {
+          setProcessingStatus(currentSession.id, true)
+        }
         setCurrentProgress([])
         setCurrentTool(null)
       } else if (data.status === 'stopped' || data.status === 'completed' || data.status === 'error') {
-        setIsProcessing(false)
+        if (currentSession) {
+          setProcessingStatus(currentSession.id, false)
+        }
         setCurrentProgress([])
         setCurrentTool(null)
         if (data.status === 'error') {
@@ -134,8 +159,9 @@ export function NewSimplifiedChatPanel() {
     
     // 监听工具调用
     const handleToolUse = (data: any) => {
-      
-      if (data.agentId !== currentSession.agentId) return
+      // 由于服务器现在只发送给正确的会话房间，我们不再需要在客户端过滤
+      // 但保留agentId检查作为额外保障
+      if (data.agentId && data.agentId !== currentSession.agentId) return
       
       const { toolUse } = data
       setCurrentTool(toolUse.name)
@@ -149,8 +175,9 @@ export function NewSimplifiedChatPanel() {
     
     // 监听系统信息（token使用等）
     const handleSystemInfo = (data: any) => {
-      
-      if (data.agentId !== currentSession.agentId) return
+      // 由于服务器现在只发送给正确的会话房间，我们不再需要在客户端过滤
+      // 但保留agentId检查作为额外保障
+      if (data.agentId && data.agentId !== currentSession.agentId) return
       
       const { info } = data
       
@@ -163,8 +190,9 @@ export function NewSimplifiedChatPanel() {
     
     // 监听处理进度
     const handleProgress = (data: any) => {
-      
-      if (data.agentId !== currentSession.agentId) return
+      // 由于服务器现在只发送给正确的会话房间，我们不再需要在客户端过滤
+      // 但保留agentId检查作为额外保障
+      if (data.agentId && data.agentId !== currentSession.agentId) return
       
       const { progress } = data
       setCurrentProgress(prev => {
@@ -240,16 +268,17 @@ export function NewSimplifiedChatPanel() {
     socket.emit('worker:input', messageData)
     
     setInputValue('')
-    setIsProcessing(true)
+    setProcessingStatus(currentSession.id, true)
     
     // 30秒超时
     setTimeout(() => {
-      if (isProcessing) {
+      const session = useSessionStoreBase.getState().sessions.find((s: any) => s.id === currentSession.id)
+      if (session?.metadata?.isProcessing) {
         addMessage(currentSession.id, {
           from: 'system',
           content: '⚠️ 响应超时，请检查Worker状态'
         })
-        setIsProcessing(false)
+        setProcessingStatus(currentSession.id, false)
       }
     }, 30000)
   }

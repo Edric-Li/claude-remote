@@ -65,4 +65,31 @@ export class DatabaseController {
   async optimizeDatabase() {
     return this.databaseService.optimizeDatabase()
   }
+
+  /**
+   * 清除所有对话内容
+   */
+  @Delete('conversations')
+  @HttpCode(HttpStatus.OK)
+  async clearAllConversations() {
+    return this.databaseService.clearAllConversations()
+  }
+
+  /**
+   * 清除指定用户的对话内容
+   */
+  @Delete('conversations/user/:userId')
+  @HttpCode(HttpStatus.OK)
+  async clearUserConversations(@Param('userId') userId: string) {
+    return this.databaseService.clearUserConversations(userId)
+  }
+
+  /**
+   * 清除指定会话的消息
+   */
+  @Delete('conversations/session/:sessionId')
+  @HttpCode(HttpStatus.OK)
+  async clearSessionMessages(@Param('sessionId') sessionId: string) {
+    return this.databaseService.clearSessionMessages(sessionId)
+  }
 }

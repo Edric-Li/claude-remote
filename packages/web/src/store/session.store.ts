@@ -34,6 +34,7 @@ interface Session {
     tokenUsage?: number
     workerStatus?: 'idle' | 'busy'
     claudeSessionId?: string
+    isProcessing?: boolean  // 添加处理状态
   }
 }
 
@@ -70,6 +71,7 @@ interface SessionStore {
   // Worker相关
   assignWorker: (sessionId: string, workerId: string, agentId: string) => Promise<void>
   updateWorkerStatus: (sessionId: string, status: 'idle' | 'busy') => void
+  setProcessingStatus: (sessionId: string, isProcessing: boolean) => void
   
   // 持久化
   clearLocalCache: () => void
@@ -433,6 +435,22 @@ const useSessionStoreBase = create<SessionStore>()(
                   metadata: {
                     ...s.metadata,
                     workerStatus: status
+                  }
+                }
+              : s
+          )
+        }))
+      },
+      
+      setProcessingStatus: (sessionId, isProcessing) => {
+        set((state) => ({
+          sessions: state.sessions.map(s =>
+            s.id === sessionId
+              ? {
+                  ...s,
+                  metadata: {
+                    ...s.metadata,
+                    isProcessing
                   }
                 }
               : s

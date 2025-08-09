@@ -276,6 +276,134 @@ export class DatabaseService {
   }
 
   /**
+   * 清除所有对话内容
+   */
+  async clearAllConversations(): Promise<{ success: boolean; deletedSessions?: number; deletedMessages?: number; error?: string }> {
+    try {
+      // 获取删除前的统计
+      const sessionsCount = await this.dataSource.query(
+        'SELECT COUNT(*) as count FROM sessions'
+      )
+      const messagesCount = await this.dataSource.query(
+        'SELECT COUNT(*) as count FROM session_messages'
+      )
+      
+      const deletedSessions = sessionsCount[0]?.count || 0
+      const deletedMessages = messagesCount[0]?.count || 0
+      
+      // 删除所有会话消息（由于外键约束，先删除消息）
+      await this.dataSource.query('DELETE FROM session_messages')
+      
+      // 删除所有会话
+      await this.dataSource.query('DELETE FROM sessions')
+      
+      return {
+        success: true,
+        deletedSessions,
+        deletedMessages
+      }
+    } catch (error) {
+      console.error('Failed to clear conversations:', error)
+      return {
+        success: false,
+        error: error.message
+      }
+    }
+  }
+
+  /**
+   * 清除指定用户的对话内容
+   */
+  async clearUserConversations(userId: string): Promise<{ success: boolean; deletedSessions?: number; deletedMessages?: number; error?: string }> {
+    try {
+      // 获取该用户的会话ID列表
+      const userSessions = await this.dataSource.query(
+        'SELECT id FROM sessions WHERE userId = ?',
+        [userId]
+      )
+      
+      if (userSessions.length === 0) {
+        return {
+          success: true,
+          deletedSessions: 0,
+          deletedMessages: 0
+        }
+      }
+      
+      const sessionIds = userSessions.map(s => s.id)
+      const placeholders = sessionIds.map(() => '?').join(',')
+      
+      // 获取删除前的消息统计
+      const messagesCount = await this.dataSource.query(
+        `SELECT COUNT(*) as count FROM session_messages WHERE sessionId IN (${placeholders})`,
+        sessionIds
+      )
+      
+      const deletedMessages = messagesCount[0]?.count || 0
+      
+      // 删除消息（由于CASCADE设置，删除会话时消息会自动删除，但为了安全起见先删除消息）
+      await this.dataSource.query(
+        `DELETE FROM session_messages WHERE sessionId IN (${placeholders})`,
+        sessionIds
+      )
+      
+      // 删除会话
+      await this.dataSource.query(
+        'DELETE FROM sessions WHERE userId = ?',
+        [userId]
+      )
+      
+      return {
+        success: true,
+        deletedSessions: sessionIds.length,
+        deletedMessages
+      }
+    } catch (error) {
+      console.error('Failed to clear user conversations:', error)
+      return {
+        success: false,
+        error: error.message
+      }
+    }
+  }
+
+  /**
+   * 清除指定会话的消息
+   */
+  async clearSessionMessages(sessionId: string): Promise<{ success: boolean; deletedMessages?: number; error?: string }> {
+    try {
+      const messagesCount = await this.dataSource.query(
+        'SELECT COUNT(*) as count FROM session_messages WHERE sessionId = ?',
+        [sessionId]
+      )
+      
+      const deletedMessages = messagesCount[0]?.count || 0
+      
+      await this.dataSource.query(
+        'DELETE FROM session_messages WHERE sessionId = ?',
+        [sessionId]
+      )
+      
+      // 重置会话的统计信息
+      await this.dataSource.query(
+        'UPDATE sessions SET messageCount = 0, totalTokens = 0, totalCost = 0 WHERE id = ?',
+        [sessionId]
+      )
+      
+      return {
+        success: true,
+        deletedMessages
+      }
+    } catch (error) {
+      console.error('Failed to clear session messages:', error)
+      return {
+        success: false,
+        error: error.message
+      }
+    }
+  }
+
+  /**
    * 格式化文件大小
    */
   private formatFileSize(bytes: number): string {

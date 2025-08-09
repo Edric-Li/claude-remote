@@ -401,6 +401,28 @@ function DatabasePanel() {
     }
   }
 
+  const handleClearConversations = async () => {
+    if (!confirm('确定要清除所有对话内容吗？此操作不可恢复！')) {
+      return
+    }
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/database/conversations`, {
+        method: 'DELETE'
+      })
+      const result = await response.json()
+      if (result.success) {
+        alert(`清除成功！删除了 ${result.deletedSessions} 个会话，${result.deletedMessages} 条消息`)
+        fetchDatabaseInfo()
+      } else {
+        alert(`清除失败: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('Failed to clear conversations:', error)
+      alert('清除失败')
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -468,6 +490,13 @@ function DatabasePanel() {
             >
               <RefreshCw className="h-4 w-4 mr-2" />
               优化数据库
+            </Button>
+            <Button 
+              onClick={handleClearConversations} 
+              className="w-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              清除所有对话
             </Button>
           </CardContent>
         </Card>

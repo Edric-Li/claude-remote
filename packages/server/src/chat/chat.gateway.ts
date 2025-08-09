@@ -14,6 +14,7 @@ import { AgentService } from '../services/agent.service'
 import { WorkerService } from '../services/worker.service'
 import { TaskService } from '../services/task.service'
 import { SessionService } from '../services/session.service'
+import { RepositoryService } from '../services/repository.service'
 import { OnEvent } from '@nestjs/event-emitter'
 
 interface ConnectedAgent {
@@ -45,6 +46,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private connectedAgents = new Map<string, ConnectedAgent>()
   private recentMessages = new Map<string, number>() // 用于消息去重
+  private sessionClients = new Map<string, Set<string>>() // sessionId -> Set<socketId>
 
   constructor(
     @Inject(forwardRef(() => AgentService))
@@ -55,6 +57,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly taskService: TaskService,
     @Inject(forwardRef(() => SessionService))
     private readonly sessionService: SessionService,
+    @Inject(forwardRef(() => RepositoryService))
+    private readonly repositoryService: RepositoryService,
     private readonly moduleRef: ModuleRef
   ) {
     // Services will be used for agent/worker management
@@ -62,10 +66,22 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   handleConnection(client: Socket): void {
     console.log(`Client connected: ${client.id}`)
+    // 客户端将通过 session:join 消息加入特定会话
   }
 
   async handleDisconnect(client: Socket): Promise<void> {
     console.log(`Client disconnected: ${client.id}`)
+    
+    // 从所有会话中移除该客户端
+    for (const [sessionId, clients] of this.sessionClients.entries()) {
+      if (clients.has(client.id)) {
+        clients.delete(client.id)
+        if (clients.size === 0) {
+          this.sessionClients.delete(sessionId)
+        }
+        console.log(`Removed client ${client.id} from session ${sessionId}`)
+      }
+    }
     
     // Remove agent if it was registered and update database status
     for (const [agentId, agent] of this.connectedAgents.entries()) {
@@ -243,8 +259,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     let repository = null
     if (data.repositoryId) {
       try {
-        const repoService = this.moduleRef.get('RepositoryService', { strict: false })
-        repository = await repoService.findOne(data.repositoryId)
+        repository = await this.repositoryService.findOneWithCredentials(data.repositoryId)
         console.log(`Found repository: ${repository?.name}`)
       } catch (error) {
         console.error('Failed to get repository:', error)
@@ -296,27 +311,127 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('worker:output')
   handleWorkerOutput(
     @ConnectedSocket() _client: Socket,
-    @MessageBody() data: { taskId: string; output: string; outputType: 'stdout' | 'stderr' }
+    @MessageBody() data: { taskId: string; output: string; outputType: 'stdout' | 'stderr'; sessionId?: string }
   ): void {
-    // Broadcast Worker output to all web clients
-    this.server.emit('worker:output', data)
+    // 只发送给属于该会话的客户端
+    if (data.sessionId) {
+      const roomName = `session:${data.sessionId}`
+      this.server.to(roomName).emit('worker:output', data)
+    } else {
+      // 兼容性：广播给所有客户端
+      this.server.emit('worker:output', data)
+    }
+  }
+
+  @SubscribeMessage('worker:tool-use')
+  handleWorkerToolUse(
+    @ConnectedSocket() _client: Socket,
+    @MessageBody() data: { taskId: string; toolUse: any; sessionId?: string; agentId?: string }
+  ): void {
+    // 只发送给属于该会话的客户端
+    if (data.sessionId) {
+      const roomName = `session:${data.sessionId}`
+      this.server.to(roomName).emit('worker:tool-use', data)
+    } else {
+      // 兼容性：广播给所有客户端
+      this.server.emit('worker:tool-use', data)
+    }
+  }
+
+  @SubscribeMessage('worker:system-info')
+  handleWorkerSystemInfo(
+    @ConnectedSocket() _client: Socket,
+    @MessageBody() data: { taskId: string; info: any; sessionId?: string; agentId?: string }
+  ): void {
+    // 只发送给属于该会话的客户端
+    if (data.sessionId) {
+      const roomName = `session:${data.sessionId}`
+      this.server.to(roomName).emit('worker:system-info', data)
+    } else {
+      // 兼容性：广播给所有客户端
+      this.server.emit('worker:system-info', data)
+    }
+  }
+
+  @SubscribeMessage('worker:progress')
+  handleWorkerProgress(
+    @ConnectedSocket() _client: Socket,
+    @MessageBody() data: { taskId: string; progress: any; sessionId?: string; agentId?: string }
+  ): void {
+    // 只发送给属于该会话的客户端
+    if (data.sessionId) {
+      const roomName = `session:${data.sessionId}`
+      this.server.to(roomName).emit('worker:progress', data)
+    } else {
+      // 兼容性：广播给所有客户端
+      this.server.emit('worker:progress', data)
+    }
   }
 
   @SubscribeMessage('worker:status')
   handleWorkerStatus(
     @ConnectedSocket() _client: Socket,
-    @MessageBody() data: { taskId: string; status: string; error?: string; exitCode?: number }
+    @MessageBody() data: { taskId: string; status: string; error?: string; exitCode?: number; sessionId?: string; agentId?: string }
   ): void {
     console.log(`Worker status for task ${data.taskId}: ${data.status}`)
     
-    // Broadcast status to all web clients
-    this.server.emit('worker:status', data)
+    // 只发送给属于该会话的客户端
+    if (data.sessionId) {
+      const roomName = `session:${data.sessionId}`
+      this.server.to(roomName).emit('worker:status', data)
+    } else {
+      // 兼容性：如果没有sessionId，广播给所有客户端
+      this.server.emit('worker:status', data)
+    }
+  }
+
+  @SubscribeMessage('session:join')
+  handleSessionJoin(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { sessionId: string }
+  ): void {
+    if (!data.sessionId) return
+    
+    // 将客户端加入会话专用房间
+    const roomName = `session:${data.sessionId}`
+    client.join(roomName)
+    
+    // 记录客户端与会话的关联
+    if (!this.sessionClients.has(data.sessionId)) {
+      this.sessionClients.set(data.sessionId, new Set())
+    }
+    this.sessionClients.get(data.sessionId)!.add(client.id)
+    
+    console.log(`Client ${client.id} joined session ${data.sessionId}`)
+  }
+
+  @SubscribeMessage('session:leave')
+  handleSessionLeave(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { sessionId: string }
+  ): void {
+    if (!data.sessionId) return
+    
+    // 将客户端从会话房间移除
+    const roomName = `session:${data.sessionId}`
+    client.leave(roomName)
+    
+    // 更新记录
+    const clients = this.sessionClients.get(data.sessionId)
+    if (clients) {
+      clients.delete(client.id)
+      if (clients.size === 0) {
+        this.sessionClients.delete(data.sessionId)
+      }
+    }
+    
+    console.log(`Client ${client.id} left session ${data.sessionId}`)
   }
 
   @SubscribeMessage('worker:message')
   handleWorkerMessage(
     @ConnectedSocket() _client: Socket,
-    @MessageBody() data: { taskId: string; message: any; agentId?: string }
+    @MessageBody() data: { taskId: string; message: any; agentId?: string; sessionId?: string }
   ): void {
     console.log(`Worker message for task ${data.taskId}:`, data.message.type)
     
@@ -362,8 +477,16 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
     }
     
-    // Broadcast structured Worker messages to all web clients
-    this.server.emit('worker:message', data)
+    // 只发送给属于该会话的客户端
+    if (data.sessionId) {
+      const roomName = `session:${data.sessionId}`
+      this.server.to(roomName).emit('worker:message', data)
+      console.log(`Sent worker message to session ${data.sessionId}`)
+    } else {
+      // 如果没有sessionId，回退到原有的广播行为（兼容性）
+      console.warn('Worker message without sessionId, broadcasting to all')
+      this.server.emit('worker:message', data)
+    }
   }
 
   // Worker Registration and Management
@@ -498,8 +621,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     let repository = null
     if (data.task.repositoryId) {
       try {
-        const repoService = this.moduleRef.get('RepositoryService', { strict: false })
-        repository = await repoService.findOne(data.task.repositoryId)
+        repository = await this.repositoryService.findOneWithCredentials(data.task.repositoryId)
       } catch (error) {
         console.error('Failed to get repository:', error)
       }
@@ -555,6 +677,48 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @OnEvent('task.failed')
   handleTaskFailed(data: any): void {
     this.server.emit('task:failed', data)
+  }
+
+  @OnEvent('repository.prepare')
+  handleRepositoryPrepare(data: { sessionId: string; repository: any }): void {
+    // 广播给所有连接的 Agent，让它们预先克隆仓库
+    this.server.emit('repository:prepare', data)
+    console.log(`Broadcasting repository prepare for session ${data.sessionId}`)
+  }
+
+  @SubscribeMessage('repository:ready')
+  handleRepositoryReady(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: {
+      sessionId: string
+      agentId: string
+      repositoryId: string
+      cachePath: string
+    }
+  ): void {
+    console.log(`Repository ready on agent ${data.agentId} for session ${data.sessionId}`)
+    // 可以记录哪些 Agent 已经准备好了仓库，用于任务分配时的优化
+    this.server.emit('repository:status', {
+      ...data,
+      status: 'ready'
+    })
+  }
+
+  @SubscribeMessage('repository:prepare_failed')
+  handleRepositoryPrepareFailed(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: {
+      sessionId: string
+      agentId: string
+      repositoryId: string
+      error: string
+    }
+  ): void {
+    console.error(`Repository prepare failed on agent ${data.agentId}: ${data.error}`)
+    this.server.emit('repository:status', {
+      ...data,
+      status: 'failed'
+    })
   }
 
   // 处理从 Agent 获取历史记录
