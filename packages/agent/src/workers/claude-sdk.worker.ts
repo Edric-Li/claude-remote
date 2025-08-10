@@ -25,6 +25,8 @@ export class ClaudeSDKWorker extends EventEmitter {
   private status: 'idle' | 'busy' | 'error' = 'idle'
   private process: ChildProcess | null = null
   public currentMode: 'ask' | 'auto' | 'yolo' | 'plan' = 'auto'
+  private pendingPermissions: Map<string, { resolve: Function; reject: Function; toolData: any }> = new Map()
+  private isWaitingForPermission: boolean = false
 
   constructor(config: ClaudeSDKConfig) {
     super()
@@ -49,6 +51,32 @@ export class ClaudeSDKWorker extends EventEmitter {
     if (this.status !== 'idle') {
       throw new Error(`Worker is ${this.status}`)
     }
+    
+    // 如果正在等待权限确认，不允许发送新命令
+    if (this.isWaitingForPermission) {
+      console.log('[ClaudeSDKWorker] Cannot send command while waiting for permission')
+      throw new Error('Waiting for permission approval')
+    }
+
+    // Ask模式下，预先检查是否需要权限
+    if (this.currentMode === 'ask') {
+      const requiredPermissions = this.analyzeCommandForPermissions(command)
+      if (requiredPermissions.length > 0) {
+        console.log('[ClaudeSDKWorker] Detected operations requiring permission in Ask mode:', requiredPermissions)
+        
+        // 为每个需要权限的操作请求权限
+        for (const permission of requiredPermissions) {
+          const permissionGranted = await this.requestPermission(permission)
+          if (!permissionGranted) {
+            console.log('[ClaudeSDKWorker] Permission denied for:', permission.toolName)
+            this.emit('output', `❌ 权限被拒绝：${permission.description}`)
+            return
+          }
+        }
+        
+        console.log('[ClaudeSDKWorker] All permissions granted, proceeding with command')
+      }
+    }
 
     this.status = 'busy'
 
@@ -69,6 +97,20 @@ export class ClaudeSDKWorker extends EventEmitter {
       // 添加输出格式
       args.push('--output-format', 'stream-json')
       args.push('--verbose')
+
+      // 添加模式参数（如果支持）
+      if (this.currentMode && this.currentMode !== 'auto') {
+        // Claude CLI可能支持的模式参数
+        if (this.currentMode === 'ask') {
+          // Ask模式暂时不传递参数，让tool-use事件在前端处理权限
+          console.log(`[ClaudeSDKWorker] 🤔 Using ask mode - permissions will be handled by frontend`)
+        } else if (this.currentMode === 'yolo') {
+          // Yolo模式：由于Claude CLI不支持--yes参数，我们通过权限处理逻辑来实现自动确认
+          console.log(`[ClaudeSDKWorker] 🚀 Using yolo mode - auto-approving all operations`)
+        } else if (this.currentMode === 'plan') {
+          console.log(`[ClaudeSDKWorker] 📋 Using plan mode - execution will require approval`)
+        }
+      }
 
       // 注意：使用 --resume 时不能再指定 model
       // 这些参数只在创建新会话时有效
@@ -102,8 +144,13 @@ export class ClaudeSDKWorker extends EventEmitter {
       const claudeProcess = spawn('claude', args, {
         env,
         cwd: this.config.workingDirectory,
-        stdio: ['inherit', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe']
       })
+
+      // 关闭 stdin，因为 claude 命令使用 -p 参数，不需要从 stdin 读取
+      if (claudeProcess.stdin) {
+        claudeProcess.stdin.end()
+      }
 
       let sessionIdExtracted = false
 
@@ -232,6 +279,9 @@ export class ClaudeSDKWorker extends EventEmitter {
           }
         }
         
+        // 发送完整的assistant消息（包含所有内容块）
+        this.emit('assistant-message', message)
+        
         // 如果消息包含 usage 信息
         if (message.message?.usage) {
           this.emit('token-usage', {
@@ -261,6 +311,7 @@ export class ClaudeSDKWorker extends EventEmitter {
         
         // 重置状态为 idle，因为会话已完成
         this.status = 'idle'
+        this.isWaitingForPermission = false
         console.log('[ClaudeSDKWorker] Result received, status reset to idle')
         
         // 标记会话结束
@@ -307,14 +358,22 @@ export class ClaudeSDKWorker extends EventEmitter {
         break
         
       case 'tool_use':
-        // 工具调用
-        this.emit('tool-use', {
+        // 工具调用 - 在Ask模式下可能需要等待权限确认
+        const toolData = {
           id: block.id,
           name: block.name,
           input: block.input,
           timestamp: new Date()
-        })
+        }
+        
+        this.emit('tool-use', toolData)
         console.log('[ClaudeSDKWorker] Tool use:', block.name, block.input)
+        
+        // 如果是Ask模式或其他需要权限的情况，暂停处理
+        if (this.shouldWaitForPermission(toolData)) {
+          this.isWaitingForPermission = true
+          console.log('[ClaudeSDKWorker] Waiting for permission approval...')
+        }
         break
         
       case 'tool_result':
@@ -362,9 +421,166 @@ export class ClaudeSDKWorker extends EventEmitter {
   }
 
   /**
+   * 设置当前模式
+   */
+  setMode(mode: 'ask' | 'auto' | 'yolo' | 'plan'): void {
+    this.currentMode = mode
+    console.log(`[ClaudeSDKWorker] Mode set to: ${mode}`)
+  }
+
+  /**
+   * 分析命令，检测需要权限的操作
+   */
+  private analyzeCommandForPermissions(command: string): Array<{
+    toolName: string
+    description: string
+    toolInput: any
+  }> {
+    const permissions = []
+    const lowerCommand = command.toLowerCase()
+    
+    // 检测文件创建操作
+    if (lowerCommand.includes('创建') && (lowerCommand.includes('文件') || lowerCommand.includes('file'))) {
+      // 尝试提取文件名
+      const fileMatch = command.match(/([\w\-\.]+\.\w+)/)
+      const fileName = fileMatch ? fileMatch[1] : '未知文件'
+      
+      permissions.push({
+        toolName: 'Write',
+        description: `创建文件: ${fileName}`,
+        toolInput: {
+          file_path: `./${fileName}`,
+          content: '从用户输入中推断的内容'
+        }
+      })
+    }
+    
+    // 检测文件修改操作
+    if ((lowerCommand.includes('修改') || lowerCommand.includes('编辑') || lowerCommand.includes('更新')) && 
+        (lowerCommand.includes('文件') || lowerCommand.includes('file'))) {
+      permissions.push({
+        toolName: 'Edit',
+        description: '修改文件内容',
+        toolInput: {
+          file_path: '检测到的文件路径',
+          old_string: '待替换内容',
+          new_string: '新内容'
+        }
+      })
+    }
+    
+    // 检测命令执行操作
+    if (lowerCommand.includes('执行') || lowerCommand.includes('运行') || lowerCommand.includes('命令')) {
+      permissions.push({
+        toolName: 'Bash',
+        description: '执行系统命令',
+        toolInput: {
+          command: '从用户输入推断的命令',
+          description: '执行系统命令'
+        }
+      })
+    }
+    
+    return permissions
+  }
+  
+  /**
+   * 请求权限并等待用户响应
+   */
+  private async requestPermission(permission: {
+    toolName: string
+    description: string
+    toolInput: any
+  }): Promise<boolean> {
+    return new Promise((resolve) => {
+      const permissionId = uuidv4()
+      
+      // 存储待处理的权限请求
+      this.pendingPermissions.set(permissionId, {
+        resolve,
+        reject: () => resolve(false),
+        toolData: permission
+      })
+      
+      // 设置等待权限标志
+      this.isWaitingForPermission = true
+      
+      // 发送工具使用事件，触发权限对话框
+      this.emit('tool-use', {
+        id: permissionId,
+        name: permission.toolName,
+        input: permission.toolInput,
+        requiresPermission: true,
+        description: permission.description
+      })
+      
+      console.log(`[ClaudeSDKWorker] Permission requested for ${permission.toolName}: ${permission.description}`)
+    })
+  }
+  
+  /**
+   * 检查是否需要等待权限确认
+   */
+  private shouldWaitForPermission(toolData: any): boolean {
+    // 这个逻辑会在agent-worker.ts中处理，这里先标记需要权限的情况
+    return this.currentMode === 'ask' || 
+           (this.currentMode === 'auto' && this.isDangerous(toolData)) ||
+           (this.currentMode === 'plan' && !this.isReadOnly(toolData))
+  }
+  
+  /**
+   * 检查是否是危险操作（Auto模式用）
+   */
+  private isDangerous(toolData: any): boolean {
+    const dangerous = ['Write', 'Edit', 'Bash', 'MultiEdit']
+    return dangerous.includes(toolData.name)
+  }
+  
+  /**
+   * 检查是否是只读操作（Plan模式用）
+   */
+  private isReadOnly(toolData: any): boolean {
+    const readOnly = ['Read', 'Grep', 'Glob', 'LS', 'WebFetch']
+    return readOnly.includes(toolData.name)
+  }
+  
+  /**
+   * 处理权限响应
+   */
+  async handlePermissionResponse(permissionId: string, action: 'approve' | 'deny', modifiedInput?: any, reason?: string): Promise<void> {
+    console.log(`[ClaudeSDKWorker] Permission ${action} for ${permissionId}`)
+    
+    const pending = this.pendingPermissions.get(permissionId)
+    if (pending) {
+      this.pendingPermissions.delete(permissionId)
+      
+      // 重置等待权限标志
+      this.isWaitingForPermission = false
+      
+      if (action === 'approve') {
+        console.log('[ClaudeSDKWorker] Permission approved, resolving with true')
+        pending.resolve(true)
+      } else {
+        console.log('[ClaudeSDKWorker] Permission denied:', reason || 'No reason provided')
+        pending.resolve(false)
+        
+        pending.reject(new Error(reason || 'Permission denied'))
+      }
+    }
+    
+    this.isWaitingForPermission = false
+  }
+
+  /**
    * 终止 Worker
    */
   terminate() {
+    // 清理待处理的权限请求
+    for (const [id, pending] of this.pendingPermissions) {
+      pending.reject(new Error('Worker terminated'))
+    }
+    this.pendingPermissions.clear()
+    
     if (this.process && !this.process.killed) {
       this.process.kill('SIGTERM')
       setTimeout(() => {
@@ -374,6 +590,7 @@ export class ClaudeSDKWorker extends EventEmitter {
       }, 5000)
     }
     this.status = 'idle'
+    this.isWaitingForPermission = false
     this.removeAllListeners()
   }
 

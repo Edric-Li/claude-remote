@@ -2,13 +2,11 @@ import { useState, useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Send, Bot, Copy, Check, ChevronDown, ChevronUp, Settings2, Zap, Brain, Target, HelpCircle } from 'lucide-react'
-// import { ToolUseRenderer } from './ToolUseRenderer'
 import { useStore } from '../store'
 import { useSessionStore, useSessionStoreBase } from '../store/session.store'
 import { Button } from './ui/button'
-import { Input } from './ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
-// import '../styles/animations.css'
+import { InlinePermissionRequest } from './InlinePermissionRequest'
 
 // 代码块组件（带复制功能）
 const CodeBlockWithCopy: React.FC<{ code: string; language?: string }> = ({ code, language = 'text' }) => {
@@ -72,7 +70,10 @@ export function NewSimplifiedChatPanel() {
   const [showSlashCommands, setShowSlashCommands] = useState(false)
   const [filteredCommands, setFilteredCommands] = useState(slashCommands)
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0)
+  const [permissionRequest, setPermissionRequest] = useState<any>(null)
+  const [pendingPermissions, setPendingPermissions] = useState<Map<string, any>>(new Map())
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   
   const { socket, connected } = useStore()
   const { currentSession, addMessage, updateSession, setProcessingStatus } = useSessionStore()
@@ -257,16 +258,30 @@ export function NewSimplifiedChatPanel() {
       const { toolUse } = data
       setCurrentTool(toolUse.name)
       
-      // 添加工具调用到消息列表（可选，用于显示详细信息）
-      addMessage(currentSession.id, {
-        from: 'system',
-        content: `🔧 使用工具: ${toolUse.name}`,
-        metadata: {
-          type: 'tool_use',
-          tool: toolUse.name,
-          input: toolUse.input
-        } as any
-      })
+      // 如果是ask模式，需要请求权限
+      if (selectedMode === 'ask' && toolUse.requiresPermission !== false) {
+        const request = {
+          id: toolUse.id || `${Date.now()}`,
+          toolName: toolUse.name,
+          toolInput: toolUse.input,
+          timestamp: new Date().toISOString(),
+          sessionId: currentSession.id,
+          taskId: data.taskId
+        }
+        setPermissionRequest(request)
+        setPendingPermissions(prev => new Map(prev).set(request.id, request))
+      } else {
+        // 添加工具调用到消息列表（可选，用于显示详细信息）
+        addMessage(currentSession.id, {
+          from: 'system',
+          content: `🔧 使用工具: ${toolUse.name}`,
+          metadata: {
+            type: 'tool_use',
+            tool: toolUse.name,
+            input: toolUse.input
+          } as any
+        })
+      }
     }
     
     // 工具结果不再单独处理，会通过助手消息格式化显示
@@ -383,7 +398,7 @@ export function NewSimplifiedChatPanel() {
   }
   
   // 处理键盘导航
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (showSlashCommands && filteredCommands.length > 0) {
       if (e.key === 'ArrowUp') {
         e.preventDefault()
@@ -559,6 +574,77 @@ export function NewSimplifiedChatPanel() {
     
     setInputValue('')
     setShowSlashCommands(false)
+    // 重置输入框高度
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+    }
+  }
+
+  // 处理权限请求批准
+  const handlePermissionApprove = (request: any, modifiedInput?: any) => {
+    if (!socket || !currentSession) return
+    
+    // 发送权限批准到服务器
+    socket.emit('worker:permission', {
+      agentId: currentSession.agentId,
+      taskId: request.taskId,
+      sessionId: currentSession.id,
+      permissionId: request.id,
+      action: 'approve',
+      modifiedInput
+    })
+    
+    // 清除权限请求
+    setPermissionRequest(null)
+    setPendingPermissions(prev => {
+      const newMap = new Map(prev)
+      newMap.delete(request.id)
+      return newMap
+    })
+    
+    // 添加消息记录
+    addMessage(currentSession.id, {
+      from: 'system',
+      content: `✅ 已批准工具使用: ${request.toolName}`,
+      metadata: {
+        type: 'permission_granted',
+        tool: request.toolName
+      } as any
+    })
+  }
+  
+  // 处理权限请求拒绝
+  const handlePermissionDeny = (request: any, reason?: string) => {
+    if (!socket || !currentSession) return
+    
+    // 发送权限拒绝到服务器
+    socket.emit('worker:permission', {
+      agentId: currentSession.agentId,
+      taskId: request.taskId,
+      sessionId: currentSession.id,
+      permissionId: request.id,
+      action: 'deny',
+      reason
+    })
+    
+    // 清除权限请求
+    setPermissionRequest(null)
+    setPendingPermissions(prev => {
+      const newMap = new Map(prev)
+      newMap.delete(request.id)
+      return newMap
+    })
+    
+    // 添加消息记录
+    addMessage(currentSession.id, {
+      from: 'system',
+      content: `❌ 已拒绝工具使用: ${request.toolName}`,
+      metadata: {
+        type: 'permission_denied',
+        tool: request.toolName,
+        reason
+      } as any
+    })
   }
 
   const handleSend = () => {
@@ -603,6 +689,10 @@ export function NewSimplifiedChatPanel() {
     
     setInputValue('')
     setProcessingStatus(currentSession.id, true)
+    // 重置输入框高度
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+    }
     
     // 30秒超时
     setTimeout(() => {
@@ -702,43 +792,6 @@ export function NewSimplifiedChatPanel() {
                 </SelectContent>
               </Select>
             )}
-            
-            {/* 模式选择 */}
-            <Select value={selectedMode} onValueChange={(value: any) => setSelectedMode(value)}>
-              <SelectTrigger className="w-[100px] h-7 text-xs">
-                {selectedMode === 'ask' && <HelpCircle className="h-3 w-3 mr-1" />}
-                {selectedMode === 'auto' && <Settings2 className="h-3 w-3 mr-1" />}
-                {selectedMode === 'yolo' && <Zap className="h-3 w-3 mr-1" />}
-                {selectedMode === 'plan' && <Target className="h-3 w-3 mr-1" />}
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ask">
-                  <div className="flex items-center">
-                    <HelpCircle className="h-3 w-3 mr-1" />
-                    Ask模式
-                  </div>
-                </SelectItem>
-                <SelectItem value="auto">
-                  <div className="flex items-center">
-                    <Settings2 className="h-3 w-3 mr-1" />
-                    Auto模式
-                  </div>
-                </SelectItem>
-                <SelectItem value="yolo">
-                  <div className="flex items-center">
-                    <Zap className="h-3 w-3 mr-1" />
-                    Yolo模式
-                  </div>
-                </SelectItem>
-                <SelectItem value="plan">
-                  <div className="flex items-center">
-                    <Target className="h-3 w-3 mr-1" />
-                    Plan模式
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
             
             {agentLatency !== null && (
               <span className={`text-gray-500 ${
@@ -989,15 +1042,8 @@ export function NewSimplifiedChatPanel() {
       
       {/* CUI风格的输入区域 */}
       <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
-        <div className="max-w-4xl mx-auto px-6 py-4">
-          {/* 模式说明 */}
-          <div className="mb-2 text-xs text-gray-500">
-            {selectedMode === 'ask' && "Ask模式：每个操作前都会询问确认"}
-            {selectedMode === 'auto' && "Auto模式：自动执行但会等待确认关键操作"}
-            {selectedMode === 'yolo' && "Yolo模式：完全自动执行，无需确认"}
-            {selectedMode === 'plan' && "Plan模式：先制定计划，确认后执行"}
-          </div>
-          <div className="flex gap-3 items-end relative">
+        <div className="max-w-4xl mx-auto px-6 py-2">
+          <div className="flex gap-3 items-end relative border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 bg-gray-50 dark:bg-gray-900/50">
             <div className="flex-1 min-w-0">
               {/* 斜杠命令提示 */}
               {showSlashCommands && (
@@ -1022,7 +1068,8 @@ export function NewSimplifiedChatPanel() {
                   ))}
                 </div>
               )}
-              <Input
+              <textarea
+                ref={textareaRef}
                 value={inputValue}
                 onChange={(e) => handleInputChange(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -1033,25 +1080,117 @@ export function NewSimplifiedChatPanel() {
                   `向 ${toolInfo.name} 提问...`
                 }
                 disabled={!connected || !hasWorker || isProcessing}
-                className="border-0 shadow-none focus-visible:ring-0 bg-transparent text-sm placeholder:text-gray-400 px-0"
+                className="border-0 shadow-none focus:outline-none bg-transparent text-sm placeholder:text-gray-400 resize-none overflow-hidden min-h-[24px] max-h-[120px]"
+                style={{ height: 'auto' }}
+                rows={1}
+                onInput={(e) => {
+                  const target = e.target as HTMLTextAreaElement
+                  target.style.height = 'auto'
+                  target.style.height = Math.min(target.scrollHeight, 120) + 'px'
+                }}
               />
             </div>
-            <Button
-              onClick={handleSend}
-              disabled={!connected || !inputValue.trim() || !hasWorker || isProcessing}
-              variant="ghost"
-              size="sm"
-              className="p-2 h-8 w-8 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40"
-            >
-              {isProcessing ? (
-                <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <Send className="h-3 w-3" />
-              )}
-            </Button>
+            <div className="flex items-center gap-1">
+              {/* 模式选择器 */}
+              <Select value={selectedMode} onValueChange={(value: any) => setSelectedMode(value)}>
+                <SelectTrigger className="w-20 h-7 text-xs border-0 bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800">
+                  <SelectValue>
+                    {selectedMode === 'ask' && (
+                      <div className="flex items-center gap-1">
+                        <HelpCircle className="h-3 w-3" />
+                        <span>Ask</span>
+                      </div>
+                    )}
+                    {selectedMode === 'auto' && (
+                      <div className="flex items-center gap-1">
+                        <Zap className="h-3 w-3" />
+                        <span>Auto</span>
+                      </div>
+                    )}
+                    {selectedMode === 'yolo' && (
+                      <div className="flex items-center gap-1">
+                        <Target className="h-3 w-3" />
+                        <span>Yolo</span>
+                      </div>
+                    )}
+                    {selectedMode === 'plan' && (
+                      <div className="flex items-center gap-1">
+                        <Brain className="h-3 w-3" />
+                        <span>Plan</span>
+                      </div>
+                    )}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ask">
+                    <div className="flex flex-col items-start">
+                      <div className="flex items-center gap-1">
+                        <HelpCircle className="h-3 w-3" />
+                        <span>Ask</span>
+                      </div>
+                      <span className="text-xs text-gray-500 mt-0.5">每个操作前询问确认</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="auto">
+                    <div className="flex flex-col items-start">
+                      <div className="flex items-center gap-1">
+                        <Zap className="h-3 w-3" />
+                        <span>Auto</span>
+                      </div>
+                      <span className="text-xs text-gray-500 mt-0.5">自动执行，关键操作确认</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="yolo">
+                    <div className="flex flex-col items-start">
+                      <div className="flex items-center gap-1">
+                        <Target className="h-3 w-3" />
+                        <span>Yolo</span>
+                      </div>
+                      <span className="text-xs text-gray-500 mt-0.5">完全自动，无需确认</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="plan">
+                    <div className="flex flex-col items-start">
+                      <div className="flex items-center gap-1">
+                        <Brain className="h-3 w-3" />
+                        <span>Plan</span>
+                      </div>
+                      <span className="text-xs text-gray-500 mt-0.5">先制定计划，确认后执行</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Button
+                onClick={handleSend}
+                disabled={!connected || !inputValue.trim() || !hasWorker || isProcessing}
+                variant="ghost"
+                size="sm"
+                className="p-1.5 h-7 w-7 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40"
+              >
+                {isProcessing ? (
+                  <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Send className="h-3 w-3" />
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
+      
+      {/* 内联权限请求 */}
+      {permissionRequest && (
+        <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
+          <div className="max-w-4xl mx-auto px-6 py-3">
+            <InlinePermissionRequest
+              request={permissionRequest}
+              onApprove={handlePermissionApprove}
+              onDeny={handlePermissionDeny}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

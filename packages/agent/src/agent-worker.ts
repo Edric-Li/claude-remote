@@ -8,6 +8,10 @@ import { spawn } from 'child_process'
 import * as path from 'path'
 import { ClaudeSDKWorker } from './workers/claude-sdk.worker'
 import { ClaudeHistoryReader } from './services/claude-history-reader'
+import * as dotenv from 'dotenv'
+
+// 加载环境变量
+dotenv.config()
 
 interface AgentWorkerOptions {
   serverUrl: string
@@ -46,7 +50,7 @@ export class AgentWorker {
 
   constructor(private options: AgentWorkerOptions) {
     // 使用环境变量或默认的 agent ID（从数据库中获取的现有 agent）
-    this.agentId = process.env.AGENT_ID || '7db5fab9-2f91-4d74-9072-47ac34911fc6'
+    this.agentId = process.env.AGENT_ID || 'local-agent'
     this.repositoryManager = new RepositoryManager()
     this.spinner = ora('Initializing agent worker...')
     
@@ -398,6 +402,24 @@ export class AgentWorker {
       }
     })
     
+    // 处理权限请求响应
+    this.socket.on('worker:permission', async (data: {
+      agentId: string
+      taskId: string
+      sessionId: string
+      permissionId: string
+      action: 'approve' | 'deny'
+      modifiedInput?: any
+      reason?: string
+    }) => {
+      console.log(chalk.blue(`📋 Permission response received: ${data.action} for ${data.permissionId}`));
+      
+      const worker = this.claudeWorkers.get(data.taskId);
+      if (worker) {
+        await worker.handlePermissionResponse(data.permissionId, data.action, data.modifiedInput, data.reason);
+      }
+    })
+
     // 处理 Worker 输入
     this.socket.on('worker:input', async (data: {
       taskId: string
@@ -411,7 +433,6 @@ export class AgentWorker {
       }>
     }) => {
       console.log(chalk.blue(`📝 Sending input to Claude: ${data.input.substring(0, 100)}...`))
-      console.log(chalk.yellow(`🔍 Debug - sessionId: ${data.sessionId}, mode: ${data.mode}, model: ${data.model}`))
       
       const worker = this.claudeWorkers.get(data.taskId)
       if (!worker) {
@@ -426,8 +447,8 @@ export class AgentWorker {
       
       try {
         // 存储当前模式到 worker 实例
-        if (!worker.currentMode) {
-          worker.currentMode = data.mode || 'auto'
+        if (data.mode) {
+          worker.setMode(data.mode)
         }
         
         // 检查是否是用户对确认请求的回复
@@ -445,18 +466,24 @@ export class AgentWorker {
           return
         }
         
-        // 根据不同模式处理输入
+        // 在Ask模式下，直接发送输入让Claude尝试工具调用
+        // 权限检查将在前端的tool-use事件中处理
         let processedInput = data.input
         
         // 根据模式设置系统指令
         if (data.mode === 'ask') {
-          // Ask 模式：要求 Claude 在执行任何工具调用前先描述并等待确认
-          processedInput = `请遵循以下工作模式：
-1. 在使用任何工具（如创建文件、修改文件、执行命令等）之前，先告诉我你打算做什么
-2. 等待我回复"是"或"确认"后再执行
-3. 如果我回复"否"或"取消"，请停止执行并询问其他方案
+          // Ask 模式：强制工具调用，每个操作都需要权限确认
+          processedInput = `请严格遵循以下工作模式：
+**重要：你必须使用相应的工具来执行每个操作，不要仅仅描述或模拟操作结果。**
 
-现在处理这个请求：${data.input}`
+- 对于任何文件操作（创建、修改、删除），必须使用Write、Edit、MultiEdit等工具
+- 对于任何命令执行，必须使用Bash工具
+- 对于任何文件读取，必须使用Read工具
+- 即使是简单的操作，也要实际调用工具执行，不要假设结果
+
+用户请求：${data.input}
+
+请开始执行，记住：必须调用相应的工具，而不是仅仅告诉我结果。`
         } else if (data.mode === 'auto') {
           // Auto 模式：关键操作需要确认
           processedInput = `请遵循以下工作模式：
@@ -833,7 +860,6 @@ export class AgentWorker {
    */
   private setupWorkerEventListeners(worker: ClaudeSDKWorker, taskId: string): void {
     // 使用消息去重机制
-    let messageBuffer = ''
     const sentMessages = new Set() // 用于去重的消息集合
     
     // 监听助手消息事件
@@ -883,11 +909,20 @@ export class AgentWorker {
     // 监听工具调用事件
     worker.on('tool-use', (toolData) => {
       console.log(`Tool use detected:`, toolData)
+      const currentMode = worker.currentMode
+      
+      // 检查是否需要权限确认
+      const needsPermission = this.checkIfToolNeedsPermission(toolData, currentMode)
+      
       this.socket.emit('worker:tool-use', {
         agentId: this.agentId,
         taskId: taskId,
         sessionId: this.taskSessionMap.get(taskId), // 添加sessionId
-        toolUse: toolData
+        toolUse: {
+          ...toolData,
+          requiresPermission: needsPermission,
+          mode: currentMode
+        }
       })
     })
     
@@ -981,6 +1016,79 @@ export class AgentWorker {
     })
   }
 
+  /**
+   * 检查工具是否需要权限确认
+   */
+  private checkIfToolNeedsPermission(toolData: any, mode: string): boolean {
+    if (mode === 'yolo') {
+      // Yolo模式不需要任何权限
+      return false
+    }
+    
+    if (mode === 'ask') {
+      // Ask模式所有工具都需要权限
+      return true
+    }
+    
+    if (mode === 'auto') {
+      // Auto模式只有危险操作需要权限
+      return this.isDangerousOperation(toolData)
+    }
+    
+    if (mode === 'plan') {
+      // Plan模式在执行阶段需要权限
+      return this.isPlanExecutionTool(toolData)
+    }
+    
+    return false
+  }
+  
+  /**
+   * 判断是否是危险操作
+   */
+  private isDangerousOperation(toolData: any): boolean {
+    const toolName = toolData.name
+    const input = toolData.input
+    
+    // 删除文件
+    if (toolName === 'Bash' && input?.command) {
+      const cmd = input.command.toLowerCase()
+      if (cmd.includes('rm ') || cmd.includes('del ') || cmd.includes('rmdir ')) {
+        return true
+      }
+    }
+    
+    // 修改重要配置文件
+    if ((toolName === 'Edit' || toolName === 'Write') && input?.file_path) {
+      const filePath = input.file_path.toLowerCase()
+      if (filePath.includes('package.json') || filePath.includes('.env') || 
+          filePath.includes('config') || filePath.includes('.gitignore')) {
+        return true
+      }
+    }
+    
+    // Git提交操作
+    if (toolName === 'Bash' && input?.command) {
+      const cmd = input.command.toLowerCase()
+      if (cmd.includes('git commit') || cmd.includes('git push')) {
+        return true
+      }
+    }
+    
+    return false
+  }
+  
+  /**
+   * 判断是否是计划执行工具
+   */
+  private isPlanExecutionTool(toolData: any): boolean {
+    const toolName = toolData.name
+    
+    // Plan模式下，除了读取类操作，其他都需要确认
+    const readOnlyTools = ['Read', 'Grep', 'Glob', 'LS', 'WebFetch']
+    return !readOnlyTools.includes(toolName)
+  }
+
   private showHelp(): void {
     console.log(chalk.cyan('\n📚 Available Commands:'))
     console.log('  status    - Show agent status')
@@ -991,6 +1099,20 @@ export class AgentWorker {
 
   async stop(): Promise<void> {
     console.log(chalk.yellow('\n\n🛑 Shutting down agent worker...'))
+    
+    // 停止心跳
+    this.stopHeartbeat()
+    
+    // 清理所有 Claude workers
+    for (const [taskId, worker] of this.claudeWorkers) {
+      try {
+        await worker.shutdown()
+        console.log(chalk.yellow(`🛑 Shutdown worker for task: ${taskId}`))
+      } catch (error) {
+        console.error(chalk.red(`❌ Failed to shutdown worker ${taskId}: ${error.message}`))
+      }
+    }
+    this.claudeWorkers.clear()
     
     // 清理当前工作区
     if (this.currentWorkspace) {

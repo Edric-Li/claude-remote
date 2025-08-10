@@ -28,6 +28,31 @@
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--muted-foreground) / 0.3) hsl(var(--muted));
   }
+  
+  /* Animation for permission request */
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-slideUp {
+    animation: slideUp 0.2s ease-out;
+  }
+  
+  /* Custom dark gray color */
+  .bg-gray-850 {
+    background-color: rgb(23 25 35);
+  }
+  
+  .bg-gray-950 {
+    background-color: rgb(10 10 10);
+  }
 }
 
 @theme {

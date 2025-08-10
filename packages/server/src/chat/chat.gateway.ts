@@ -105,6 +105,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  /**
+   * 根据数据库ID查找连接的Agent
+   */
+  private findAgentByDatabaseId(agentId: string): ConnectedAgent | undefined {
+    return this.connectedAgents.get(agentId)
+  }
+
   @SubscribeMessage('agent:register')
   handleAgentRegister(
     @ConnectedSocket() client: Socket,
@@ -595,6 +602,30 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         message: 'Failed to register worker',
         error: error.message 
       })
+    }
+  }
+
+  @SubscribeMessage('worker:permission')
+  handleWorkerPermission(
+    @ConnectedSocket() _client: Socket,
+    @MessageBody() data: {
+      agentId: string
+      taskId: string
+      sessionId: string
+      permissionId: string
+      action: 'approve' | 'deny'
+      modifiedInput?: any
+      reason?: string
+    }
+  ): void {
+    console.log(`Permission ${data.action} for ${data.permissionId} from ${data.agentId}`)
+    
+    // 转发权限响应给对应的Agent
+    const agent = this.findAgentByDatabaseId(data.agentId)
+    if (agent) {
+      this.server.to(agent.socketId).emit('worker:permission', data)
+    } else {
+      console.error(`Agent not found for permission response: ${data.agentId}`)
     }
   }
 
