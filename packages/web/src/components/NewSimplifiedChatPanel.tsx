@@ -2,13 +2,13 @@ import { useState, useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Send, Bot, Copy, Check, ChevronDown, ChevronUp, Settings2, Zap, Brain, Target, HelpCircle } from 'lucide-react'
-import { ToolUseRenderer } from './ToolUseRenderer'
+// import { ToolUseRenderer } from './ToolUseRenderer'
 import { useStore } from '../store'
 import { useSessionStore, useSessionStoreBase } from '../store/session.store'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
-import '../styles/animations.css'
+// import '../styles/animations.css'
 
 // 代码块组件（带复制功能）
 const CodeBlockWithCopy: React.FC<{ code: string; language?: string }> = ({ code, language = 'text' }) => {
@@ -843,11 +843,14 @@ export function NewSimplifiedChatPanel() {
                         <div className="flex gap-3">
                           <div className="w-4 h-5 flex-shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <ToolUseRenderer
+                            {/* <ToolUseRenderer
                               toolName={toolName}
                               toolInput={toolInput}
                               isLoading={isProcessing && index === currentSession.messages.length - 1}
-                            />
+                            /> */}
+                            <div className="text-sm text-gray-600">
+                              工具: {toolName}
+                            </div>
                           </div>
                         </div>
                       </div>
