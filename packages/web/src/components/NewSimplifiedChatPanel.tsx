@@ -84,7 +84,7 @@ export function NewSimplifiedChatPanel() {
   // 从session的metadata中获取isProcessing状态
   const isProcessing = currentSession?.metadata?.isProcessing || false
   
-  // 当会话变化时，加入/离开Socket.io房间
+  // 当会话变化时，加入/离开Socket.io房间并加载历史
   useEffect(() => {
     if (!socket || !currentSession) return
     
@@ -92,12 +92,16 @@ export function NewSimplifiedChatPanel() {
     socket.emit('session:join', { sessionId: currentSession.id })
     console.log(`Joined session room: ${currentSession.id}`)
     
-    // 如果有 workerId 且消息为空，尝试加载历史
-    if (currentSession.workerId && currentSession.messages.length === 0) {
-      // 使用 setTimeout 确保 WebSocket 已连接
-      setTimeout(() => {
-        useSessionStoreBase.getState().loadMessages(currentSession.id)
-      }, 500)
+    // 如果有 agentId 和 claudeSessionId，尝试从Agent加载历史
+    if (currentSession.agentId && currentSession.metadata?.claudeSessionId && currentSession.messages.length === 0) {
+      console.log('Requesting history from agent...')
+      
+      // 请求历史记录
+      socket.emit('history:request', {
+        sessionId: currentSession.id,
+        agentId: currentSession.agentId,
+        claudeSessionId: currentSession.metadata.claudeSessionId
+      })
     }
     
     // 清理函数：离开之前的会话房间
@@ -137,6 +141,62 @@ export function NewSimplifiedChatPanel() {
   useEffect(() => {
     if (!socket || !currentSession) return
     
+    // 监听历史记录响应
+    const handleHistoryResponse = (data: any) => {
+      if (data.sessionId !== currentSession.id) return
+      
+      if (data.success && data.messages && data.messages.length > 0) {
+        console.log(`Received ${data.messages.length} history messages`)
+        
+        // 转换历史消息格式并添加到会话
+        data.messages.forEach((msg: any) => {
+          // 根据消息类型转换格式
+          let content = ''
+          let from: 'user' | 'assistant' | 'system' = 'system'
+          
+          if (msg.type === 'user') {
+            from = 'user'
+            // 提取用户消息内容
+            if (msg.message?.content) {
+              if (typeof msg.message.content === 'string') {
+                content = msg.message.content
+              } else if (Array.isArray(msg.message.content)) {
+                const textContent = msg.message.content.find((c: any) => c.type === 'text')
+                content = textContent?.text || ''
+              }
+            }
+          } else if (msg.type === 'assistant') {
+            from = 'assistant'
+            // 提取助手消息内容
+            if (msg.message?.content) {
+              if (typeof msg.message.content === 'string') {
+                content = msg.message.content
+              } else if (Array.isArray(msg.message.content)) {
+                const textContents = msg.message.content
+                  .filter((c: any) => c.type === 'text')
+                  .map((c: any) => c.text)
+                  .join('')
+                content = textContents
+              }
+            }
+          }
+          
+          if (content && from !== 'system') {
+            addMessage(currentSession.id, {
+              from,
+              content,
+              metadata: {
+                timestamp: msg.timestamp,
+                fromHistory: true
+              }
+            })
+          }
+        })
+      } else if (!data.success) {
+        console.error('Failed to load history:', data.error)
+      }
+    }
+    
     // 监听Worker消息
     const handleWorkerMessage = (data: any) => {
       // 由于服务器现在只发送给正确的会话房间，我们不再需要在客户端过滤
@@ -157,25 +217,19 @@ export function NewSimplifiedChatPanel() {
         
         if (textContents.length > 0) {
           const messageContent = textContents.join('')
-          // 创建消息哈希用于去重
-          const messageHash = btoa(encodeURIComponent(messageContent)).substring(0, 32)
-          
-          if (!processedMessages.current.has(messageHash)) {
-            processedMessages.current.add(messageHash)
-            
-            addMessage(currentSession.id, {
-              from: 'assistant',
-              content: messageContent,
-              metadata: {
-                tool: currentSession.aiTool,
-                workerId: currentSession.workerId,
-                usage: message.message.usage
-              }
-            })
-            if (currentSession) {
-              setProcessingStatus(currentSession.id, false)
+          // 直接添加消息，不做去重处理
+          // 去重应该在发送端（Agent）处理，而不是接收端
+          addMessage(currentSession.id, {
+            from: 'assistant',
+            content: messageContent,
+            metadata: {
+              tool: currentSession.aiTool,
+              workerId: currentSession.workerId,
+              usage: message.message.usage
             }
-          } else {
+          })
+          if (currentSession) {
+            setProcessingStatus(currentSession.id, false)
           }
         }
       } else if (message.type === 'system') {
@@ -193,7 +247,8 @@ export function NewSimplifiedChatPanel() {
                 metadata: {
                   ...currentSession.metadata,
                   claudeSessionId: message.sessionId,
-                  actualModel: message.model  // 保存Claude实际使用的模型
+                  actualModel: message.model,  // 保存Claude实际使用的模型
+                  hasShownInitMessage: true  // 标记已显示过初始化消息
                 }
               })
             } else if (message.model && message.model !== currentSession.metadata?.actualModel) {
@@ -201,15 +256,19 @@ export function NewSimplifiedChatPanel() {
               updateSession(currentSession.id, {
                 metadata: {
                   ...currentSession.metadata,
-                  actualModel: message.model
+                  actualModel: message.model,
+                  hasShownInitMessage: true  // 标记已显示过初始化消息
                 }
               })
             }
             
-            addMessage(currentSession.id, {
-              from: 'system',
-              content: `系统初始化完成 | 模型: ${message.model} | ${message.tools?.length || 0} 个工具可用`
-            })
+            // 只有第一次才显示初始化消息
+            if (!currentSession.metadata?.hasShownInitMessage) {
+              addMessage(currentSession.id, {
+                from: 'system',
+                content: `系统初始化完成 | 模型: ${message.model}`
+              })
+            }
           }
         }
       } else if (message.type === 'error') {
@@ -258,8 +317,9 @@ export function NewSimplifiedChatPanel() {
       const { toolUse } = data
       setCurrentTool(toolUse.name)
       
-      // 如果是ask模式，需要请求权限
-      if (selectedMode === 'ask' && toolUse.requiresPermission !== false) {
+      // 根据后端发送的requiresPermission标志决定是否需要权限
+      // 这个标志会根据不同模式和操作类型由后端判断
+      if (toolUse.requiresPermission === true) {
         const request = {
           id: toolUse.id || `${Date.now()}`,
           toolName: toolUse.name,
@@ -270,6 +330,7 @@ export function NewSimplifiedChatPanel() {
         }
         setPermissionRequest(request)
         setPendingPermissions(prev => new Map(prev).set(request.id, request))
+        console.log('Permission request created:', request)
       } else {
         // 添加工具调用到消息列表（可选，用于显示详细信息）
         addMessage(currentSession.id, {
@@ -321,21 +382,11 @@ export function NewSimplifiedChatPanel() {
       
       // 处理特定进度类型
       if (progress.type === 'init') {
-        // Worker初始化进度
+        // 跳过Worker初始化进度消息，不显示
         const messageKey = `init-${progress.step}`
         if (!processedInitMessages.current.has(messageKey)) {
           processedInitMessages.current.add(messageKey)
-          
-          // 添加初始化进度消息
-          addMessage(currentSession.id, {
-            from: 'system',
-            content: `${progress.message} (${progress.percentage}%)`,
-            metadata: {
-              type: 'init_progress',
-              step: progress.step,
-              percentage: progress.percentage
-            } as any
-          })
+          // 不再添加初始化进度消息到界面
         }
       } else if (progress.type === 'tool_start') {
         setCurrentTool(progress.tool)
@@ -345,6 +396,7 @@ export function NewSimplifiedChatPanel() {
     }
     
     // 确保每次只绑定一次事件监听器
+    socket.off('history:response', handleHistoryResponse)
     socket.off('worker:message', handleWorkerMessage)
     socket.off('worker:status', handleWorkerStatus)
     socket.off('worker:tool-use', handleToolUse)
@@ -352,6 +404,7 @@ export function NewSimplifiedChatPanel() {
     socket.off('worker:system-info', handleSystemInfo)
     socket.off('worker:progress', handleProgress)
     
+    socket.on('history:response', handleHistoryResponse)
     socket.on('worker:message', handleWorkerMessage)
     socket.on('worker:status', handleWorkerStatus)
     socket.on('worker:tool-use', handleToolUse)
@@ -360,6 +413,7 @@ export function NewSimplifiedChatPanel() {
     socket.on('worker:progress', handleProgress)
     
     return () => {
+      socket.off('history:response', handleHistoryResponse)
       socket.off('worker:message', handleWorkerMessage)
       socket.off('worker:status', handleWorkerStatus)
       socket.off('worker:tool-use', handleToolUse)
@@ -421,7 +475,8 @@ export function NewSimplifiedChatPanel() {
         e.preventDefault()
         setShowSlashCommands(false)
       }
-    } else if (e.key === 'Enter' && !e.shiftKey) {
+    } else if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+      // 检查是否正在使用输入法组合
       e.preventDefault()
       handleSend()
     }
@@ -694,8 +749,8 @@ export function NewSimplifiedChatPanel() {
       textareaRef.current.style.height = 'auto'
     }
     
-    // 30秒超时
-    setTimeout(() => {
+    // 60秒超时（增加超时时间，避免误报）
+    const timeoutId = setTimeout(() => {
       const session = useSessionStoreBase.getState().sessions.find((s: any) => s.id === currentSession.id)
       if (session?.metadata?.isProcessing) {
         addMessage(currentSession.id, {
@@ -704,7 +759,10 @@ export function NewSimplifiedChatPanel() {
         })
         setProcessingStatus(currentSession.id, false)
       }
-    }, 30000)
+    }, 60000)
+    
+    // 清理函数中清除超时
+    return () => clearTimeout(timeoutId)
   }
   
   if (!currentSession) {
@@ -820,7 +878,7 @@ export function NewSimplifiedChatPanel() {
       
       {/* CUI风格的消息区域 */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
-        <div className="max-w-4xl mx-auto px-6 py-6">
+        <div className="px-6 py-6">
           {currentSession.messages.length === 0 ? (
             <div className="text-center py-20">
               <Bot className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
@@ -900,7 +958,7 @@ export function NewSimplifiedChatPanel() {
                         <div className="absolute left-2 top-8 bottom-0 w-px bg-gray-200 dark:bg-gray-700 smooth-transition" />
                       )}
                       <div className="flex gap-3">
-                        <div className="w-4 h-5 flex-shrink-0 flex items-center justify-center relative mt-3.5">
+                        <div className="w-4 h-5 flex-shrink-0 flex items-center justify-center relative">
                           <div className="w-2 h-2 bg-gray-700 dark:bg-gray-300 rounded-full" />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -977,28 +1035,9 @@ export function NewSimplifiedChatPanel() {
                     )
                   }
                   
-                  // Worker初始化进度消息
+                  // Worker初始化进度消息 - 不再显示
                   if (isInitProgress) {
-                    const percentage = (message.metadata as any)?.percentage || 0
-                    // const step = (message.metadata as any)?.step
-                    
-                    return (
-                      <div key={message.id} className="text-center py-2 mb-3">
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-full text-xs">
-                          {percentage < 100 ? (
-                            <>
-                              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                              </svg>
-                              <span>{message.content}</span>
-                            </>
-                          ) : (
-                            <span>{message.content}</span>
-                          )}
-                        </div>
-                      </div>
-                    )
+                    return null  // 跳过初始化进度消息的渲染
                   }
                   
                   // 默认系统消息
@@ -1042,8 +1081,18 @@ export function NewSimplifiedChatPanel() {
       
       {/* CUI风格的输入区域 */}
       <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
-        <div className="max-w-4xl mx-auto px-6 py-2">
-          <div className="flex gap-3 items-end relative border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 bg-gray-50 dark:bg-gray-900/50">
+        <div className="px-6 py-2">
+          <div 
+            className="flex gap-3 items-end relative border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 bg-gray-50 dark:bg-gray-900/50 cursor-text"
+            onClick={(e) => {
+              // 当点击输入区域的任何地方时，聚焦到textarea
+              const target = e.target as HTMLElement
+              // 避免在点击按钮或其他控件时触发
+              if (!target.closest('button') && !target.closest('select')) {
+                textareaRef.current?.focus()
+              }
+            }}
+          >
             <div className="flex-1 min-w-0">
               {/* 斜杠命令提示 */}
               {showSlashCommands && (
@@ -1080,7 +1129,7 @@ export function NewSimplifiedChatPanel() {
                   `向 ${toolInfo.name} 提问...`
                 }
                 disabled={!connected || !hasWorker || isProcessing}
-                className="border-0 shadow-none focus:outline-none bg-transparent text-sm placeholder:text-gray-400 resize-none overflow-hidden min-h-[24px] max-h-[120px]"
+                className="w-full border-0 shadow-none focus:outline-none bg-transparent text-sm placeholder:text-gray-400 resize-none overflow-hidden min-h-[24px] max-h-[120px]"
                 style={{ height: 'auto' }}
                 rows={1}
                 onInput={(e) => {
@@ -1182,7 +1231,7 @@ export function NewSimplifiedChatPanel() {
       {/* 内联权限请求 */}
       {permissionRequest && (
         <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
-          <div className="max-w-4xl mx-auto px-6 py-3">
+          <div className="px-6 py-3">
             <InlinePermissionRequest
               request={permissionRequest}
               onApprove={handlePermissionApprove}

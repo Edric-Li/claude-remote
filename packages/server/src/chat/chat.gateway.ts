@@ -48,6 +48,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private connectedAgents = new Map<string, ConnectedAgent>()
   private recentMessages = new Map<string, number>() // 用于消息去重
   private sessionClients = new Map<string, Set<string>>() // sessionId -> Set<socketId>
+  private historyRequestMap = new Map<string, string>() // requestId -> clientId
 
   constructor(
     @Inject(forwardRef(() => AgentService))
@@ -333,6 +334,28 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  @SubscribeMessage('worker:recreate_request')
+  async handleWorkerRecreateRequest(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: {
+      taskId: string
+      sessionId: string
+      agentId: string
+    }
+  ): Promise<void> {
+    console.log(`Received worker recreate request for session ${data.sessionId}`)
+    
+    // 向Worker发送重新创建请求，包含必要的配置信息
+    const agent = this.connectedAgents.get(data.agentId)
+    if (agent) {
+      this.server.to(agent.socketId).emit('worker:recreate', {
+        taskId: data.taskId,
+        sessionId: data.sessionId,
+        model: 'claude-sonnet-4-20250514'
+      })
+    }
+  }
+  
   @SubscribeMessage('worker:input')
   async handleWorkerInput(
     @ConnectedSocket() client: Socket,
@@ -491,7 +514,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ): void {
     console.log(`Worker message for task ${data.taskId}:`, data.message.type)
     
-    // 实施消息去重机制 - 基于内容哈希
+    // 优化消息去重机制 - 基于内容哈希 + 短时间窗口
     if (data.message.type === 'assistant' && data.message.message?.content) {
       // 提取消息内容
       const textContents = []
@@ -503,33 +526,36 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       
       if (textContents.length > 0) {
         const messageContent = textContents.join('')
-        // 创建消息哈希（任务ID + 内容）
-        const messageKey = `${data.taskId}:${Buffer.from(messageContent).toString('base64').substring(0, 32)}`
+        const now = Date.now()
         
-        // 检查是否已发送过相同消息（使用内存缓存，5分钟过期）
+        // 初始化去重缓存
         if (!this.recentMessages) {
           this.recentMessages = new Map()
         }
         
-        const now = Date.now()
-        const fiveMinutesAgo = now - 5 * 60 * 1000
+        // 创建消息键：任务ID + 内容哈希
+        const messageKey = `${data.taskId}:${Buffer.from(messageContent).toString('base64').substring(0, 32)}`
+        const lastMessageTime = this.recentMessages.get(messageKey)
         
-        // 清理过期消息
+        // 只阻止15秒内的相同消息（防止真正的重复发送）
+        const duplicateThreshold = 15 * 1000 // 15秒
+        if (lastMessageTime && (now - lastMessageTime) < duplicateThreshold) {
+          console.log(`Duplicate assistant message blocked (within ${duplicateThreshold/1000}s) for task ${data.taskId}`)
+          return
+        }
+        
+        // 记录当前消息时间
+        this.recentMessages.set(messageKey, now)
+        
+        // 清理过期条目（超过5分钟的记录）
+        const cleanupThreshold = 5 * 60 * 1000 // 5分钟
         for (const [key, timestamp] of this.recentMessages.entries()) {
-          if (timestamp < fiveMinutesAgo) {
+          if ((now - timestamp) > cleanupThreshold) {
             this.recentMessages.delete(key)
           }
         }
         
-        // 检查重复消息
-        if (this.recentMessages.has(messageKey)) {
-          console.log(`Duplicate assistant message detected and blocked for task ${data.taskId}`)
-          return // 直接返回，不转发重复消息
-        }
-        
-        // 记录消息哈希
-        this.recentMessages.set(messageKey, now)
-        console.log(`Unique assistant message forwarded for task ${data.taskId}`)
+        console.log(`Assistant message forwarded for task ${data.taskId}`)
       }
     }
     
@@ -800,7 +826,54 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     })
   }
 
-  // 处理从 Agent 获取历史记录
+  // 处理历史记录请求
+  @SubscribeMessage('history:request')
+  handleHistoryRequest(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: {
+      sessionId: string
+      agentId?: string
+      claudeSessionId?: string
+    }
+  ): void {
+    const requestId = `history-${Date.now()}-${Math.random()}`
+    
+    // 如果提供了agentId，直接转发给对应的agent
+    if (data.agentId) {
+      const agent = this.connectedAgents.get(data.agentId)
+      if (agent) {
+        // 转发请求给agent
+        this.server.to(agent.socketId).emit('history:request', {
+          requestId,
+          sessionId: data.sessionId,
+          claudeSessionId: data.claudeSessionId
+        })
+        
+        // 记录请求来源，用于响应路由
+        this.historyRequestMap.set(requestId, client.id)
+      } else {
+        // Agent不在线
+        client.emit('history:response', {
+          requestId,
+          sessionId: data.sessionId,
+          messages: [],
+          success: false,
+          error: 'Agent not connected'
+        })
+      }
+    } else {
+      // 没有agentId，返回错误
+      client.emit('history:response', {
+        requestId,
+        sessionId: data.sessionId,
+        messages: [],
+        success: false,
+        error: 'No agent specified'
+      })
+    }
+  }
+  
+  // 处理从 Agent 获取历史记录响应
   @SubscribeMessage('history:response')
   handleHistoryResponse(
     @ConnectedSocket() _client: Socket,
@@ -812,8 +885,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       error?: string
     }
   ): void {
-    // 转发给请求的客户端
-    this.server.emit('history:data', data)
+    // 根据requestId找到原始请求者并转发响应
+    const requesterId = this.historyRequestMap.get(data.requestId)
+    if (requesterId) {
+      const requesterSocket = this.server.sockets.sockets.get(requesterId)
+      if (requesterSocket) {
+        requesterSocket.emit('history:response', data)
+      }
+      // 清理映射
+      this.historyRequestMap.delete(data.requestId)
+    } else {
+      // 如果找不到特定请求者，广播给会话房间
+      this.server.to(`session-${data.sessionId}`).emit('history:response', data)
+    }
   }
 
   // 处理会话列表响应

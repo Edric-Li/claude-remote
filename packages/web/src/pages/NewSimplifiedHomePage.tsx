@@ -192,10 +192,7 @@ export function NewSimplifiedHomePage() {
         if (status.taskId !== workerId) return
         
         if (status.status === 'started') {
-          addMessage(session.id, {
-            from: 'system',
-            content: `✅ ${data.aiTool} 已就绪，可以开始对话了！`
-          })
+          // 不再显示就绪消息
         } else if (status.status === 'error') {
           addMessage(session.id, {
             from: 'system',

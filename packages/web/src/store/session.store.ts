@@ -308,15 +308,16 @@ const useSessionStoreBase = create<SessionStore>()(
         get().updateSession(sessionId, { name: newName })
       },
       
-      // 添加消息 - 仅更新本地状态，不再同步到数据库
+      // 添加消息 - 更新本地状态并同步到数据库
       addMessage: async (sessionId, message) => {
-        // 只更新本地状态用于显示
+        // 创建新消息
         const newMessage: Message = {
           ...message,
           id: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           timestamp: new Date()
         }
         
+        // 立即更新本地状态用于显示
         set((state) => ({
           sessions: state.sessions.map(s =>
             s.id === sessionId
@@ -332,13 +333,94 @@ const useSessionStoreBase = create<SessionStore>()(
           )
         }))
         
-        // 不再同步到数据库，Claude 会自动保存到本地历史
+        // 异步保存到数据库
+        try {
+          const authStorage = localStorage.getItem('auth-storage')
+          const authState = authStorage ? JSON.parse(authStorage) : null
+          const token = authState?.state?.accessToken
+          
+          const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/messages`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              from: message.from,
+              content: message.content,
+              metadata: message.metadata
+            })
+          })
+          
+          if (!response.ok) {
+            console.error('Failed to save message to database:', response.status)
+          } else {
+            const savedMessage = await response.json()
+            // 更新消息ID为服务器返回的ID
+            set((state) => ({
+              sessions: state.sessions.map(s =>
+                s.id === sessionId
+                  ? {
+                      ...s,
+                      messages: s.messages.map(m =>
+                        m.id === newMessage.id
+                          ? { ...m, id: savedMessage.id }
+                          : m
+                      )
+                    }
+                  : s
+              )
+            }))
+          }
+        } catch (error) {
+          console.error('Failed to save message:', error)
+        }
       },
       
-      // 加载消息历史 - 从 Agent 端获取 Claude 本地历史
+      // 加载消息历史 - 先从数据库加载，如果没有再从 Agent 端获取 Claude 本地历史
       loadMessages: async (sessionId) => {
+        try {
+          // 先尝试从数据库加载消息
+          const authStorage = localStorage.getItem('auth-storage')
+          const authState = authStorage ? JSON.parse(authStorage) : null
+          const token = authState?.state?.accessToken
+          
+          const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/messages`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          })
+          
+          if (response.ok) {
+            const messages = await response.json()
+            
+            if (messages && messages.length > 0) {
+              // 如果数据库有消息，使用数据库的消息
+              set((state) => ({
+                sessions: state.sessions.map(s =>
+                  s.id === sessionId
+                    ? {
+                        ...s,
+                        messages: messages.map((m: any) => ({
+                          id: m.id,
+                          from: m.from,
+                          content: m.content,
+                          timestamp: new Date(m.createdAt),
+                          metadata: m.metadata
+                        }))
+                      }
+                    : s
+                )
+              }))
+              return // 数据库有消息，直接返回
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load messages from database:', error)
+        }
         
-        // 从 store 获取当前会话的 worker 信息
+        // 如果数据库没有消息，尝试从 Agent 端获取 Claude 本地历史
         const session = get().sessions.find(s => s.id === sessionId)
         if (!session || !session.workerId) {
           return

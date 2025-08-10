@@ -8,6 +8,7 @@ import { spawn } from 'child_process'
 import * as path from 'path'
 import { ClaudeSDKWorker } from './workers/claude-sdk.worker'
 import { ClaudeHistoryReader } from './services/claude-history-reader'
+import { ClaudeHistoryService } from './services/claude-history.service'
 import * as dotenv from 'dotenv'
 
 // 加载环境变量
@@ -43,10 +44,13 @@ export class AgentWorker {
   private spinner: ora.Ora
   private claudeWorkers: Map<string, ClaudeSDKWorker> = new Map()
   private historyReader: ClaudeHistoryReader = new ClaudeHistoryReader()
+  private historyService: ClaudeHistoryService = new ClaudeHistoryService()
   private taskSessionMap: Map<string, string> = new Map() // taskId -> sessionId
+  private sessionWorkerMap: Map<string, string> = new Map() // sessionId -> taskId (for recovery)
   private claudeConfig: ClaudeConfig | null = null // 存储从服务器获取的配置
   private latency: number = 0 // 存储当前延迟
   private heartbeatInterval: NodeJS.Timeout | null = null // 心跳定时器
+  private workerHealthCheck: NodeJS.Timeout | null = null // Worker健康检查定时器
 
   constructor(private options: AgentWorkerOptions) {
     // 使用环境变量或默认的 agent ID（从数据库中获取的现有 agent）
@@ -105,6 +109,9 @@ export class AgentWorker {
       
       // 启动心跳机制
       this.startHeartbeat()
+      
+      // 启动Worker健康检查
+      this.startWorkerHealthCheck()
     })
 
     // 处理认证失败
@@ -125,6 +132,8 @@ export class AgentWorker {
       this.spinner.start('Reconnecting...')
       // 停止心跳
       this.stopHeartbeat()
+      // 停止Worker健康检查
+      this.stopWorkerHealthCheck()
     })
     
     // 处理服务器的pong响应
@@ -217,9 +226,10 @@ export class AgentWorker {
       console.log(chalk.cyan(`\n🚀 Starting Claude worker for task: ${data.taskId}`))
       console.log(chalk.yellow(`📝 sessionId: ${data.sessionId}, claudeSessionId: ${data.claudeSessionId}`))
       
-      // 保存sessionId与taskId的映射关系
+      // 保存sessionId与taskId的双向映射关系
       if (data.sessionId) {
         this.taskSessionMap.set(data.taskId, data.sessionId)
+        this.sessionWorkerMap.set(data.sessionId, data.taskId)
       }
       
       try {
@@ -381,7 +391,12 @@ export class AgentWorker {
           
           // 保存 Worker 实例 - 只有在成功启动后才保存
           this.claudeWorkers.set(data.taskId, worker)
-          console.log(chalk.green(`✅ Worker saved for task: ${data.taskId}`))
+          console.log(chalk.green(`✅ Worker saved for task: ${data.taskId} (total: ${this.claudeWorkers.size})`))
+          
+          // 更新映射关系
+          if (data.sessionId) {
+            this.sessionWorkerMap.set(data.sessionId, data.taskId)
+          }
         } catch (spawnError) {
           console.error(chalk.red(`❌ Failed to spawn Claude process: ${spawnError.message}`))
           throw spawnError
@@ -434,14 +449,44 @@ export class AgentWorker {
     }) => {
       console.log(chalk.blue(`📝 Sending input to Claude: ${data.input.substring(0, 100)}...`))
       
-      const worker = this.claudeWorkers.get(data.taskId)
+      // 尝试通过taskId找Worker，如果找不到尝试通过sessionId恢复
+      let worker = this.claudeWorkers.get(data.taskId)
+      if (!worker && data.sessionId) {
+        // 尝试通过sessionId找到对应的taskId
+        const existingTaskId = this.sessionWorkerMap.get(data.sessionId)
+        if (existingTaskId) {
+          worker = this.claudeWorkers.get(existingTaskId)
+          if (worker) {
+            console.log(chalk.yellow(`📝 Found worker by sessionId mapping: ${existingTaskId}`))
+            // 更新taskId映射
+            this.claudeWorkers.set(data.taskId, worker)
+            this.claudeWorkers.delete(existingTaskId)
+            this.taskSessionMap.set(data.taskId, data.sessionId)
+          }
+        }
+      }
+      
       if (!worker) {
-        console.error(chalk.red(`❌ No worker found for task: ${data.taskId}`))
-        this.socket.emit('worker:status', {
-          taskId: data.taskId,
-          status: 'error',
-          error: 'Worker not found'
-        })
+        console.error(chalk.red(`❌ No worker found for task: ${data.taskId} (session: ${data.sessionId})`))
+        console.log(chalk.yellow(`📊 Active workers: ${Array.from(this.claudeWorkers.keys()).join(', ')}`))
+        console.log(chalk.yellow(`📊 Session mappings: ${Array.from(this.sessionWorkerMap.entries()).map(([s,t]) => `${s}->${t}`).join(', ')}`))
+        
+        // 尝试重新创建Worker
+        if (data.sessionId && data.conversationHistory) {
+          console.log(chalk.yellow(`🔄 Attempting to recreate worker for session: ${data.sessionId}`))
+          this.socket.emit('worker:recreate_request', {
+            taskId: data.taskId,
+            sessionId: data.sessionId,
+            agentId: this.agentId
+          })
+        } else {
+          this.socket.emit('worker:status', {
+            taskId: data.taskId,
+            sessionId: data.sessionId,
+            status: 'error',
+            error: 'Worker not found - please restart the conversation'
+          })
+        }
         return
       }
       
@@ -472,41 +517,20 @@ export class AgentWorker {
         
         // 根据模式设置系统指令
         if (data.mode === 'ask') {
-          // Ask 模式：强制工具调用，每个操作都需要权限确认
-          processedInput = `请严格遵循以下工作模式：
-**重要：你必须使用相应的工具来执行每个操作，不要仅仅描述或模拟操作结果。**
-
-- 对于任何文件操作（创建、修改、删除），必须使用Write、Edit、MultiEdit等工具
-- 对于任何命令执行，必须使用Bash工具
-- 对于任何文件读取，必须使用Read工具
-- 即使是简单的操作，也要实际调用工具执行，不要假设结果
-
-用户请求：${data.input}
-
-请开始执行，记住：必须调用相应的工具，而不是仅仅告诉我结果。`
+          // Ask 模式：直接传递用户请求，每个工具调用都会请求权限
+          processedInput = data.input
         } else if (data.mode === 'auto') {
-          // Auto 模式：关键操作需要确认
-          processedInput = `请遵循以下工作模式：
-- 对于一般操作（读取文件、搜索等）可以直接执行
-- 对于以下关键操作需要先询问确认：
-  • 删除文件或目录
-  • 修改重要配置文件（package.json、.env等）
-  • 执行可能有破坏性的命令
-  • 提交代码到版本控制
-
-现在处理这个请求：${data.input}`
+          // Auto 模式：直接传递用户请求，让Claude自然使用工具
+          // 权限检查会在工具调用时由系统处理
+          processedInput = data.input
         } else if (data.mode === 'yolo') {
-          // Yolo 模式：直接执行所有操作
-          processedInput = `请直接执行所有必要的操作，无需确认。现在处理：${data.input}`
+          // Yolo 模式：直接传递请求，不会触发权限确认
+          processedInput = data.input
         } else if (data.mode === 'plan') {
-          // Plan 模式：先制定计划
-          processedInput = `请遵循以下工作模式：
-1. 先分析需求并制定详细的执行计划
-2. 列出所有需要执行的步骤（使用编号列表）
-3. 等待我确认计划后再开始执行
-4. 如果我要求修改计划，请调整后重新展示
+          // Plan 模式：添加计划指令
+          processedInput = `请先制定详细的执行计划，列出所有需要执行的步骤，但不要执行。等待确认后再开始执行。
 
-现在为这个请求制定计划：${data.input}`
+用户请求：${data.input}`
         }
         
         // 如果指定了模型，记录日志
@@ -529,6 +553,41 @@ export class AgentWorker {
       }
     })
     
+    // 处理历史记录请求
+    this.socket.on('history:request', async (data: {
+      requestId: string
+      sessionId: string
+      claudeSessionId?: string
+    }) => {
+      console.log(chalk.blue(`📖 History request for session: ${data.sessionId}`))
+      
+      try {
+        // 尝试使用 Claude sessionId 获取历史
+        const targetSessionId = data.claudeSessionId || data.sessionId
+        const messages = await this.historyService.getConversationHistory(targetSessionId)
+        
+        // 发送历史记录响应
+        this.socket.emit('history:response', {
+          requestId: data.requestId,
+          sessionId: data.sessionId,
+          messages: messages,
+          success: true
+        })
+        
+        console.log(chalk.green(`✅ Sent ${messages.length} messages for session: ${data.sessionId}`))
+      } catch (error) {
+        console.error(chalk.red(`❌ Failed to get history: ${error.message}`))
+        
+        this.socket.emit('history:response', {
+          requestId: data.requestId,
+          sessionId: data.sessionId,
+          messages: [],
+          success: false,
+          error: error.message
+        })
+      }
+    })
+    
     // 处理 Worker 停止请求
     this.socket.on('worker:stop', async (data: {
       taskId: string
@@ -540,6 +599,13 @@ export class AgentWorker {
         await worker.shutdown()
         this.claudeWorkers.delete(data.taskId)
         
+        // 清理映射关系
+        const sessionId = this.taskSessionMap.get(data.taskId)
+        if (sessionId) {
+          this.sessionWorkerMap.delete(sessionId)
+          this.taskSessionMap.delete(data.taskId)
+        }
+        
         // 清理工作区
         if (this.currentWorkspace && this.currentWorkspace.id.startsWith(data.taskId)) {
           console.log(chalk.yellow(`🧹 Cleaning up workspace for task: ${data.taskId}`))
@@ -550,6 +616,66 @@ export class AgentWorker {
         this.socket.emit('worker:status', {
           taskId: data.taskId,
           status: 'stopped'
+        })
+      }
+    })
+    
+    // 处理Worker重新创建请求
+    this.socket.on('worker:recreate', async (data: {
+      taskId: string
+      sessionId: string
+      claudeConfig?: ClaudeConfig
+      model?: string
+      workingDirectory?: string
+      repository?: RepositoryConfig
+    }) => {
+      console.log(chalk.cyan(`🔄 Recreating worker for session: ${data.sessionId}`))
+      
+      // 如果已存在旧的Worker，先清理
+      const oldTaskId = this.sessionWorkerMap.get(data.sessionId)
+      if (oldTaskId && this.claudeWorkers.has(oldTaskId)) {
+        const oldWorker = this.claudeWorkers.get(oldTaskId)
+        await oldWorker?.shutdown()
+        this.claudeWorkers.delete(oldTaskId)
+      }
+      
+      // 创建新的Worker
+      try {
+        const worker = new ClaudeSDKWorker({
+          workingDirectory: data.workingDirectory || process.cwd(),
+          apiKey: data.claudeConfig?.authToken || process.env.ANTHROPIC_API_KEY,
+          baseUrl: data.claudeConfig?.baseUrl,
+          model: data.model || 'claude-sonnet-4-20250514',
+          sessionId: data.sessionId
+        })
+        
+        // 设置事件监听器
+        this.setupWorkerEventListeners(worker, data.taskId)
+        
+        // 启动Worker
+        await worker.spawn()
+        
+        // 保存Worker和映射
+        this.claudeWorkers.set(data.taskId, worker)
+        this.taskSessionMap.set(data.taskId, data.sessionId)
+        this.sessionWorkerMap.set(data.sessionId, data.taskId)
+        
+        console.log(chalk.green(`✅ Worker recreated for session: ${data.sessionId}`))
+        
+        this.socket.emit('worker:status', {
+          taskId: data.taskId,
+          sessionId: data.sessionId,
+          agentId: this.agentId,
+          status: 'reconnected'
+        })
+      } catch (error) {
+        console.error(chalk.red(`❌ Failed to recreate worker: ${error.message}`))
+        this.socket.emit('worker:status', {
+          taskId: data.taskId,
+          sessionId: data.sessionId,
+          agentId: this.agentId,
+          status: 'error',
+          error: error.message
         })
       }
     })
@@ -854,14 +980,58 @@ export class AgentWorker {
       this.heartbeatInterval = null
     }
   }
+  
+  /**
+   * 启动Worker健康检查
+   */
+  private startWorkerHealthCheck(): void {
+    // 先停止现有的健康检查
+    this.stopWorkerHealthCheck()
+    
+    // 每10秒检查一次Worker健康状态
+    this.workerHealthCheck = setInterval(() => {
+      const activeWorkers = this.claudeWorkers.size
+      const activeSessions = this.sessionWorkerMap.size
+      
+      if (activeWorkers > 0) {
+        console.log(chalk.cyan(`🏥 Worker health check: ${activeWorkers} workers, ${activeSessions} sessions`))
+        
+        // 检查每个Worker是否响应
+        for (const [taskId, worker] of this.claudeWorkers) {
+          try {
+            const sessionId = worker.getSessionId()
+            if (!sessionId) {
+              console.log(chalk.yellow(`⚠️ Worker ${taskId} has no sessionId`))
+            }
+          } catch (error) {
+            console.error(chalk.red(`❌ Worker ${taskId} health check failed: ${error.message}`))
+            // 清理失败的Worker
+            this.claudeWorkers.delete(taskId)
+            const sessionId = this.taskSessionMap.get(taskId)
+            if (sessionId) {
+              this.sessionWorkerMap.delete(sessionId)
+              this.taskSessionMap.delete(taskId)
+            }
+          }
+        }
+      }
+    }, 10000)
+  }
+  
+  /**
+   * 停止Worker健康检查
+   */
+  private stopWorkerHealthCheck(): void {
+    if (this.workerHealthCheck) {
+      clearInterval(this.workerHealthCheck)
+      this.workerHealthCheck = null
+    }
+  }
 
   /**
    * 设置Worker事件监听器
    */
   private setupWorkerEventListeners(worker: ClaudeSDKWorker, taskId: string): void {
-    // 使用消息去重机制
-    const sentMessages = new Set() // 用于去重的消息集合
-    
     // 监听助手消息事件
     worker.on('assistant-message', (message) => {
       // 创建消息内容的哈希来去重
@@ -877,31 +1047,25 @@ export class AgentWorker {
           .join('')
         
         if (textContent.trim()) {
-          const messageHash = Buffer.from(textContent.trim()).toString('base64').substring(0, 32)
+          console.log(`Sending assistant message:`, textContent.substring(0, 100) + '...')
           
-          if (!sentMessages.has(messageHash)) {
-            console.log(`Sending unique assistant message (hash: ${messageHash}):`, textContent.substring(0, 100) + '...')
-            
-            // 创建清理后的消息对象，只包含文本内容
-            const cleanedMessage = {
-              ...message,
-              message: {
-                ...message.message,
-                content: filteredContent
-              }
+          // 创建清理后的消息对象，只包含文本内容
+          const cleanedMessage = {
+            ...message,
+            message: {
+              ...message.message,
+              content: filteredContent
             }
-            
-            this.socket.emit('worker:message', {
-              agentId: this.agentId,
-              taskId: taskId,
-              sessionId: this.taskSessionMap.get(taskId), // 添加sessionId
-              message: cleanedMessage  // 发送清理后的消息
-            })
-            
-            sentMessages.add(messageHash)
-          } else {
-            console.log(`Duplicate assistant message detected and skipped (hash: ${messageHash})`)
           }
+          
+          // 直接发送消息，不做去重
+          // 每个消息都应该被发送，即使内容相同
+          this.socket.emit('worker:message', {
+            agentId: this.agentId,
+            taskId: taskId,
+            sessionId: this.taskSessionMap.get(taskId), // 添加sessionId
+            message: cleanedMessage  // 发送清理后的消息
+          })
         }
       }
     })
@@ -1050,27 +1214,31 @@ export class AgentWorker {
     const toolName = toolData.name
     const input = toolData.input
     
-    // 删除文件
+    // Write操作 - 创建新文件需要确认
+    if (toolName === 'Write') {
+      return true
+    }
+    
+    // Edit操作 - 修改文件需要确认
+    if (toolName === 'Edit' || toolName === 'MultiEdit') {
+      return true
+    }
+    
+    // 删除文件操作
     if (toolName === 'Bash' && input?.command) {
       const cmd = input.command.toLowerCase()
       if (cmd.includes('rm ') || cmd.includes('del ') || cmd.includes('rmdir ')) {
         return true
       }
-    }
-    
-    // 修改重要配置文件
-    if ((toolName === 'Edit' || toolName === 'Write') && input?.file_path) {
-      const filePath = input.file_path.toLowerCase()
-      if (filePath.includes('package.json') || filePath.includes('.env') || 
-          filePath.includes('config') || filePath.includes('.gitignore')) {
+      
+      // Git提交操作
+      if (cmd.includes('git commit') || cmd.includes('git push')) {
         return true
       }
-    }
-    
-    // Git提交操作
-    if (toolName === 'Bash' && input?.command) {
-      const cmd = input.command.toLowerCase()
-      if (cmd.includes('git commit') || cmd.includes('git push')) {
+      
+      // npm/yarn安装操作
+      if (cmd.includes('npm install') || cmd.includes('yarn add') || 
+          cmd.includes('pip install') || cmd.includes('apt-get install')) {
         return true
       }
     }
@@ -1102,6 +1270,9 @@ export class AgentWorker {
     
     // 停止心跳
     this.stopHeartbeat()
+    
+    // 停止Worker健康检查
+    this.stopWorkerHealthCheck()
     
     // 清理所有 Claude workers
     for (const [taskId, worker] of this.claudeWorkers) {
