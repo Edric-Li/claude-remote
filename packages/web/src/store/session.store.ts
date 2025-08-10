@@ -56,6 +56,7 @@ interface SessionStore {
     repositoryName: string
     aiTool: string
     branch?: string
+    metadata?: any  // 添加metadata参数
   }) => Promise<Session>
   
   loadSessions: () => Promise<void>
@@ -107,7 +108,8 @@ const useSessionStoreBase = create<SessionStore>()(
               repositoryId: data.repositoryId,
               aiTool: data.aiTool,
               metadata: {
-                branch: data.branch
+                branch: data.branch,
+                ...(data.metadata || {})  // 合并传入的metadata
               }
             })
           })
@@ -151,7 +153,8 @@ const useSessionStoreBase = create<SessionStore>()(
                       repositoryId: data.repositoryId,
                       aiTool: data.aiTool,
                       metadata: {
-                        branch: data.branch
+                        branch: data.branch,
+                        ...(data.metadata || {})  // 合并传入的metadata
                       }
                     })
                   })

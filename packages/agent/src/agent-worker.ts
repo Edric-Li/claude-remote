@@ -204,6 +204,7 @@ export class AgentWorker {
       sessionId?: string
       claudeSessionId?: string  // Claude的真实会话ID
       repository?: RepositoryConfig
+      model?: string  // 添加模型参数
       conversationHistory?: Array<{
         role: 'human' | 'assistant'
         content: string
@@ -260,10 +261,7 @@ export class AgentWorker {
           workingDirectory: workingDirectory,  // 使用仓库的工作目录
           apiKey: data.claudeConfig?.authToken || process.env.ANTHROPIC_API_KEY,
           baseUrl: data.claudeConfig?.baseUrl,
-          model: 'claude-sonnet-4-20250514',  // 使用固定的默认模型
-          maxTokens: 4000,  // 使用固定的默认值
-          temperature: 0.7,  // 使用固定的默认值
-          timeout: 30000,  // 使用固定的默认值
+          model: data.model || 'claude-sonnet-4-20250514',  // 使用传递的模型或默认模型
           sessionId: data.claudeSessionId || undefined,  // 使用Claude的sessionId用于恢复
           conversationHistory: data.conversationHistory
         })

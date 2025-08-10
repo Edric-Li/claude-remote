@@ -277,6 +277,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       claudeSessionId?: string;
       repositoryId?: string;
       repositoryName?: string;
+      model?: string;  // 添加model参数
     }
   ): Promise<void> {
     console.log(`Starting Worker for agent ${data.agentId}, task ${data.taskId}`)
@@ -311,6 +312,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         initialPrompt: data.initialPrompt,
         sessionId: data.sessionId,
         claudeSessionId: data.claudeSessionId,
+        model: data.model,  // 传递model参数到Agent
         repository: repository ? {
           id: repository.id,
           name: repository.name,

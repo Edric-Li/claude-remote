@@ -35,6 +35,7 @@ interface SessionData {
   repositoryId: string
   repositoryName?: string
   aiTool: string
+  model?: string  // 添加模型字段
   autoAssignWorker: boolean
 }
 
@@ -70,6 +71,7 @@ export function QuickSessionDialog({ open, onClose, onSubmit }: QuickSessionDial
   
   const [selectedRepo, setSelectedRepo] = useState<string>('')
   const [selectedTool, setSelectedTool] = useState<string>('claude')
+  const [selectedModel, setSelectedModel] = useState<string>('claude-sonnet-4-20250514')
   const [sessionName, setSessionName] = useState('')
   const [autoName, setAutoName] = useState(true)
   
@@ -164,6 +166,7 @@ export function QuickSessionDialog({ open, onClose, onSubmit }: QuickSessionDial
         repositoryId: selectedRepo,
         repositoryName: selectedRepoData?.name || 'Unknown',
         aiTool: selectedTool,
+        model: selectedTool === 'claude' ? selectedModel : undefined,
         autoAssignWorker: true
       })
       
@@ -273,6 +276,54 @@ export function QuickSessionDialog({ open, onClose, onSubmit }: QuickSessionDial
               </div>
             )}
           </div>
+          
+          {/* 模型选择 - 仅在选择Claude时显示 */}
+          {selectedTool === 'claude' && (
+            <div className="grid gap-2">
+              <Label htmlFor="model">选择Claude模型</Label>
+              <Select value={selectedModel} onValueChange={setSelectedModel}>
+                <SelectTrigger id="model">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="claude-sonnet-4-20250514">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">Claude 4 Sonnet</span>
+                      <span className="text-xs text-muted-foreground">(最新，推荐)</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="claude-3-5-sonnet-20241022">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">Claude 3.5 Sonnet</span>
+                      <span className="text-xs text-muted-foreground">(强大)</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="claude-3-5-haiku-20241022">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">Claude 3.5 Haiku</span>
+                      <span className="text-xs text-muted-foreground">(快速)</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="claude-3-opus-20240229">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">Claude 3 Opus</span>
+                      <span className="text-xs text-muted-foreground">(经典)</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="claude-3-sonnet-20240229">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">Claude 3 Sonnet</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="claude-3-haiku-20240307">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">Claude 3 Haiku</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           
           {/* 会话名称 */}
           <div className="grid gap-2">

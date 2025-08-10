@@ -7,9 +7,6 @@ export interface ClaudeSDKConfig {
   baseUrl?: string
   workingDirectory: string
   model?: string
-  maxTokens?: number
-  temperature?: number
-  timeout?: number
   sessionId?: string
   conversationHistory?: Array<{
     role: 'human' | 'assistant'
@@ -56,15 +53,16 @@ export class ClaudeSDKWorker extends EventEmitter {
     this.status = 'busy'
 
     return new Promise((resolve, reject) => {
-      const args: string[] = []
+      const args: string[] = ['-p'] // Print mode - required for programmatic use
 
       // 如果有 sessionId，使用 resume 模式
       if (this.config.sessionId) {
+        args.splice(0, 1) // 移除 -p
         args.push('--resume', this.config.sessionId, command)
         console.log(`[ClaudeSDKWorker] Using --resume mode with sessionId: ${this.config.sessionId}`)
       } else {
         // 新会话模式
-        args.push('-p', command)
+        args.push(command)
         console.log(`[ClaudeSDKWorker] Creating new session with -p mode`)
       }
 
@@ -72,23 +70,20 @@ export class ClaudeSDKWorker extends EventEmitter {
       args.push('--output-format', 'stream-json')
       args.push('--verbose')
 
-      // 注意：使用 --resume 时不能再指定 model, temperature
+      // 注意：使用 --resume 时不能再指定 model
       // 这些参数只在创建新会话时有效
       if (!this.config.sessionId) {
         // 添加模型配置（仅新会话）
         if (this.config.model) {
           args.push('--model', this.config.model)
-        } else {
-          // 使用默认模型
-          args.push('--model', 'claude-sonnet-4-20250514')
+          console.log(`[ClaudeSDKWorker] 📊 Using model: ${this.config.model}`)
         }
-        // Claude CLI 不支持 --max-tokens 和 --temperature 参数，跳过
-        // if (this.config.maxTokens) {
-        //   args.push('--max-tokens', this.config.maxTokens.toString())
-        // }
-        // if (this.config.temperature !== undefined) {
-        //   args.push('--temperature', this.config.temperature.toString())
-        // }
+      } else {
+        // Resume模式下不能切换模型
+        if (this.config.model) {
+          console.log(`[ClaudeSDKWorker] ⚠️ Warning: Cannot change model in resume mode. Model parameter '${this.config.model}' will be ignored.`)
+          console.log(`[ClaudeSDKWorker] ℹ️ The conversation will continue with its original model.`)
+        }
       }
 
       console.log(`[ClaudeSDKWorker] Executing claude with args:`, args)

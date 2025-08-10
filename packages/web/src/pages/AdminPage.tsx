@@ -4,18 +4,18 @@ import { AgentManagement } from '../components/AgentManagement'
 import { RepositoryManagement } from '../components/RepositoryManagement'
 import { 
   ArrowLeft, Settings, Database, Activity, 
-  RefreshCw, Download, Trash2, Plus, Server, 
-  HardDrive, Cpu, Clock, AlertCircle, Lock,
-  Key, Globe, FileText, Zap, Bot, Eye, EyeOff, GitBranch,
+  RefreshCw, Download, Trash2, Server, 
+  HardDrive, Cpu, Clock, AlertCircle,
+  FileText, Zap, Bot, Eye, EyeOff, GitBranch,
   CheckCircle
 } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
-import { Switch } from '@/components/ui/switch'
+// import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { API_BASE_URL } from '../config'
 import { RadixBackground } from '../components/RadixBackground'
 

@@ -66,7 +66,8 @@ export function NewSimplifiedChatPanel() {
   const [currentTool, setCurrentTool] = useState<string | null>(null)
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set())
   const [agentLatency, setAgentLatency] = useState<number | null>(null)
-  const [selectedModel, setSelectedModel] = useState('claude-3-5-sonnet')
+  // 初始化时使用默认模型
+  const [selectedModel, setSelectedModel] = useState('claude-sonnet-4-20250514')
   const [selectedMode, setSelectedMode] = useState<'ask' | 'auto' | 'yolo' | 'plan'>('auto')
   const [showSlashCommands, setShowSlashCommands] = useState(false)
   const [filteredCommands, setFilteredCommands] = useState(slashCommands)
@@ -75,6 +76,9 @@ export function NewSimplifiedChatPanel() {
   
   const { socket, connected } = useStore()
   const { currentSession, addMessage, updateSession, setProcessingStatus } = useSessionStore()
+  
+  // 检查是否已开始对话（有消息或有workerId）
+  const isConversationStarted = currentSession && (currentSession.messages.length > 0 || currentSession.workerId)
   
   // 从session的metadata中获取isProcessing状态
   const isProcessing = currentSession?.metadata?.isProcessing || false
@@ -181,13 +185,22 @@ export function NewSimplifiedChatPanel() {
           if (!processedInitMessages.current.has(initKey)) {
             processedInitMessages.current.add(initKey)
             
-            // 保存 Claude 的真实 sessionId 到元数据中
+            // 保存 Claude 的真实 sessionId 和实际模型到元数据中
             if (message.sessionId && message.sessionId !== currentSession.id) {
-              // 更新会话的 metadata，存储 Claude sessionId
+              // 更新会话的 metadata，存储 Claude sessionId 和实际模型
               updateSession(currentSession.id, {
                 metadata: {
                   ...currentSession.metadata,
-                  claudeSessionId: message.sessionId
+                  claudeSessionId: message.sessionId,
+                  actualModel: message.model  // 保存Claude实际使用的模型
+                }
+              })
+            } else if (message.model && message.model !== currentSession.metadata?.actualModel) {
+              // 如果模型信息更新，也保存实际模型
+              updateSession(currentSession.id, {
+                metadata: {
+                  ...currentSession.metadata,
+                  actualModel: message.model
                 }
               })
             }
@@ -341,11 +354,14 @@ export function NewSimplifiedChatPanel() {
     }
   }, [socket, currentSession?.id, currentSession?.agentId, addMessage])
   
-  // 当会话改变时，清空去重集合和状态
+  // 当会话改变时，清空去重集合和状态，并更新模型
   useEffect(() => {
     processedMessages.current.clear()
     processedInitMessages.current.clear()
     setCurrentTool(null)
+    // 从会话元数据中获取模型
+    const newModel = currentSession?.metadata?.model || 'claude-sonnet-4-20250514'
+    setSelectedModel(newModel)
   }, [currentSession?.id])
   
   // 处理输入变化，检测斜杠命令
@@ -470,7 +486,7 @@ export function NewSimplifiedChatPanel() {
         // 如果只输入 /model，显示可用模型列表
         addMessage(currentSession!.id, {
           from: 'system',
-          content: `📋 可用模型：\n• claude-3-5-sonnet (当前: ${selectedModel === 'claude-3-5-sonnet' ? '✓' : ''})\n• claude-3-opus\n• claude-3-haiku\n• claude-2\n\n使用方式: /model <模型名>`
+          content: `📋 可用模型：\n• claude-sonnet-4-20250514 (Claude 4 Sonnet - 最新) ${selectedModel === 'claude-sonnet-4-20250514' ? '✓' : ''}\n• claude-3-5-sonnet-20241022 (Claude 3.5 Sonnet) ${selectedModel === 'claude-3-5-sonnet-20241022' ? '✓' : ''}\n• claude-3-5-haiku-20241022 (Claude 3.5 Haiku) ${selectedModel === 'claude-3-5-haiku-20241022' ? '✓' : ''}\n• claude-3-opus-20240229 (Claude 3 Opus) ${selectedModel === 'claude-3-opus-20240229' ? '✓' : ''}\n• claude-3-sonnet-20240229 (Claude 3 Sonnet) ${selectedModel === 'claude-3-sonnet-20240229' ? '✓' : ''}\n• claude-3-haiku-20240307 (Claude 3 Haiku) ${selectedModel === 'claude-3-haiku-20240307' ? '✓' : ''}\n\n使用方式: /model <模型名或别名>\n别名: sonnet4, sonnet, haiku, opus`
         })
         break
         
@@ -485,12 +501,32 @@ export function NewSimplifiedChatPanel() {
       default:
         if (command.startsWith('/model ')) {
           const model = command.replace('/model ', '').trim()
-          const validModels = ['claude-3-5-sonnet', 'claude-3-opus', 'claude-3-haiku', 'claude-2']
-          if (validModels.includes(model)) {
-            setSelectedModel(model)
+          // 支持模型别名映射
+          const modelAliases: Record<string, string> = {
+            'sonnet4': 'claude-sonnet-4-20250514',
+            'sonnet': 'claude-3-5-sonnet-20241022',
+            'haiku': 'claude-3-5-haiku-20241022',
+            'opus': 'claude-3-opus-20240229',
+            'claude-3-sonnet': 'claude-3-sonnet-20240229',
+            'claude-3-haiku': 'claude-3-haiku-20240307'
+          }
+          
+          const validModels = [
+            'claude-sonnet-4-20250514',
+            'claude-3-5-sonnet-20241022',
+            'claude-3-5-haiku-20241022',
+            'claude-3-opus-20240229',
+            'claude-3-sonnet-20240229',
+            'claude-3-haiku-20240307'
+          ]
+          
+          // 检查是否是别名或完整模型名
+          const actualModel = modelAliases[model] || model
+          if (validModels.includes(actualModel)) {
+            setSelectedModel(actualModel)
             addMessage(currentSession!.id, {
               from: 'system',
-              content: `✅ 模型已切换为: ${model}`
+              content: `✅ 模型已切换为: ${actualModel}${modelAliases[model] ? ` (别名: ${model})` : ''}`
             })
           } else {
             addMessage(currentSession!.id, {
@@ -622,19 +658,50 @@ export function NewSimplifiedChatPanel() {
             )}
           </div>
           <div className="flex items-center gap-4 text-xs">
-            {/* 模型选择 */}
-            <Select value={selectedModel} onValueChange={setSelectedModel}>
-              <SelectTrigger className="w-[140px] h-7 text-xs">
-                <Brain className="h-3 w-3 mr-1" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="claude-3-5-sonnet">Claude 3.5 Sonnet</SelectItem>
-                <SelectItem value="claude-3-opus">Claude 3 Opus</SelectItem>
-                <SelectItem value="claude-3-haiku">Claude 3 Haiku</SelectItem>
-                <SelectItem value="claude-2">Claude 2</SelectItem>
-              </SelectContent>
-            </Select>
+            {/* 模型选择 - 对话开始后显示实际模型 */}
+            {isConversationStarted ? (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Brain className="h-3 w-3" />
+                <span className="font-medium text-gray-700 dark:text-gray-300">
+                  {(() => {
+                    const actualModel = currentSession.metadata?.actualModel || selectedModel
+                    if (actualModel === 'claude-sonnet-4-20250514') return 'Claude 4 Sonnet'
+                    if (actualModel === 'claude-3-5-sonnet-20241022') return 'Claude 3.5 Sonnet'
+                    if (actualModel === 'claude-3-5-haiku-20241022') return 'Claude 3.5 Haiku'
+                    if (actualModel === 'claude-3-opus-20240229') return 'Claude 3 Opus'
+                    if (actualModel === 'claude-3-sonnet-20240229') return 'Claude 3 Sonnet'
+                    if (actualModel === 'claude-3-haiku-20240307') return 'Claude 3 Haiku'
+                    // 如果是未知模型，尝试从模型ID推断显示名称
+                    if (actualModel?.includes('sonnet-4')) return 'Claude 4 Sonnet'
+                    if (actualModel?.includes('3-5-sonnet')) return 'Claude 3.5 Sonnet'
+                    if (actualModel?.includes('3-5-haiku')) return 'Claude 3.5 Haiku'
+                    if (actualModel?.includes('3-opus')) return 'Claude 3 Opus'
+                    return actualModel || '未知模型'
+                  })()}
+                </span>
+                {currentSession.metadata?.actualModel && currentSession.metadata.actualModel !== selectedModel && (
+                  <span className="text-muted-foreground">（实际使用）</span>
+                )}
+              </div>
+            ) : (
+              <Select 
+                value={selectedModel} 
+                onValueChange={setSelectedModel}
+              >
+                <SelectTrigger className="w-[140px] h-7 text-xs">
+                  <Brain className="h-3 w-3 mr-1" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="claude-sonnet-4-20250514">Claude 4 Sonnet (最新)</SelectItem>
+                  <SelectItem value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</SelectItem>
+                  <SelectItem value="claude-3-5-haiku-20241022">Claude 3.5 Haiku</SelectItem>
+                  <SelectItem value="claude-3-opus-20240229">Claude 3 Opus</SelectItem>
+                  <SelectItem value="claude-3-sonnet-20240229">Claude 3 Sonnet</SelectItem>
+                  <SelectItem value="claude-3-haiku-20240307">Claude 3 Haiku</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
             
             {/* 模式选择 */}
             <Select value={selectedMode} onValueChange={(value: any) => setSelectedMode(value)}>
@@ -836,7 +903,7 @@ export function NewSimplifiedChatPanel() {
                   
                   if (isToolUse) {
                     const toolName = message.metadata?.tool || message.content.replace('🔧 使用工具: ', '')
-                    const toolInput = (message.metadata as any)?.input
+                    // const toolInput = (message.metadata as any)?.input
                     
                     return (
                       <div key={message.id} className="mb-3">
@@ -860,7 +927,7 @@ export function NewSimplifiedChatPanel() {
                   // Worker初始化进度消息
                   if (isInitProgress) {
                     const percentage = (message.metadata as any)?.percentage || 0
-                    const step = (message.metadata as any)?.step
+                    // const step = (message.metadata as any)?.step
                     
                     return (
                       <div key={message.id} className="text-center py-2 mb-3">

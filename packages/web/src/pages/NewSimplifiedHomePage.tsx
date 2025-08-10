@@ -101,7 +101,8 @@ export function NewSimplifiedHomePage() {
           sessionId: session.id,
           claudeSessionId: session.metadata.claudeSessionId,  // 使用存储的Claude会话ID恢复
           repositoryId: session.repositoryId,  // 传递仓库ID
-          repositoryName: session.repositoryName  // 传递仓库名称
+          repositoryName: session.repositoryName,  // 传递仓库名称
+          model: 'claude-sonnet-4-20250514'  // 传递默认模型
         })
         
         addMessage(session.id, {
@@ -122,7 +123,10 @@ export function NewSimplifiedHomePage() {
         repositoryId: data.repositoryId,
         repositoryName: data.repositoryName,
         aiTool: data.aiTool,
-        branch: 'main'
+        branch: 'main',
+        metadata: {
+          model: data.model || 'claude-sonnet-4-20250514'  // 保存选择的模型
+        }
       })
       
       
@@ -172,7 +176,8 @@ export function NewSimplifiedHomePage() {
         sessionId: session.id,  // 我们的数据库会话ID
         claudeSessionId: session.metadata?.claudeSessionId,  // Claude的真实会话ID（如果有的话）
         repositoryId: data.repositoryId,  // 传递仓库ID
-        repositoryName: data.repositoryName  // 传递仓库名称
+        repositoryName: data.repositoryName,  // 传递仓库名称
+        model: data.model || 'claude-sonnet-4-20250514'  // 传递选择的模型或默认模型
       })
       
       // 添加启动消息
