@@ -571,6 +571,25 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  @SubscribeMessage('worker:thinking')
+  handleWorkerThinking(
+    @ConnectedSocket() _client: Socket,
+    @MessageBody() data: { taskId: string; thinking: any; agentId?: string; sessionId?: string }
+  ): void {
+    console.log(`Worker thinking for task ${data.taskId}`)
+    
+    // 只发送给属于该会话的客户端
+    if (data.sessionId) {
+      const roomName = `session:${data.sessionId}`
+      this.server.to(roomName).emit('worker:thinking', data)
+      console.log(`Sent worker thinking to session ${data.sessionId}`)
+    } else {
+      // 如果没有sessionId，回退到原有的广播行为（兼容性）
+      console.warn('Worker thinking without sessionId, broadcasting to all')
+      this.server.emit('worker:thinking', data)
+    }
+  }
+
   // Worker Registration and Management
   @SubscribeMessage('worker:register')
   async handleWorkerRegister(
