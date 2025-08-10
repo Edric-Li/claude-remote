@@ -27,6 +27,7 @@ export class ClaudeSDKWorker extends EventEmitter {
   private config: ClaudeSDKConfig
   private status: 'idle' | 'busy' | 'error' = 'idle'
   private process: ChildProcess | null = null
+  public currentMode: 'ask' | 'auto' | 'yolo' | 'plan' = 'auto'
 
   constructor(config: ClaudeSDKConfig) {
     super()
@@ -71,16 +72,20 @@ export class ClaudeSDKWorker extends EventEmitter {
       args.push('--output-format', 'stream-json')
       args.push('--verbose')
 
-      // 注意：使用 --resume 时不能再指定 model, max-tokens, temperature
+      // 注意：使用 --resume 时不能再指定 model, temperature
       // 这些参数只在创建新会话时有效
       if (!this.config.sessionId) {
         // 添加模型配置（仅新会话）
         if (this.config.model) {
           args.push('--model', this.config.model)
+        } else {
+          // 使用默认模型
+          args.push('--model', 'claude-sonnet-4-20250514')
         }
-        if (this.config.maxTokens) {
-          args.push('--max-tokens', this.config.maxTokens.toString())
-        }
+        // Claude CLI 不支持 --max-tokens 参数，跳过
+        // if (this.config.maxTokens) {
+        //   args.push('--max-tokens', this.config.maxTokens.toString())
+        // }
         if (this.config.temperature !== undefined) {
           args.push('--temperature', this.config.temperature.toString())
         }
@@ -177,93 +182,72 @@ export class ClaudeSDKWorker extends EventEmitter {
 
   /**
    * 处理流式消息
+   * Claude Code 使用 stream-json 格式时会输出以下类型的消息：
+   * - system: 系统初始化信息
+   * - user: 用户消息
+   * - assistant: 助手消息（包含 thinking 和 tool_use）
+   * - result: 结果消息
    */
   private handleStreamMessage(message: any) {
-    console.log('[ClaudeSDKWorker] Stream message:', message.type)
+    console.log('[ClaudeSDKWorker] Stream message:', message.type, message)
 
     switch (message.type) {
       case 'system':
         // 系统消息，包含初始化信息
-        if (message.subtype === 'init') {
+        if (message.subtype === 'init' || message.session_id) {
+          const sessionId = message.session_id || message.sessionId || this.config.sessionId
+          this.config.sessionId = sessionId // 保存 sessionId
           this.emit('system-init', {
-            sessionId: message.sessionId || this.config.sessionId,
+            sessionId: sessionId,
             model: message.model,
             cwd: message.cwd || this.config.workingDirectory,
             tools: message.tools || []
           })
-        }
-        // Token 使用信息
-        if (message.usage) {
-          this.emit('system-info', {
-            type: 'token_usage',
-            usage: message.usage,
-            timestamp: new Date()
-          })
+          console.log('[ClaudeSDKWorker] Session initialized:', sessionId)
         }
         break
 
-      case 'text':
-        // 文本输出
-        this.emit('output', message.content || message.text || '')
-        break
-
-      case 'tool_use':
-        // 工具调用
-        this.emit('tool-use', {
-          name: message.name,
-          input: message.input,
-          id: message.id,
-          timestamp: new Date()
-        })
-        break
-
-      case 'tool_result':
-        // 工具结果
-        this.emit('tool-result', {
-          tool_use_id: message.tool_use_id,
-          content: message.content,
-          timestamp: new Date()
+      case 'user':
+        // 用户消息
+        this.emit('user-message', {
+          content: message.message?.content || '',
+          timestamp: message.timestamp || new Date().toISOString()
         })
         break
 
       case 'assistant':
-        // Assistant 消息
-        this.emit('assistant-message', message)
-        break
-
-      case 'thinking':
-        // 思考过程
-        this.emit('thinking', {
-          content: message.content || message.text || '',
-          timestamp: new Date()
-        })
-        break
-
-      case 'todo':
-      case 'todos':
-        // Todo 列表
-        this.emit('todo-list', {
-          items: message.items || message.todos || [],
-          timestamp: new Date()
-        })
-        break
-
-      case 'usage':
-      case 'token_usage':
-        // Token 使用统计
-        this.emit('token-usage', {
-          input_tokens: message.input_tokens,
-          output_tokens: message.output_tokens,
-          total_tokens: message.total_tokens,
-          cache_creation_input_tokens: message.cache_creation_input_tokens,
-          cache_read_input_tokens: message.cache_read_input_tokens,
-          timestamp: new Date()
-        })
-        break
-
-      case 'error':
-        // 错误消息
-        this.emit('error', new Error(message.error || message.message || 'Unknown error'))
+        // Assistant 消息 - 需要解析 content 数组
+        if (message.message && message.message.content) {
+          const content = message.message.content
+          
+          // content 可能是字符串或数组
+          if (typeof content === 'string') {
+            this.emit('output', content)
+          } else if (Array.isArray(content)) {
+            // 过滤并处理内容块，跳过tool_result类型
+            const filteredContent = content.filter((block: any) => {
+              // 只处理text和thinking类型，跳过tool_result和tool_use
+              return block.type === 'text' || block.type === 'thinking'
+            })
+            
+            // 遍历过滤后的内容块
+            for (const block of filteredContent) {
+              this.handleContentBlock(block)
+            }
+          }
+        }
+        
+        // 如果消息包含 usage 信息
+        if (message.message?.usage) {
+          this.emit('token-usage', {
+            input_tokens: message.message.usage.input_tokens,
+            output_tokens: message.message.usage.output_tokens,
+            total_tokens: (message.message.usage.input_tokens || 0) + (message.message.usage.output_tokens || 0),
+            cache_creation_input_tokens: message.message.usage.cache_creation_input_tokens,
+            cache_read_input_tokens: message.message.usage.cache_read_input_tokens,
+            timestamp: new Date()
+          })
+        }
         break
 
       case 'result':
@@ -277,14 +261,81 @@ export class ClaudeSDKWorker extends EventEmitter {
             cache_read_input_tokens: message.usage.cache_read_input_tokens,
             timestamp: new Date()
           })
-          console.log('[ClaudeSDKWorker] Emitted token-usage from result:', message.usage)
+          console.log('[ClaudeSDKWorker] Final token usage:', message.usage)
         }
+        
+        // 重置状态为 idle，因为会话已完成
+        this.status = 'idle'
+        console.log('[ClaudeSDKWorker] Result received, status reset to idle')
+        
+        // 标记会话结束
+        this.emit('result', {
+          subtype: message.subtype || 'success',
+          timestamp: new Date()
+        })
+        break
+
+      case 'error':
+        // 错误消息 - 重置状态
+        this.status = 'idle'
+        console.log('[ClaudeSDKWorker] Error received, status reset to idle')
+        this.emit('error', new Error(message.error || message.message || 'Unknown error'))
         break
 
       default:
         // 其他消息类型 - 记录下来以便调试
         console.log('[ClaudeSDKWorker] Unknown message type:', message.type, message)
         this.emit('message', message)
+        break
+    }
+  }
+
+  /**
+   * 处理 assistant 消息中的 content 块
+   */
+  private handleContentBlock(block: any) {
+    console.log('[ClaudeSDKWorker] Content block:', block.type)
+    
+    switch (block.type) {
+      case 'text':
+        // 普通文本输出
+        this.emit('output', block.text || '')
+        break
+        
+      case 'thinking':
+        // 思考过程 - Claude 的内部思考
+        this.emit('thinking', {
+          content: block.text || block.content || '',
+          timestamp: new Date()
+        })
+        console.log('[ClaudeSDKWorker] Thinking:', block.text || block.content)
+        break
+        
+      case 'tool_use':
+        // 工具调用
+        this.emit('tool-use', {
+          id: block.id,
+          name: block.name,
+          input: block.input,
+          timestamp: new Date()
+        })
+        console.log('[ClaudeSDKWorker] Tool use:', block.name, block.input)
+        break
+        
+      case 'tool_result':
+        // 工具结果
+        this.emit('tool-result', {
+          tool_use_id: block.tool_use_id,
+          content: block.content,
+          is_error: block.is_error || false,
+          timestamp: new Date()
+        })
+        console.log('[ClaudeSDKWorker] Tool result:', block.content)
+        break
+        
+      default:
+        // 未知类型的块
+        console.log('[ClaudeSDKWorker] Unknown content block type:', block.type, block)
         break
     }
   }

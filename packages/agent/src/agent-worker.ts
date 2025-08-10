@@ -19,10 +19,6 @@ interface AgentWorkerOptions {
 interface ClaudeConfig {
   baseUrl: string
   authToken: string
-  model: string
-  maxTokens: number
-  temperature: number
-  timeout: number
 }
 
 interface TaskAssignment {
@@ -44,6 +40,9 @@ export class AgentWorker {
   private claudeWorkers: Map<string, ClaudeSDKWorker> = new Map()
   private historyReader: ClaudeHistoryReader = new ClaudeHistoryReader()
   private taskSessionMap: Map<string, string> = new Map() // taskId -> sessionId
+  private claudeConfig: ClaudeConfig | null = null // 存储从服务器获取的配置
+  private latency: number = 0 // 存储当前延迟
+  private heartbeatInterval: NodeJS.Timeout | null = null // 心跳定时器
 
   constructor(private options: AgentWorkerOptions) {
     // 使用环境变量或默认的 agent ID（从数据库中获取的现有 agent）
@@ -99,6 +98,9 @@ export class AgentWorker {
       
       // 认证成功后注册 worker
       this.registerWorker()
+      
+      // 启动心跳机制
+      this.startHeartbeat()
     })
 
     // 处理认证失败
@@ -117,6 +119,19 @@ export class AgentWorker {
     this.socket.on('disconnect', () => {
       console.log(chalk.red('\n❌ Disconnected from server'))
       this.spinner.start('Reconnecting...')
+      // 停止心跳
+      this.stopHeartbeat()
+    })
+    
+    // 处理服务器的pong响应
+    this.socket.on('pong', (timestamp: number) => {
+      const now = Date.now()
+      this.latency = now - timestamp
+      // 发送延迟信息给服务器
+      this.socket.emit('agent:latency', {
+        agentId: this.agentId,
+        latency: this.latency
+      })
     })
 
     this.socket.on('connect_error', (error) => {
@@ -226,18 +241,44 @@ export class AgentWorker {
           }
         }
         
+        // 发送初始化进度：开始创建Worker
+        this.socket.emit('worker:progress', {
+          taskId: data.taskId,
+          sessionId: data.sessionId,
+          agentId: this.agentId,
+          progress: {
+            type: 'init',
+            step: 'creating_worker',
+            message: '正在创建 Claude Worker...',
+            percentage: 20
+          }
+        })
+        
         // 创建 Claude SDK Worker 实例
         // 优先使用 claudeSessionId（用于恢复），否则让Claude生成新的
         const worker = new ClaudeSDKWorker({
           workingDirectory: workingDirectory,  // 使用仓库的工作目录
           apiKey: data.claudeConfig?.authToken || process.env.ANTHROPIC_API_KEY,
           baseUrl: data.claudeConfig?.baseUrl,
-          model: data.claudeConfig?.model,
-          maxTokens: data.claudeConfig?.maxTokens,
-          temperature: data.claudeConfig?.temperature,
-          timeout: data.claudeConfig?.timeout,
+          model: 'claude-sonnet-4-20250514',  // 使用固定的默认模型
+          maxTokens: 4000,  // 使用固定的默认值
+          temperature: 0.7,  // 使用固定的默认值
+          timeout: 30000,  // 使用固定的默认值
           sessionId: data.claudeSessionId || undefined,  // 使用Claude的sessionId用于恢复
           conversationHistory: data.conversationHistory
+        })
+        
+        // 发送初始化进度：设置事件监听器
+        this.socket.emit('worker:progress', {
+          taskId: data.taskId,
+          sessionId: data.sessionId,
+          agentId: this.agentId,
+          progress: {
+            type: 'init',
+            step: 'setting_up_listeners',
+            message: '配置事件监听器...',
+            percentage: 40
+          }
         })
         
         // 设置事件监听器
@@ -257,6 +298,18 @@ export class AgentWorker {
         
         worker.on('ready', () => {
           console.log(chalk.green(`✅ Claude worker ready for task: ${data.taskId}`))
+          // 发送初始化进度：Worker已就绪
+          this.socket.emit('worker:progress', {
+            taskId: data.taskId,
+            sessionId: data.sessionId,
+            agentId: this.agentId,
+            progress: {
+              type: 'init',
+              step: 'worker_ready',
+              message: '✅ Claude Worker 已就绪',
+              percentage: 100
+            }
+          })
           this.socket.emit('worker:status', {
             taskId: data.taskId,
             sessionId: data.sessionId,
@@ -294,9 +347,36 @@ export class AgentWorker {
           })
         })
         
+        // 发送初始化进度：启动Worker
+        this.socket.emit('worker:progress', {
+          taskId: data.taskId,
+          sessionId: data.sessionId,
+          agentId: this.agentId,
+          progress: {
+            type: 'init',
+            step: 'spawning_worker',
+            message: '正在启动 Claude Worker...',
+            percentage: 60
+          }
+        })
+        
         // 启动 Worker
         try {
           await worker.spawn()
+          
+          // 发送初始化进度：Worker启动成功
+          this.socket.emit('worker:progress', {
+            taskId: data.taskId,
+            sessionId: data.sessionId,
+            agentId: this.agentId,
+            progress: {
+              type: 'init',
+              step: 'worker_spawned',
+              message: '正在连接到 Claude API...',
+              percentage: 80
+            }
+          })
+          
           // 保存 Worker 实例 - 只有在成功启动后才保存
           this.claudeWorkers.set(data.taskId, worker)
           console.log(chalk.green(`✅ Worker saved for task: ${data.taskId}`))
@@ -325,13 +405,15 @@ export class AgentWorker {
       taskId: string
       input: string
       sessionId?: string
+      model?: string
+      mode?: 'ask' | 'auto' | 'yolo' | 'plan'
       conversationHistory?: Array<{
         role: 'human' | 'assistant'
         content: string
       }>
     }) => {
       console.log(chalk.blue(`📝 Sending input to Claude: ${data.input.substring(0, 100)}...`))
-      console.log(chalk.yellow(`🔍 Debug - sessionId: ${data.sessionId}, conversationHistory length: ${data.conversationHistory?.length || 0}`))
+      console.log(chalk.yellow(`🔍 Debug - sessionId: ${data.sessionId}, mode: ${data.mode}, model: ${data.model}`))
       
       const worker = this.claudeWorkers.get(data.taskId)
       if (!worker) {
@@ -345,8 +427,73 @@ export class AgentWorker {
       }
       
       try {
-        // 直接使用当前 worker，Claude SDK 会自动处理 --resume
-        await worker.sendCommand(data.input)
+        // 存储当前模式到 worker 实例
+        if (!worker.currentMode) {
+          worker.currentMode = data.mode || 'auto'
+        }
+        
+        // 检查是否是用户对确认请求的回复
+        const isConfirmationResponse = 
+          data.input.toLowerCase() === '是' || 
+          data.input.toLowerCase() === '否' || 
+          data.input.toLowerCase() === 'yes' || 
+          data.input.toLowerCase() === 'no' ||
+          data.input.toLowerCase() === '确认' ||
+          data.input.toLowerCase() === '取消'
+        
+        // 如果是确认回复，直接传递
+        if (isConfirmationResponse) {
+          await worker.sendCommand(data.input)
+          return
+        }
+        
+        // 根据不同模式处理输入
+        let processedInput = data.input
+        
+        // 根据模式设置系统指令
+        if (data.mode === 'ask') {
+          // Ask 模式：要求 Claude 在执行任何工具调用前先描述并等待确认
+          processedInput = `请遵循以下工作模式：
+1. 在使用任何工具（如创建文件、修改文件、执行命令等）之前，先告诉我你打算做什么
+2. 等待我回复"是"或"确认"后再执行
+3. 如果我回复"否"或"取消"，请停止执行并询问其他方案
+
+现在处理这个请求：${data.input}`
+        } else if (data.mode === 'auto') {
+          // Auto 模式：关键操作需要确认
+          processedInput = `请遵循以下工作模式：
+- 对于一般操作（读取文件、搜索等）可以直接执行
+- 对于以下关键操作需要先询问确认：
+  • 删除文件或目录
+  • 修改重要配置文件（package.json、.env等）
+  • 执行可能有破坏性的命令
+  • 提交代码到版本控制
+
+现在处理这个请求：${data.input}`
+        } else if (data.mode === 'yolo') {
+          // Yolo 模式：直接执行所有操作
+          processedInput = `请直接执行所有必要的操作，无需确认。现在处理：${data.input}`
+        } else if (data.mode === 'plan') {
+          // Plan 模式：先制定计划
+          processedInput = `请遵循以下工作模式：
+1. 先分析需求并制定详细的执行计划
+2. 列出所有需要执行的步骤（使用编号列表）
+3. 等待我确认计划后再开始执行
+4. 如果我要求修改计划，请调整后重新展示
+
+现在为这个请求制定计划：${data.input}`
+        }
+        
+        // 如果指定了模型，记录日志
+        if (data.model) {
+          console.log(chalk.cyan(`📊 Using model: ${data.model}`))  
+        }
+        
+        // 更新 worker 的当前模式
+        worker.currentMode = data.mode || 'auto'
+        
+        // 发送处理后的命令到 Claude
+        await worker.sendCommand(processedInput)
       } catch (error) {
         console.error(chalk.red(`❌ Failed to send input to Claude: ${error.message}`))
         this.socket.emit('worker:status', {
@@ -652,6 +799,38 @@ export class AgentWorker {
   }
 
   /**
+   * 启动心跳机制，定期发送ping来测量延迟
+   */
+  private startHeartbeat(): void {
+    // 先停止现有的心跳（如果有）
+    this.stopHeartbeat()
+    
+    // 每5秒发送一次心跳
+    this.heartbeatInterval = setInterval(() => {
+      if (this.socket.connected) {
+        const timestamp = Date.now()
+        this.socket.emit('ping', timestamp)
+      }
+    }, 5000)
+    
+    // 立即发送一次
+    if (this.socket.connected) {
+      const timestamp = Date.now()
+      this.socket.emit('ping', timestamp)
+    }
+  }
+
+  /**
+   * 停止心跳机制
+   */
+  private stopHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval)
+      this.heartbeatInterval = null
+    }
+  }
+
+  /**
    * 设置Worker事件监听器
    */
   private setupWorkerEventListeners(worker: ClaudeSDKWorker, taskId: string): void {
@@ -663,7 +842,12 @@ export class AgentWorker {
     worker.on('assistant-message', (message) => {
       // 创建消息内容的哈希来去重
       if (message.message && message.message.content) {
-        const textContent = message.message.content
+        // 过滤掉tool_result和tool_use类型的内容
+        const filteredContent = message.message.content.filter((item: any) => 
+          item.type === 'text' || item.type === 'thinking'
+        )
+        
+        const textContent = filteredContent
           .filter((item: any) => item.type === 'text' && item.text)
           .map((item: any) => item.text)
           .join('')
@@ -674,11 +858,20 @@ export class AgentWorker {
           if (!sentMessages.has(messageHash)) {
             console.log(`Sending unique assistant message (hash: ${messageHash}):`, textContent.substring(0, 100) + '...')
             
+            // 创建清理后的消息对象，只包含文本内容
+            const cleanedMessage = {
+              ...message,
+              message: {
+                ...message.message,
+                content: filteredContent
+              }
+            }
+            
             this.socket.emit('worker:message', {
               agentId: this.agentId,
               taskId: taskId,
               sessionId: this.taskSessionMap.get(taskId), // 添加sessionId
-              message: message  // 直接发送原始助手消息
+              message: cleanedMessage  // 发送清理后的消息
             })
             
             sentMessages.add(messageHash)
@@ -697,6 +890,37 @@ export class AgentWorker {
         taskId: taskId,
         sessionId: this.taskSessionMap.get(taskId), // 添加sessionId
         toolUse: toolData
+      })
+    })
+    
+    // 监听工具结果事件
+    worker.on('tool-result', (_toolResult) => {
+      // 不发送原始的工具结果到前端，避免显示JSON
+      // 工具结果会通过 assistant-message 事件以格式化的方式发送
+      console.log(`Tool result received, will be formatted in assistant message`)
+    })
+    
+    // 监听普通文本输出事件
+    worker.on('output', (content) => {
+      console.log(`Text output:`, content)
+      const sessionId = worker.getSessionId()
+      
+      // 创建一个类似 assistant-message 的消息格式
+      const assistantMessage = {
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: content }],
+          role: 'assistant'
+        },
+        sessionId: sessionId
+      }
+      
+      // 发送为 worker:message 事件
+      this.socket.emit('worker:message', {
+        agentId: this.agentId,
+        taskId: taskId,
+        sessionId: this.taskSessionMap.get(taskId) || sessionId,
+        message: assistantMessage
       })
     })
     

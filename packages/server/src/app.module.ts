@@ -15,12 +15,12 @@ import { AgentSimpleController } from './controllers/agent-simple.controller'
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard'
 import { ClaudeController } from './controllers/claude.controller'
 import { ClaudeService } from './services/claude.service'
-import { ConfigEntity } from './entities/config.entity'
+import { ClaudeConfig } from './entities/claude-config.entity'
 
 @Module({
   imports: [
     TypeOrmModule.forRoot(getDatabaseConfig()),
-    TypeOrmModule.forFeature([ConfigEntity]),
+    TypeOrmModule.forFeature([ClaudeConfig]),
     EventEmitterModule.forRoot(),
     AuthModule,  // 认证模块要放在前面
     ChatModule,

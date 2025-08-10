@@ -59,13 +59,13 @@ export class Task {
   @Column('varchar', { length: 50 })
   createdBy: string
 
-  @Column('datetime', { nullable: true })
+  @Column('timestamp', { nullable: true })
   assignedAt: Date
 
-  @Column('datetime', { nullable: true })
+  @Column('timestamp', { nullable: true })
   startedAt: Date
 
-  @Column('datetime', { nullable: true })
+  @Column('timestamp', { nullable: true })
   completedAt: Date
 
   @Column('integer', { nullable: true })
@@ -88,10 +88,10 @@ export class Task {
     tags?: string[]
   }
 
-  @Column('datetime', { nullable: true })
+  @Column('timestamp', { nullable: true })
   scheduledFor: Date
 
-  @Column('datetime', { nullable: true })
+  @Column('timestamp', { nullable: true })
   expiresAt: Date
 
   @CreateDateColumn()

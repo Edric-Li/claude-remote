@@ -9,12 +9,12 @@ import {
 } from '@nestjs/websockets'
 import { Server, Socket } from 'socket.io'
 import { Inject, forwardRef } from '@nestjs/common'
-import { ModuleRef } from '@nestjs/core'
 import { AgentService } from '../services/agent.service'
 import { WorkerService } from '../services/worker.service'
 import { TaskService } from '../services/task.service'
 import { SessionService } from '../services/session.service'
 import { RepositoryService } from '../services/repository.service'
+import { ClaudeService } from '../services/claude.service'
 import { OnEvent } from '@nestjs/event-emitter'
 
 interface ConnectedAgent {
@@ -23,6 +23,7 @@ interface ConnectedAgent {
   socketId: string
   connectedAt: Date
   agentId: string  // Database ID
+  latency?: number  // Agent延迟（毫秒）
 }
 
 interface ChatMessage {
@@ -59,7 +60,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly sessionService: SessionService,
     @Inject(forwardRef(() => RepositoryService))
     private readonly repositoryService: RepositoryService,
-    private readonly moduleRef: ModuleRef
+    private readonly claudeService: ClaudeService
   ) {
     // Services will be used for agent/worker management
   }
@@ -190,6 +191,33 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return { agents: agentList }
   }
 
+  @SubscribeMessage('ping')
+  handlePing(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() timestamp: number
+  ): void {
+    // 立即返回pong响应
+    client.emit('pong', timestamp)
+  }
+
+  @SubscribeMessage('agent:latency')
+  handleAgentLatency(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { agentId: string; latency: number }
+  ): void {
+    // 更新Agent的延迟信息
+    const agent = this.connectedAgents.get(data.agentId)
+    if (agent) {
+      agent.latency = data.latency
+      
+      // 广播延迟信息给所有客户端
+      this.server.emit('agent:latency_update', {
+        agentId: data.agentId,
+        latency: data.latency
+      })
+    }
+  }
+
   @SubscribeMessage('chat:message')
   handleChatMessage(
     @ConnectedSocket() _client: Socket,
@@ -266,6 +294,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
     }
     
+    // 获取 Claude 配置
+    let claudeConfig = null
+    try {
+      claudeConfig = await this.claudeService.getConfig()
+    } catch (error) {
+      console.error('Failed to get Claude config:', error)
+    }
+    
     // Forward to specific agent
     const agent = this.connectedAgents.get(data.agentId)
     if (agent) {
@@ -282,7 +318,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
           branch: repository.branch,
           credentials: repository.credentials,
           settings: repository.settings
-        } : null
+        } : null,
+        claudeConfig: claudeConfig
       })
     }
   }
@@ -290,9 +327,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('worker:input')
   async handleWorkerInput(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { agentId: string; taskId: string; input: string; sessionId?: string }
+    @MessageBody() data: { 
+      agentId: string; 
+      taskId: string; 
+      input: string; 
+      sessionId?: string;
+      model?: string;
+      mode?: 'ask' | 'auto' | 'yolo' | 'plan'
+    }
   ): Promise<void> {
     console.log(`Sending input to Worker: ${data.input}`)
+    console.log(`Mode: ${data.mode}, Model: ${data.model}`)
     
     // 不再从数据库获取历史，直接传递 sessionId 给 Agent
     
@@ -302,7 +347,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.server.to(agent.socketId).emit('worker:input', {
         taskId: data.taskId,
         input: data.input,
-        sessionId: data.sessionId
+        sessionId: data.sessionId,
+        model: data.model,
+        mode: data.mode
         // 不再传递 conversationHistory，Agent 会使用 --resume
       })
     }
@@ -630,8 +677,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // Get Claude configuration
     let claudeConfig = null
     try {
-      const claudeService = this.moduleRef.get('ClaudeService', { strict: false })
-      claudeConfig = await claudeService.getConfig()
+      claudeConfig = await this.claudeService.getConfig()
     } catch (error) {
       console.error('Failed to get Claude config:', error)
     }

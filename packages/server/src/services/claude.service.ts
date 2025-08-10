@@ -1,70 +1,57 @@
 import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
-import { ConfigEntity } from '../entities/config.entity'
+import { ClaudeConfig } from '../entities/claude-config.entity'
 import axios from 'axios'
 
 @Injectable()
 export class ClaudeService {
   constructor(
-    @InjectRepository(ConfigEntity)
-    private configRepository: Repository<ConfigEntity>
+    @InjectRepository(ClaudeConfig)
+    private claudeConfigRepository: Repository<ClaudeConfig>
   ) {}
 
   async getConfig() {
-    const configs = await this.configRepository.find({
-      where: [
-        { key: 'claude_base_url' },
-        { key: 'claude_auth_token' },
-        { key: 'claude_model' },
-        { key: 'claude_max_tokens' },
-        { key: 'claude_temperature' },
-        { key: 'claude_timeout' }
-      ]
+    // 获取当前激活的全局配置
+    const config = await this.claudeConfigRepository.findOne({
+      where: { 
+        isActive: true
+      },
+      order: { updatedAt: 'DESC' }
     })
     
-    const configMap = configs.reduce((acc, config) => {
-      acc[config.key] = config.value
-      return acc
-    }, {} as Record<string, string>)
+    if (!config) {
+      // 返回默认配置
+      return {
+        baseUrl: 'https://api.anthropic.com',
+        authToken: ''
+      }
+    }
     
     return {
-      baseUrl: configMap['claude_base_url'] || 'https://api.anthropic.com',
-      authToken: configMap['claude_auth_token'] || '',
-      model: configMap['claude_model'] || 'claude-3-5-sonnet-20241022',
-      maxTokens: parseInt(configMap['claude_max_tokens']) || 4000,
-      temperature: parseFloat(configMap['claude_temperature']) || 0.7,
-      timeout: parseInt(configMap['claude_timeout']) || 30000
+      baseUrl: config.baseUrl,
+      authToken: config.authToken
     }
   }
 
   async saveConfig(config: { 
     baseUrl: string; 
     authToken: string;
-    model?: string;
-    maxTokens?: number;
-    temperature?: number;
-    timeout?: number;
   }) {
-    const configsToSave = [
-      { key: 'claude_base_url', value: config.baseUrl },
-      { key: 'claude_auth_token', value: config.authToken }
-    ]
+    // 先将之前的配置设为非激活
+    await this.claudeConfigRepository.update(
+      { isActive: true },
+      { isActive: false }
+    )
     
-    if (config.model !== undefined) {
-      configsToSave.push({ key: 'claude_model', value: config.model })
-    }
-    if (config.maxTokens !== undefined) {
-      configsToSave.push({ key: 'claude_max_tokens', value: config.maxTokens.toString() })
-    }
-    if (config.temperature !== undefined) {
-      configsToSave.push({ key: 'claude_temperature', value: config.temperature.toString() })
-    }
-    if (config.timeout !== undefined) {
-      configsToSave.push({ key: 'claude_timeout', value: config.timeout.toString() })
-    }
+    // 创建新配置
+    const newConfig = this.claudeConfigRepository.create({
+      baseUrl: config.baseUrl,
+      authToken: config.authToken,
+      isActive: true
+    })
     
-    await this.configRepository.save(configsToSave)
+    await this.claudeConfigRepository.save(newConfig)
     
     return this.getConfig()
   }
@@ -72,17 +59,13 @@ export class ClaudeService {
   async testConnection(config: { 
     baseUrl: string; 
     authToken: string;
-    model?: string;
-    maxTokens?: number;
-    temperature?: number;
   }) {
     try {
       const response = await axios.post(
         `${config.baseUrl}/v1/messages`,
         {
-          model: config.model || 'claude-3-5-sonnet-20241022',
-          max_tokens: Math.min(config.maxTokens || 10, 100), // 测试时限制最大token数
-          temperature: config.temperature || 0.7,
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 10, // 测试时使用最小token数
           messages: [{ role: 'user', content: 'Hi' }]
         },
         {
@@ -115,9 +98,8 @@ export class ClaudeService {
       const response = await axios.post(
         `${config.baseUrl}/v1/messages`,
         {
-          model: tool === 'claude' ? (config.model || 'claude-3-5-sonnet-20241022') : 'claude-3-sonnet-20240229',
-          max_tokens: config.maxTokens || 4000,
-          temperature: config.temperature || 0.7,
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 4000,
           messages: [{ role: 'user', content }]
         },
         {
@@ -126,7 +108,7 @@ export class ClaudeService {
             'x-api-key': config.authToken,
             'anthropic-version': '2023-06-01'
           },
-          timeout: config.timeout || 30000
+          timeout: 30000
         }
       )
       

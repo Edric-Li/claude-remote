@@ -57,6 +57,10 @@ export class Session {
   @Column('varchar', { nullable: true, length: 100 })
   agentId: string
 
+  // Claude会话ID，用于恢复对话
+  @Column('varchar', { nullable: true, length: 100 })
+  claudeSessionId: string
+
   // 元数据
   @Column({ type: 'simple-json', nullable: true })
   metadata: {

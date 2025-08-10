@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AgentManagement } from '../components/AgentManagement'
 import { RepositoryManagement } from '../components/RepositoryManagement'
 import { 
-  ArrowLeft, Settings, Database, Activity, Shield, 
+  ArrowLeft, Settings, Database, Activity, 
   RefreshCw, Download, Trash2, Plus, Server, 
   HardDrive, Cpu, Clock, AlertCircle, Lock,
   Key, Globe, FileText, Zap, Bot, Eye, EyeOff, GitBranch,
@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { API_BASE_URL } from '../config'
 import { RadixBackground } from '../components/RadixBackground'
 
-type AdminTab = 'overview' | 'agents' | 'repositories' | 'claude' | 'database' | 'security'
+type AdminTab = 'overview' | 'agents' | 'repositories' | 'claude' | 'database'
 
 export function AdminPage() {
   const navigate = useNavigate()
@@ -31,7 +31,7 @@ export function AdminPage() {
     const savedTab = localStorage.getItem('adminActiveTab') as AdminTab
     
     // 验证标签是否有效
-    const validTabs: AdminTab[] = ['overview', 'agents', 'repositories', 'claude', 'database', 'security']
+    const validTabs: AdminTab[] = ['overview', 'agents', 'repositories', 'claude', 'database']
     
     if (urlTab && validTabs.includes(urlTab)) {
       return urlTab
@@ -49,8 +49,7 @@ export function AdminPage() {
     { id: 'agents' as AdminTab, label: 'Agent 管理', icon: Settings },
     { id: 'repositories' as AdminTab, label: '仓库管理', icon: GitBranch },
     { id: 'claude' as AdminTab, label: 'Claude 配置', icon: Bot },
-    { id: 'database' as AdminTab, label: '数据库', icon: Database },
-    { id: 'security' as AdminTab, label: '安全设置', icon: Shield },
+    { id: 'database' as AdminTab, label: '数据库', icon: Database }
   ]
   
   // 当标签改变时，更新 URL 和 localStorage
@@ -70,7 +69,7 @@ export function AdminPage() {
   // 监听 URL 变化（处理浏览器前进/后退）
   useEffect(() => {
     const urlTab = searchParams.get('tab') as AdminTab
-    const validTabs: AdminTab[] = ['overview', 'agents', 'repositories', 'claude', 'database', 'security']
+    const validTabs: AdminTab[] = ['overview', 'agents', 'repositories', 'claude', 'database']
     
     if (urlTab && validTabs.includes(urlTab) && urlTab !== activeTab) {
       setActiveTab(urlTab)
@@ -142,7 +141,6 @@ export function AdminPage() {
             {activeTab === 'repositories' && <RepositoryManagement />}
             {activeTab === 'claude' && <ClaudeConfigPanel />}
             {activeTab === 'database' && <DatabasePanel />}
-            {activeTab === 'security' && <SecurityPanel />}
           </div>
         </main>
       </div>
@@ -560,362 +558,11 @@ function DatabasePanel() {
   )
 }
 
-// 安全设置面板
-function SecurityPanel() {
-  const [settings, setSettings] = useState<any>(null)
-  const [logs, setLogs] = useState<any[]>([])
-  const [tokens, setTokens] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [newTokenName, setNewTokenName] = useState('')
-  const [newIP, setNewIP] = useState('')
-
-  useEffect(() => {
-    fetchSecuritySettings()
-    fetchSecurityLogs()
-    fetchTokens()
-  }, [])
-
-  const fetchSecuritySettings = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/security/settings`)
-      const data = await response.json()
-      setSettings(data)
-    } catch (error) {
-      console.error('Failed to fetch security settings:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchSecurityLogs = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/security/logs?limit=50`)
-      const data = await response.json()
-      setLogs(data)
-    } catch (error) {
-      console.error('Failed to fetch security logs:', error)
-    }
-  }
-
-  const fetchTokens = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/security/tokens`)
-      const data = await response.json()
-      setTokens(data)
-    } catch (error) {
-      console.error('Failed to fetch tokens:', error)
-    }
-  }
-
-  const updateSettings = async (newSettings: any) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/security/settings`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newSettings)
-      })
-      const data = await response.json()
-      setSettings(data)
-    } catch (error) {
-      console.error('Failed to update settings:', error)
-    }
-  }
-
-  const generateToken = async () => {
-    if (!newTokenName) return
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/security/tokens`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newTokenName })
-      })
-      const data = await response.json()
-      alert(`令牌已生成: ${data.token}\n请妥善保存，此令牌仅显示一次！`)
-      setNewTokenName('')
-      fetchTokens()
-    } catch (error) {
-      console.error('Failed to generate token:', error)
-    }
-  }
-
-  const addIPToWhitelist = async () => {
-    if (!newIP) return
-    
-    try {
-      await fetch(`${API_BASE_URL}/api/security/whitelist`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ip: newIP })
-      })
-      setNewIP('')
-      
-      const updatedSettings = {
-        ...settings,
-        ipWhitelist: {
-          ...settings.ipWhitelist,
-          ips: [...settings.ipWhitelist.ips, newIP]
-        }
-      }
-      setSettings(updatedSettings)
-    } catch (error) {
-      console.error('Failed to add IP:', error)
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-pulse text-muted-foreground">加载中...</div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent">
-        安全设置
-      </h2>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 认证设置 */}
-        <Card className="backdrop-blur-md bg-card/60 border-purple-500/20">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Lock className="h-4 w-4 text-purple-400" />
-              认证设置
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label className="text-purple-400">启用认证</Label>
-              <Switch 
-                checked={settings?.authentication?.enabled}
-                onCheckedChange={(checked) => {
-                  updateSettings({
-                    ...settings,
-                    authentication: { ...settings.authentication, enabled: checked }
-                  })
-                }}
-                className="data-[state=checked]:bg-purple-500"
-              />
-            </div>
-            
-            <div>
-              <Label className="text-purple-400">认证方式</Label>
-              <Select 
-                value={settings?.authentication?.method}
-                onValueChange={(value) => {
-                  updateSettings({
-                    ...settings,
-                    authentication: { ...settings.authentication, method: value }
-                  })
-                }}
-              >
-                <SelectTrigger className="border-purple-500/20 bg-purple-500/5">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">无</SelectItem>
-                  <SelectItem value="basic">基础认证</SelectItem>
-                  <SelectItem value="token">令牌认证</SelectItem>
-                  <SelectItem value="oauth">OAuth</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* IP 白名单 */}
-        <Card className="backdrop-blur-md bg-card/60 border-purple-500/20">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Globe className="h-4 w-4 text-purple-400" />
-              IP 白名单
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label className="text-purple-400">启用 IP 白名单</Label>
-              <Switch 
-                checked={settings?.ipWhitelist?.enabled}
-                onCheckedChange={(checked) => {
-                  updateSettings({
-                    ...settings,
-                    ipWhitelist: { ...settings.ipWhitelist, enabled: checked }
-                  })
-                }}
-                className="data-[state=checked]:bg-purple-500"
-              />
-            </div>
-            
-            <div className="flex gap-2">
-              <Input 
-                placeholder="IP 地址 (如: 192.168.1.1)" 
-                value={newIP}
-                onChange={(e) => setNewIP(e.target.value)}
-                className="border-purple-500/20 bg-purple-500/5 placeholder:text-muted-foreground/50"
-              />
-              <Button 
-                onClick={addIPToWhitelist}
-                className="bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 text-purple-400"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            {settings?.ipWhitelist?.ips?.length > 0 && (
-              <div className="space-y-1 max-h-32 overflow-y-auto">
-                {settings.ipWhitelist.ips.map((ip: string) => (
-                  <div key={ip} className="flex items-center justify-between p-2 rounded bg-purple-500/5 border border-purple-500/10">
-                    <span className="font-mono text-sm text-purple-400">{ip}</span>
-                    <Button 
-                      size="sm" 
-                      variant="ghost"
-                      className="hover:bg-red-500/10 hover:text-red-400"
-                      onClick={async () => {
-                        await fetch(`${API_BASE_URL}/api/security/whitelist/${encodeURIComponent(ip)}`, {
-                          method: 'DELETE'
-                        })
-                        const updatedSettings = {
-                          ...settings,
-                          ipWhitelist: {
-                            ...settings.ipWhitelist,
-                            ips: settings.ipWhitelist.ips.filter((i: string) => i !== ip)
-                          }
-                        }
-                        setSettings(updatedSettings)
-                      }}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 访问令牌 */}
-      <Card className="backdrop-blur-md bg-card/60 border-purple-500/20">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Key className="h-4 w-4 text-purple-400" />
-            访问令牌
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <Input 
-              placeholder="令牌名称" 
-              value={newTokenName}
-              onChange={(e) => setNewTokenName(e.target.value)}
-              className="border-purple-500/20 bg-purple-500/5 placeholder:text-muted-foreground/50"
-            />
-            <Button 
-              onClick={generateToken}
-              className="bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 text-purple-400"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              生成令牌
-            </Button>
-          </div>
-          
-          {tokens.length > 0 ? (
-            <div className="space-y-2">
-              {tokens.map((token: any) => (
-                <div key={token.id} className="flex items-center justify-between p-3 rounded-lg bg-purple-500/5 border border-purple-500/10">
-                  <div className="text-sm">
-                    <p className="font-medium text-purple-400">{token.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      创建于 {new Date(token.createdAt).toLocaleString()}
-                      {token.lastUsed && ` · 最后使用 ${new Date(token.lastUsed).toLocaleString()}`}
-                    </p>
-                  </div>
-                  <Button 
-                    size="sm" 
-                    variant="ghost"
-                    className="hover:bg-red-500/10 hover:text-red-400"
-                    onClick={async () => {
-                      await fetch(`${API_BASE_URL}/api/security/tokens/${token.id}`, {
-                        method: 'DELETE'
-                      })
-                      fetchTokens()
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-sm text-muted-foreground text-center py-8">
-              暂无访问令牌
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* 安全日志 */}
-      <Card className="backdrop-blur-md bg-card/60 border-purple-500/20">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 text-purple-400" />
-            安全日志
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {logs.length > 0 ? (
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {logs.map((log: any) => (
-                <div key={log.id} className="text-sm p-3 rounded-lg bg-purple-500/5 border border-purple-500/10">
-                  <div className="flex items-center justify-between">
-                    <Badge 
-                      variant={
-                        log.severity === 'critical' || log.severity === 'high' ? 'destructive' :
-                        log.severity === 'medium' ? 'secondary' :
-                        'outline'
-                      }
-                      className={
-                        log.severity === 'critical' || log.severity === 'high' 
-                          ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                        log.severity === 'medium' 
-                          ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
-                          'bg-green-500/10 text-green-400 border-green-500/20'
-                      }
-                    >
-                      {log.type}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(log.timestamp).toLocaleString()}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-foreground">{log.message}</p>
-                  {log.ip && <p className="text-xs text-muted-foreground mt-1">IP: {log.ip}</p>}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-sm text-muted-foreground text-center py-8">
-              暂无安全日志
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
 // Claude 配置面板
 function ClaudeConfigPanel() {
   const [config, setConfig] = useState({
     baseUrl: '',
-    authToken: '',
-    model: 'claude-3-5-sonnet-20241022',
-    maxTokens: 4000,
-    temperature: 0.7,
-    timeout: 30000
+    authToken: ''
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -1043,11 +690,7 @@ function ClaudeConfigPanel() {
         },
         body: JSON.stringify({
           baseUrl: config.baseUrl,
-          authToken: config.authToken,
-          model: config.model,
-          maxTokens: config.maxTokens,
-          temperature: config.temperature,
-          timeout: config.timeout
+          authToken: config.authToken
         })
       })
 
@@ -1085,11 +728,7 @@ function ClaudeConfigPanel() {
                 },
                 body: JSON.stringify({
                   baseUrl: config.baseUrl,
-                  authToken: config.authToken,
-                  model: config.model,
-                  maxTokens: config.maxTokens,
-                  temperature: config.temperature,
-                  timeout: config.timeout
+                  authToken: config.authToken
                 })
               })
             }
@@ -1145,10 +784,7 @@ function ClaudeConfigPanel() {
         },
         body: JSON.stringify({ 
           baseUrl: config.baseUrl, 
-          authToken: config.authToken,
-          model: config.model,
-          maxTokens: config.maxTokens,
-          temperature: config.temperature
+          authToken: config.authToken
         })
       })
 
@@ -1186,10 +822,7 @@ function ClaudeConfigPanel() {
                 },
                 body: JSON.stringify({ 
           baseUrl: config.baseUrl, 
-          authToken: config.authToken,
-          model: config.model,
-          maxTokens: config.maxTokens,
-          temperature: config.temperature
+          authToken: config.authToken
         })
               })
             }
@@ -1315,91 +948,6 @@ function ClaudeConfigPanel() {
           </div>
         </CardContent>
       </Card>
-      
-      {/* 高级配置 */}
-      <Card className="backdrop-blur-md bg-card/60 border-purple-500/20">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings className="h-4 w-4 text-purple-400" />
-            高级配置
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="text-purple-400">模型</Label>
-              <Select 
-                value={config.model}
-                onValueChange={(value) => setConfig({ ...config, model: value })}
-              >
-                <SelectTrigger className="border-purple-500/20 bg-purple-500/5">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet (最新)</SelectItem>
-                  <SelectItem value="claude-3-sonnet-20240229">Claude 3 Sonnet</SelectItem>
-                  <SelectItem value="claude-3-haiku-20240307">Claude 3 Haiku</SelectItem>
-                  <SelectItem value="claude-3-opus-20240229">Claude 3 Opus</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                选择要使用的 Claude 模型
-              </p>
-            </div>
-            
-            <div className="space-y-2">
-              <Label className="text-purple-400">最大 Token 数</Label>
-              <Input 
-                type="number"
-                min="1"
-                max="200000"
-                placeholder="4000" 
-                value={config.maxTokens}
-                onChange={(e) => setConfig({ ...config, maxTokens: parseInt(e.target.value) || 4000 })}
-                className="border-purple-500/20 bg-purple-500/5 placeholder:text-muted-foreground/50"
-              />
-              <p className="text-xs text-muted-foreground">
-                单次对话的最大 token 数量 (1-200000)
-              </p>
-            </div>
-            
-            <div className="space-y-2">
-              <Label className="text-purple-400">温度 (Temperature)</Label>
-              <div className="flex items-center gap-3">
-                <Input 
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={config.temperature}
-                  onChange={(e) => setConfig({ ...config, temperature: parseFloat(e.target.value) })}
-                  className="flex-1"
-                />
-                <span className="text-sm text-purple-400 font-mono w-12">{config.temperature}</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                控制回复的随机性，0 表示最确定，1 表示最随机
-              </p>
-            </div>
-            
-            <div className="space-y-2">
-              <Label className="text-purple-400">请求超时 (秒)</Label>
-              <Input 
-                type="number"
-                min="1"
-                max="300"
-                placeholder="30" 
-                value={config.timeout / 1000}
-                onChange={(e) => setConfig({ ...config, timeout: (parseInt(e.target.value) || 30) * 1000 })}
-                className="border-purple-500/20 bg-purple-500/5 placeholder:text-muted-foreground/50"
-              />
-              <p className="text-xs text-muted-foreground">
-                API 请求超时时间 (1-300 秒)
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* 操作按钮 */}
       <Card className="backdrop-blur-md bg-card/60 border-purple-500/20">
@@ -1482,9 +1030,9 @@ function ClaudeConfigPanel() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
-          <p>• Base URL：Claude API 的访问地址，可以使用官方地址或代理地址</p>
+          <p>• Base URL：Claude API 的访问地址，默认为官方地址 (https://api.anthropic.com)</p>
           <p>• Auth Token：您的 API 密钥，可以从 Anthropic Console 获取</p>
-          <p>• 此配置将用于 Claude Code 工具连接 Claude API</p>
+          <p>• 系统默认使用 claude-sonnet-4-20250514 模型</p>
           <p>• 配置将被加密存储，仅管理员可以查看和修改</p>
         </CardContent>
       </Card>

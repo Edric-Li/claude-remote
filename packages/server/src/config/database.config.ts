@@ -5,8 +5,8 @@ export const getDatabaseConfig = (): TypeOrmModuleOptions => {
   const isProduction = process.env.NODE_ENV === 'production'
   const dbPath = process.env.DATABASE_PATH || join(process.cwd(), 'data')
   
-  // 开发环境使用 SQLite
-  if (!isProduction || process.env.DB_TYPE === 'sqlite') {
+  // 如果明确指定使用 SQLite
+  if (process.env.DB_TYPE === 'sqlite') {
     return {
       type: 'sqlite',
       database: join(dbPath, 'ai-orchestra.db'),
@@ -16,20 +16,19 @@ export const getDatabaseConfig = (): TypeOrmModuleOptions => {
     }
   }
   
-  // 生产环境可以切换到 PostgreSQL 或 MySQL
-  const dbType = process.env.DB_TYPE as 'postgres' | 'mysql'
-  
+  // 默认使用 PostgreSQL
   return {
-    type: dbType || 'postgres',
-    host: process.env.DB_HOST || 'localhost',
+    type: 'postgres',
+    host: process.env.DB_HOST || 'edricli.com',
     port: parseInt(process.env.DB_PORT || '5432', 10),
-    username: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || 'postgres',
-    database: process.env.DB_NAME || 'ai_orchestra',
+    username: process.env.DB_USER || 'orchestra',
+    password: process.env.DB_PASSWORD || 'ktCKBfQ66eRzekJR',
+    database: process.env.DB_NAME || 'orchestra',
     entities: [join(__dirname, '..', '**', '*.entity.{ts,js}')],
-    synchronize: false, // 生产环境使用迁移
+    synchronize: true, // 允许自动同步表结构
     logging: process.env.DB_LOGGING === 'true',
-    migrations: [join(__dirname, '..', 'migrations', '*.{ts,js}')],
-    migrationsRun: true
+    ssl: process.env.DB_SSL === 'true' ? {
+      rejectUnauthorized: false
+    } : false
   }
 }
