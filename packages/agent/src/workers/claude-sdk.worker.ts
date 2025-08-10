@@ -82,13 +82,13 @@ export class ClaudeSDKWorker extends EventEmitter {
           // 使用默认模型
           args.push('--model', 'claude-sonnet-4-20250514')
         }
-        // Claude CLI 不支持 --max-tokens 参数，跳过
+        // Claude CLI 不支持 --max-tokens 和 --temperature 参数，跳过
         // if (this.config.maxTokens) {
         //   args.push('--max-tokens', this.config.maxTokens.toString())
         // }
-        if (this.config.temperature !== undefined) {
-          args.push('--temperature', this.config.temperature.toString())
-        }
+        // if (this.config.temperature !== undefined) {
+        //   args.push('--temperature', this.config.temperature.toString())
+        // }
       }
 
       console.log(`[ClaudeSDKWorker] Executing claude with args:`, args)
