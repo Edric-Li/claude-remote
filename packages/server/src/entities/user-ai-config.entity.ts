@@ -41,9 +41,9 @@ export class UserAiConfig {
   name: string
 
   @Column({
-    type: 'enum',
-    enum: ['claude', 'openai', 'gemini', 'ollama', 'custom'],
-    name: 'tool_type'
+    length: 20,
+    name: 'tool_type',
+    comment: '工具类型: claude, openai, gemini, ollama, custom'
   })
   toolType: 'claude' | 'openai' | 'gemini' | 'ollama' | 'custom'
 

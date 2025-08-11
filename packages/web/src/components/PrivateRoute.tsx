@@ -29,7 +29,9 @@ export function PrivateRoute() {
   
   // 未登录，重定向到登录页，并保存当前路径
   if (!isAuthenticated || !accessToken) {
-    return <Navigate to="/login" state={{ from: location }} replace />
+    // 根据当前路径决定重定向到哪个登录页面
+    const loginPath = location.pathname.startsWith('/next/') ? '/next/login' : '/login'
+    return <Navigate to={loginPath} state={{ from: location }} replace />
   }
   
   return <Outlet />

@@ -32,17 +32,13 @@ export class AssistantConversation {
   @Column({ length: 200, nullable: true, comment: '会话标题' })
   title?: string
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', name: 'last_message_at', comment: '最后消息时间' })
+  @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP', name: 'last_message_at', comment: '最后消息时间' })
   lastMessageAt: Date
 
   @Column({ type: 'int', default: 0, name: 'message_count', comment: '消息数量' })
   messageCount: number
 
-  @Column({
-    type: 'enum',
-    enum: ['active', 'archived', 'deleted'],
-    default: 'active'
-  })
+  @Column({ length: 20, default: 'active', comment: '状态: active, archived, deleted' })
   status: 'active' | 'archived' | 'deleted'
 
   @CreateDateColumn({ name: 'created_at' })

@@ -25,10 +25,7 @@ export class UserRepository {
   @Column({ length: 100, comment: '仓库显示名称' })
   name: string
 
-  @Column({
-    type: 'enum',
-    enum: ['git', 'local']
-  })
+  @Column({ length: 20, comment: '仓库类型: git, local' })
   type: 'git' | 'local'
 
   @Column({ length: 1000, comment: '仓库URL或本地路径' })
@@ -49,14 +46,10 @@ export class UserRepository {
   @Column({ type: 'text', nullable: true, comment: '仓库描述' })
   description?: string
 
-  @Column({
-    type: 'enum',
-    enum: ['active', 'inactive', 'error'],
-    default: 'active'
-  })
+  @Column({ length: 20, default: 'active', comment: '状态: active, inactive, error' })
   status: 'active' | 'inactive' | 'error'
 
-  @Column({ type: 'timestamp', nullable: true, name: 'last_sync_at', comment: '最后同步时间' })
+  @Column({ type: 'datetime', nullable: true, name: 'last_sync_at', comment: '最后同步时间' })
   lastSyncAt?: Date
 
   @Column({ type: 'text', nullable: true, name: 'sync_error', comment: '同步错误信息' })

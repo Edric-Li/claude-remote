@@ -15,13 +15,9 @@ export function enableDebugLogging() {
     originalConsoleError(`[${timestamp}] ERROR:`, ...args)
   }
   
-  // 监听WebSocket事件
-  if (typeof window !== 'undefined' && (window as any).__socket) {
-    const socket = (window as any).__socket
-    
-    socket.onAny((eventName: string, ...args: any[]) => {
-      console.log(`[WebSocket] Event: ${eventName}`, args)
-    })
+  // HTTP通信调试
+  if (typeof window !== 'undefined') {
+    console.log('🌐 HTTP通信调试已启用')
   }
 }
 

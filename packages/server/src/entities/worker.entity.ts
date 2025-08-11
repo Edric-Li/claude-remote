@@ -78,10 +78,10 @@ export class Worker {
     }
   }
 
-  @Column('timestamp', { nullable: true })
+  @Column('datetime', { nullable: true })
   startedAt: Date
 
-  @Column('timestamp', { nullable: true })
+  @Column('datetime', { nullable: true })
   lastHeartbeat: Date
 
   @Column({ type: 'simple-json', nullable: true })
@@ -90,7 +90,7 @@ export class Worker {
   @Column('text', { nullable: true })
   lastError: string
 
-  @Column('timestamp', { nullable: true })
+  @Column('datetime', { nullable: true })
   lastErrorAt: Date
 
   @CreateDateColumn()

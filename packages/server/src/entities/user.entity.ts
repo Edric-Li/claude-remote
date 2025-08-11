@@ -38,11 +38,7 @@ export class User {
   @Column({ length: 500, nullable: true, name: 'avatar_url' })
   avatarUrl?: string
 
-  @Column({
-    type: 'enum',
-    enum: ['active', 'inactive', 'banned'],
-    default: 'active'
-  })
+  @Column({ length: 20, default: 'active', comment: '状态: active, inactive, banned' })
   @Index()
   status: 'active' | 'inactive' | 'banned'
 
@@ -52,7 +48,7 @@ export class User {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date
 
-  @Column({ type: 'timestamp', nullable: true, name: 'last_login_at' })
+  @Column({ type: 'datetime', nullable: true, name: 'last_login_at' })
   lastLoginAt?: Date
 
   // 关联关系

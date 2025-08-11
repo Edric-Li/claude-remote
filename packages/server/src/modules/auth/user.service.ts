@@ -181,4 +181,18 @@ export class UserService {
     
     return this.findById(id)
   }
+
+  /**
+   * 删除用户
+   */
+  async deleteUser(id: string): Promise<void> {
+    const user = await this.findById(id)
+    
+    if (!user) {
+      throw new NotFoundException('用户不存在')
+    }
+
+    await this.userRepository.remove(user)
+    console.log(`[UserService] User deleted: ${user.username} (${user.id})`)
+  }
 }

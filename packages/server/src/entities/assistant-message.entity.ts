@@ -29,10 +29,7 @@ export class AssistantMessage {
   @Column({ name: 'conversation_id' })
   conversationId: string
 
-  @Column({
-    type: 'enum',
-    enum: ['user', 'assistant', 'system']
-  })
+  @Column({ length: 20, comment: '角色: user, assistant, system' })
   role: 'user' | 'assistant' | 'system'
 
   @Column({ type: 'text' })

@@ -1,9 +1,12 @@
 import React from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { NewSimplifiedHomePage } from './pages/NewSimplifiedHomePage'
 import { AdminPage } from './pages/AdminPage'
-import { LoginPage } from './pages/LoginPage'
 import { PrivateRoute } from './components/PrivateRoute'
+
+// 现代化页面 (使用HTTP通信)
+import { LoginPage } from './pages/next/LoginPage'
+import { ModernHomePage } from './pages/next/ModernHomePage'
+import { SettingsPage } from './pages/next/SettingsPage'
 
 export function App() {
   // 设置暗色主题
@@ -14,13 +17,20 @@ export function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* 公开路由 */}
+        {/* 主要路由 - 使用现代HTTP通信 */}
         <Route path="/login" element={<LoginPage />} />
-        
-        {/* 需要登录的路由 */}
         <Route element={<PrivateRoute />}>
-          <Route path="/" element={<NewSimplifiedHomePage />} />
+          <Route path="/" element={<ModernHomePage />} />
+          <Route path="/home" element={<ModernHomePage />} />
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="/admin" element={<AdminPage />} />
+        </Route>
+        
+        {/* 兼容性路由 */}
+        <Route path="/next/login" element={<LoginPage />} />
+        <Route element={<PrivateRoute />}>
+          <Route path="/next/home" element={<ModernHomePage />} />
+          <Route path="/next/settings" element={<SettingsPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

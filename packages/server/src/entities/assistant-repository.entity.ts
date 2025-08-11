@@ -34,15 +34,14 @@ export class AssistantRepository {
   @Column({ type: 'boolean', default: true, name: 'auto_sync', comment: '是否自动同步' })
   autoSync: boolean
 
-  @Column({ type: 'timestamp', nullable: true, name: 'last_sync_at', comment: '最后同步时间' })
+  @Column({ type: 'datetime', nullable: true, name: 'last_sync_at', comment: '最后同步时间' })
   lastSyncAt?: Date
 
   @Column({
-    type: 'enum',
-    enum: ['success', 'failed', 'syncing'],
+    length: 20,
     default: 'syncing',
     name: 'sync_status',
-    comment: '同步状态'
+    comment: '同步状态: success, failed, syncing'
   })
   syncStatus: 'success' | 'failed' | 'syncing'
 

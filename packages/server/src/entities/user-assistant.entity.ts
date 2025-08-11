@@ -36,11 +36,7 @@ export class UserAssistant {
   @Column({ name: 'ai_config_id', comment: '关联的AI工具配置' })
   aiConfigId: string
 
-  @Column({
-    type: 'enum',
-    enum: ['active', 'inactive', 'creating', 'error'],
-    default: 'creating'
-  })
+  @Column({ length: 20, default: 'creating', comment: '状态: active, inactive, creating, error' })
   status: 'active' | 'inactive' | 'creating' | 'error'
 
   @CreateDateColumn({ name: 'created_at' })

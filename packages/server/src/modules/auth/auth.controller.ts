@@ -55,10 +55,19 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Request() req, @Body() loginDto: LoginDto) {
-    // LocalAuthGuard 已经验证了用户
-    // req.user 包含验证后的用户信息
-    const ip = req.ip || req.connection.remoteAddress
-    return this.authService.login(loginDto, ip)
+    try {
+      console.log('🔐 Login attempt:', { username: loginDto.username })
+      // LocalAuthGuard 已经验证了用户
+      // req.user 包含验证后的用户信息
+      const ip = req.ip || req.connection.remoteAddress
+      console.log('👤 User from LocalAuthGuard:', req.user)
+      const result = await this.authService.login(loginDto, ip)
+      console.log('✅ Login successful')
+      return result
+    } catch (error) {
+      console.error('❌ Login error:', error)
+      throw error
+    }
   }
 
   /**

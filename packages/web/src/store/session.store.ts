@@ -426,19 +426,26 @@ const useSessionStoreBase = create<SessionStore>()(
           return
         }
         
-        // 通过 WebSocket 请求历史记录
-        const socket = (window as any).__socket
-        if (!socket) {
-          console.error('WebSocket not available')
-          return
-        }
-        
-        // 生成请求ID用于跟踪响应
-        const requestId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-        
-        // 设置响应监听器
-        const handleHistoryResponse = (data: any) => {
-          if (data.requestId === requestId && data.sessionId === sessionId) {
+        // 通过HTTP API请求历史记录
+        try {
+          const authStorage = localStorage.getItem('auth-storage')
+          const authState = authStorage ? JSON.parse(authStorage) : null
+          const token = authState?.state?.accessToken
+          
+          const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/history`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              workerId: session.workerId,
+              agentId: session.agentId
+            })
+          })
+          
+          if (response.ok) {
+            const data = await response.json()
             
             if (data.success && data.messages) {
               // 更新会话的消息列表
@@ -459,25 +466,12 @@ const useSessionStoreBase = create<SessionStore>()(
                 )
               }))
             }
-            
-            // 移除监听器
-            socket.off('history:response', handleHistoryResponse)
+          } else {
+            console.warn('Failed to fetch history from agent:', response.statusText)
           }
+        } catch (error) {
+          console.error('Failed to fetch history:', error)
         }
-        
-        socket.on('history:response', handleHistoryResponse)
-        
-        // 发送请求，包含 taskId (即 workerId)
-        socket.emit('history:fetch', {
-          sessionId: sessionId,
-          taskId: session.workerId,
-          requestId: requestId
-        })
-        
-        // 设置超时清理
-        setTimeout(() => {
-          socket.off('history:response', handleHistoryResponse)
-        }, 10000)
       },
       
       // 分配Worker - 调用后端API
