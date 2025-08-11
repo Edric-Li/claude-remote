@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { AgentManagement } from '../components/AgentManagement'
-import { RepositoryManagement } from '../components/RepositoryManagement'
+import { AgentSettings } from '../components/settings/AgentSettings'
+import { RepositoryManager } from '../components/repository/RepositoryManager'
 import {
   ArrowLeft,
   Settings,
@@ -154,8 +154,8 @@ export function AdminPage() {
         <main className="flex-1 overflow-auto p-6">
           <div className="max-w-7xl mx-auto">
             {activeTab === 'overview' && <OverviewPanel />}
-            {activeTab === 'agents' && <AgentManagement />}
-            {activeTab === 'repositories' && <RepositoryManagement />}
+            {activeTab === 'agents' && <AgentSettings />}
+            {activeTab === 'repositories' && <RepositoryManager />}
             {activeTab === 'claude' && <ClaudeConfigPanel />}
             {activeTab === 'database' && <DatabasePanel />}
           </div>

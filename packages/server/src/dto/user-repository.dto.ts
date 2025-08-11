@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsOptional, MaxLength, IsUrl } from 'class-validator'
+import { IsString, IsEnum, IsOptional, MaxLength } from 'class-validator'
 
 export class CreateRepositoryDto {
   @IsString()
@@ -34,6 +34,10 @@ export class CreateRepositoryDto {
   @IsString()
   @IsOptional()
   description?: string
+
+  @IsEnum(['active', 'inactive', 'error'])
+  @IsOptional()
+  status?: 'active' | 'inactive' | 'error'
 }
 
 export class UpdateRepositoryDto {
@@ -41,6 +45,10 @@ export class UpdateRepositoryDto {
   @IsOptional()
   @MaxLength(100)
   name?: string
+
+  @IsEnum(['git', 'local'])
+  @IsOptional()
+  type?: 'git' | 'local'
 
   @IsString()
   @IsOptional()

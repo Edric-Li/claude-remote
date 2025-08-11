@@ -95,4 +95,12 @@ export class UserRepositoryController {
   ): Promise<void> {
     await this.repositoryService.deleteRepository(id, user.id)
   }
+
+  @Post('test-config')
+  async testConfig(
+    @CurrentUser() user: User,
+    @Body() testData: any
+  ): Promise<{ success: boolean; message: string; details?: any }> {
+    return this.repositoryService.testConfig(testData)
+  }
 }

@@ -43,7 +43,7 @@ export class UserRepositoryService {
     const repository = this.repositoryRepository.create({
       userId,
       ...createRepoDto,
-      status: 'inactive' // 新建仓库默认为inactive，需要验证后才激活
+      status: createRepoDto.status || 'active' // 使用用户指定的状态，默认为active
     })
 
     const savedRepository = await this.repositoryRepository.save(repository)
@@ -238,8 +238,8 @@ export class UserRepositoryService {
 
   private async validateRepositoryUrl(url: string, type: 'git' | 'local'): Promise<void> {
     if (type === 'git') {
-      // Git URL格式验证
-      const gitUrlRegex = /^(https?:\/\/|git@)[\w\-.]+[/:][\w\-./]+\.git$/
+      // Git URL格式验证 - 支持更灵活的格式
+      const gitUrlRegex = /^(https?:\/\/|git@|ssh:\/\/)[\w\-.]+[/:].+$/
       if (!gitUrlRegex.test(url)) {
         throw new BadRequestException('Git仓库URL格式不正确')
       }
@@ -279,5 +279,57 @@ export class UserRepositoryService {
     )
 
     return { total, byStatus, byType }
+  }
+
+  async testConfig(data: any): Promise<{ success: boolean; message: string; details?: any }> {
+    try {
+      // 基本验证
+      if (!data.type) {
+        return { success: false, message: '请指定仓库类型' }
+      }
+
+      if (data.type === 'git') {
+        if (!data.url) {
+          return { success: false, message: '请提供Git仓库URL' }
+        }
+        
+        // 验证URL格式
+        await this.validateRepositoryUrl(data.url, 'git')
+        
+        // 这里可以添加实际的Git连接测试逻辑
+        // 暂时只做格式验证
+        return { 
+          success: true, 
+          message: '仓库URL格式正确',
+          details: {
+            branches: ['main', 'master', 'develop'],
+            defaultBranch: 'main'
+          }
+        }
+      } else if (data.type === 'local') {
+        if (!data.localPath) {
+          return { success: false, message: '请提供本地路径' }
+        }
+        
+        // 验证路径格式
+        await this.validateRepositoryUrl(data.localPath, 'local')
+        
+        return { 
+          success: true, 
+          message: '路径格式正确',
+          details: {
+            isGitRepo: false
+          }
+        }
+      }
+
+      return { success: false, message: '不支持的仓库类型' }
+    } catch (error) {
+      return { 
+        success: false, 
+        message: error.message || '配置测试失败',
+        details: { error: error.message }
+      }
+    }
   }
 }

@@ -17,7 +17,7 @@ export const getDatabaseConfig = (): TypeOrmModuleOptions => {
     password: process.env.DB_PASSWORD || 'postgres',
     database: process.env.DB_NAME || 'ai_orchestra',
     entities: [join(__dirname, '..', '**', '*.entity.{ts,js}')],
-    synchronize: false, // 暂时关闭自动同步，避免迁移错误
+    synchronize: true, // 开启自动同步，创建数据库表
     logging: process.env.DB_LOGGING === 'true',
     ssl:
       process.env.DB_SSL === 'true'

@@ -15,25 +15,42 @@ import {
   Wifi,
   WifiOff,
   TestTube,
-  Loader2
+  Loader2,
+  Terminal,
+  Info
 } from 'lucide-react'
 import { useAuthStore } from '../../store/auth.store'
+import { API_BASE_URL } from '../../config'
 
 interface Agent {
   id: string
   name: string
   description: string
-  status: 'online' | 'offline' | 'error'
-  secretKey?: string
-  createdAt: Date
-  lastConnected?: Date
-  capabilities: string[]
+  secretKey: string
+  maxWorkers: number
+  status: 'pending' | 'connected' | 'offline'
+  hostname?: string
+  platform?: string
+  ipAddress?: string
+  resources?: {
+    cpuCores: number
+    memory: number
+    diskSpace: number
+  }
+  tags?: string[]
+  allowedTools?: string[]
+  lastSeenAt?: string
+  createdBy: string
+  createdAt: string
+  updatedAt: string
 }
 
 interface AgentFormData {
   name: string
   description: string
-  capabilities: string[]
+  maxWorkers: number
+  tags?: string[]
+  allowedTools?: string[]
 }
 
 export function AgentSettings() {
@@ -47,10 +64,15 @@ export function AgentSettings() {
   const [connectionResults, setConnectionResults] = useState<{
     [key: string]: { success: boolean; message: string; timestamp: Date } | null
   }>({})
+  const [showConnectionCommand, setShowConnectionCommand] = useState<{ [key: string]: boolean }>({})
+  const [connectionCommands, setConnectionCommands] = useState<{ [key: string]: any }>({})
+  const [selectedEnv, setSelectedEnv] = useState<{ [key: string]: string }>({})
   const [formData, setFormData] = useState<AgentFormData>({
     name: '',
     description: '',
-    capabilities: []
+    maxWorkers: 4,
+    tags: [],
+    allowedTools: ['claude', 'qwen']
   })
 
   useEffect(() => {
@@ -60,7 +82,7 @@ export function AgentSettings() {
   const loadAgents = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/agents', {
+      const response = await fetch(`${API_BASE_URL}/api/agents`, {
         headers: {
           Authorization: `Bearer ${accessToken}`
         }
@@ -82,7 +104,7 @@ export function AgentSettings() {
 
     try {
       const method = editingAgent ? 'PUT' : 'POST'
-      const url = editingAgent ? `/api/agents/${editingAgent.id}` : '/api/agents'
+      const url = editingAgent ? `${API_BASE_URL}/api/agents/${editingAgent.id}` : `${API_BASE_URL}/api/agents`
 
       const response = await fetch(url, {
         method,
@@ -90,7 +112,10 @@ export function AgentSettings() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken}`
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          createdBy: 'admin'
+        })
       })
 
       if (response.ok) {
@@ -112,7 +137,7 @@ export function AgentSettings() {
     }
 
     try {
-      const response = await fetch(`/api/agents/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/agents/${id}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${accessToken}`
@@ -134,7 +159,7 @@ export function AgentSettings() {
     }
 
     try {
-      const response = await fetch(`/api/agents/${id}/reset-key`, {
+      const response = await fetch(`${API_BASE_URL}/api/agents/${id}/reset-key`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${accessToken}`
@@ -156,7 +181,7 @@ export function AgentSettings() {
 
   const handleDisconnect = async (id: string) => {
     try {
-      const response = await fetch(`/api/agents/${id}/disconnect`, {
+      const response = await fetch(`${API_BASE_URL}/api/agents/${id}/disconnect`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${accessToken}`
@@ -177,7 +202,9 @@ export function AgentSettings() {
     setFormData({
       name: agent.name,
       description: agent.description,
-      capabilities: []
+      maxWorkers: agent.maxWorkers,
+      tags: agent.tags || [],
+      allowedTools: agent.allowedTools || ['claude', 'qwen']
     })
     setShowForm(true)
   }
@@ -186,19 +213,65 @@ export function AgentSettings() {
     setFormData({
       name: '',
       description: '',
-      capabilities: []
+      maxWorkers: 4,
+      tags: [],
+      allowedTools: ['claude', 'qwen']
     })
     setEditingAgent(null)
     setShowForm(false)
   }
 
-  const copyToClipboard = async (text: string) => {
+  const copyToClipboard = async (text: string, silent = false) => {
     try {
       await navigator.clipboard.writeText(text)
-      alert('已复制到剪贴板')
+      if (!silent) {
+        alert('已复制到剪贴板')
+      }
     } catch (error) {
       console.error('Failed to copy:', error)
     }
+  }
+
+  /**
+   * 获取Agent连接命令
+   */
+  const loadConnectionCommand = async (agentId: string, env: string = 'local') => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/agents/${agentId}/connection-command?env=${env}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        }
+      )
+
+      if (response.ok) {
+        const data = await response.json()
+        setConnectionCommands(prev => ({ ...prev, [agentId]: data }))
+      }
+    } catch (error) {
+      console.error('Failed to load connection command:', error)
+    }
+  }
+
+  const toggleShowCommand = async (agentId: string) => {
+    const isShowing = showConnectionCommand[agentId]
+    
+    if (!isShowing && !connectionCommands[agentId]) {
+      // 首次加载命令
+      await loadConnectionCommand(agentId, selectedEnv[agentId] || 'local')
+    }
+    
+    setShowConnectionCommand(prev => ({
+      ...prev,
+      [agentId]: !prev[agentId]
+    }))
+  }
+
+  const handleEnvChange = async (agentId: string, env: string) => {
+    setSelectedEnv(prev => ({ ...prev, [agentId]: env }))
+    await loadConnectionCommand(agentId, env)
   }
 
   const toggleShowKey = (agentId: string) => {
@@ -226,7 +299,6 @@ export function AgentSettings() {
         success: false,
         message: '测试连接功能暂未实现，请等待后端实现'
       }
-      const response = { ok: false }
 
       if (false) {
         // 暂时禁用成功路径
@@ -242,17 +314,17 @@ export function AgentSettings() {
         }))
 
         // 可选：更新Agent状态为在线
-        setAgents(prev =>
-          prev.map(a =>
-            a.id === agent.id ? { ...a, status: 'online', lastConnected: new Date() } : a
-          )
-        )
+        // setAgents(prev =>
+        //   prev.map(a =>
+        //     a.id === agent.id ? { ...a, status: 'connected' as const } : a
+        //   )
+        // )
 
         console.log(`✅ Connection test successful for ${agent.name}`)
       } else {
         const errorResult = {
           success: false,
-          message: result.message || result.error || `Agent ${agent.name} 连接失败`,
+          message: result.message || `Agent ${agent.name} 连接失败`,
           timestamp: new Date()
         }
 
@@ -262,7 +334,7 @@ export function AgentSettings() {
         }))
 
         // 可选：更新Agent状态为错误
-        setAgents(prev => prev.map(a => (a.id === agent.id ? { ...a, status: 'error' } : a)))
+        // setAgents(prev => prev.map(a => (a.id === agent.id ? { ...a, status: 'offline' as const } : a)))
 
         console.log(`❌ Connection test failed for ${agent.name}: ${errorResult.message}`)
       }
@@ -281,7 +353,7 @@ export function AgentSettings() {
       }))
 
       // 更新Agent状态为错误
-      setAgents(prev => prev.map(a => (a.id === agent.id ? { ...a, status: 'error' } : a)))
+      // setAgents(prev => prev.map(a => (a.id === agent.id ? { ...a, status: 'offline' as const } : a)))
     } finally {
       setTestingConnection(prev => ({ ...prev, [agent.id]: false }))
     }
@@ -292,16 +364,16 @@ export function AgentSettings() {
    */
   const getConnectionStatusIcon = (agent: Agent) => {
     const isTestingNow = testingConnection[agent.id]
-    const testResult = connectionResults[agent.id]
+    // const testResult = connectionResults[agent.id]
 
     if (isTestingNow) {
       return <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
     }
 
     // 基于实际状态显示图标
-    if (agent.status === 'online') {
+    if (agent.status === 'connected') {
       return <Wifi className="w-4 h-4 text-green-500" />
-    } else if (agent.status === 'error') {
+    } else if (agent.status === 'offline') {
       return <WifiOff className="w-4 h-4 text-red-500" />
     } else {
       return <WifiOff className="w-4 h-4 text-gray-400" />
@@ -323,10 +395,12 @@ export function AgentSettings() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'online':
+      case 'connected':
         return <CheckCircle className="w-4 h-4 text-green-500" />
-      case 'error':
+      case 'offline':
         return <XCircle className="w-4 h-4 text-red-500" />
+      case 'pending':
+        return <AlertCircle className="w-4 h-4 text-yellow-500" />
       default:
         return <AlertCircle className="w-4 h-4 text-gray-400" />
     }
@@ -334,21 +408,25 @@ export function AgentSettings() {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'online':
-        return '在线'
-      case 'error':
-        return '错误'
-      default:
+      case 'connected':
+        return '已连接'
+      case 'offline':
         return '离线'
+      case 'pending':
+        return '待连接'
+      default:
+        return '未知'
     }
   }
 
   const getStatusBgColor = (status: string) => {
     switch (status) {
-      case 'online':
+      case 'connected':
         return 'bg-green-100 text-green-700'
-      case 'error':
+      case 'offline':
         return 'bg-red-100 text-red-700'
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-700'
       default:
         return 'bg-gray-100 text-gray-700'
     }
@@ -477,14 +555,15 @@ export function AgentSettings() {
 
                     <div className="flex items-center gap-4 text-xs text-gray-500">
                       <span>创建时间: {new Date(agent.createdAt).toLocaleDateString()}</span>
-                      {agent.lastConnected && (
-                        <span>最后连接: {new Date(agent.lastConnected).toLocaleDateString()}</span>
+                      <span>最大 Workers: {agent.maxWorkers}</span>
+                      {agent.lastSeenAt && (
+                        <span>最后活跃: {new Date(agent.lastSeenAt).toLocaleDateString()}</span>
                       )}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2 ml-4">
-                    {agent.status === 'online' && (
+                    {agent.status === 'connected' && (
                       <button
                         onClick={() => handleDisconnect(agent.id)}
                         className="p-2 text-gray-400 hover:text-orange-600 transition-colors"
@@ -493,6 +572,13 @@ export function AgentSettings() {
                         <XCircle className="w-4 h-4" />
                       </button>
                     )}
+                    <button
+                      onClick={() => toggleShowCommand(agent.id)}
+                      className="p-2 text-gray-400 hover:text-purple-600 transition-colors"
+                      title="显示连接命令"
+                    >
+                      <Terminal className="w-4 h-4" />
+                    </button>
                     <button
                       onClick={() => handleTestConnection(agent)}
                       disabled={testingConnection[agent.id]}
@@ -528,6 +614,54 @@ export function AgentSettings() {
                     </button>
                   </div>
                 </div>
+
+                {/* 连接命令显示 */}
+                {showConnectionCommand[agent.id] && connectionCommands[agent.id] && (
+                  <div className="mt-4 p-4 bg-gray-900 rounded-lg text-white">
+                    <div className="flex items-center justify-between mb-3">
+                      <h5 className="text-sm font-medium flex items-center gap-2">
+                        <Terminal className="w-4 h-4" />
+                        Agent 连接命令
+                      </h5>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={selectedEnv[agent.id] || 'local'}
+                          onChange={e => handleEnvChange(agent.id, e.target.value)}
+                          className="px-2 py-1 text-xs bg-gray-800 border border-gray-700 rounded text-white"
+                        >
+                          <option value="local">本地环境</option>
+                          <option value="development">开发环境</option>
+                          <option value="production">生产环境</option>
+                        </select>
+                        <button
+                          onClick={() => copyToClipboard(connectionCommands[agent.id].command, true)}
+                          className="p-1 text-gray-400 hover:text-white transition-colors"
+                          title="复制命令"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="mb-3">
+                      <code className="text-xs font-mono text-green-400 break-all block p-2 bg-gray-800 rounded">
+                        {connectionCommands[agent.id].command}
+                      </code>
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-400 flex items-start gap-1">
+                        <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                        <span>使用说明：</span>
+                      </p>
+                      {connectionCommands[agent.id].instructions.map((instruction: string, idx: number) => (
+                        <p key={idx} className="text-xs text-gray-300 ml-4">
+                          {instruction}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -564,6 +698,19 @@ export function AgentSettings() {
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
                     rows={3}
                     placeholder="Agent描述和用途"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">最大 Worker 数</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={32}
+                    value={formData.maxWorkers}
+                    onChange={e => setFormData({ ...formData, maxWorkers: parseInt(e.target.value) })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
+                    placeholder="最大并发 Worker 数量"
                   />
                 </div>
 

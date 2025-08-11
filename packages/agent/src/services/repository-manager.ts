@@ -241,6 +241,13 @@ export class RepositoryManager {
   }
 
   /**
+   * 准备仓库（克隆或更新）并返回路径
+   */
+  async prepareRepository(config: RepositoryConfig): Promise<string> {
+    return await this.ensureRepository(config)
+  }
+
+  /**
    * 清理所有缓存和工作区
    */
   async cleanAll(): Promise<void> {

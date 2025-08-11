@@ -49,6 +49,15 @@ export class UserRepository {
   @Column({ length: 20, default: 'active', comment: '状态: active, inactive, error' })
   status: 'active' | 'inactive' | 'error'
 
+  // 添加enabled虚拟属性，映射到status
+  get enabled(): boolean {
+    return this.status === 'active'
+  }
+
+  set enabled(value: boolean) {
+    this.status = value ? 'active' : 'inactive'
+  }
+
   @Column({ type: 'timestamp', nullable: true, name: 'last_sync_at', comment: '最后同步时间' })
   lastSyncAt?: Date
 
