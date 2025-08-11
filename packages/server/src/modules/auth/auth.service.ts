@@ -12,7 +12,7 @@ export interface RegisterDto {
   username: string
   email: string
   password: string
-  nickname?: string
+  displayName?: string
 }
 
 export interface JwtPayload {
@@ -47,7 +47,7 @@ export class AuthService {
       throw new UnauthorizedException('用户名或密码错误')
     }
 
-    if (!user.isActive) {
+    if (user.status !== 'active') {
       throw new UnauthorizedException('账户已被禁用')
     }
 
@@ -87,7 +87,7 @@ export class AuthService {
   async refreshToken(userId: string): Promise<AuthResponse> {
     const user = await this.userService.findById(userId)
 
-    if (!user || !user.isActive) {
+    if (!user || user.status !== 'active') {
       throw new UnauthorizedException('无效的用户')
     }
 
@@ -187,6 +187,6 @@ export class AuthService {
     }
 
     // 更新密码
-    await this.userService.update(userId, { password: newPassword })
+    await this.userService.update(userId, { passwordHash: newPassword })
   }
 }

@@ -1,45 +1,91 @@
-import { Module } from '@nestjs/common'
+import { Module, OnModuleInit } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { EventEmitterModule } from '@nestjs/event-emitter'
 import { APP_GUARD } from '@nestjs/core'
-import { ChatModule } from './chat/chat.module'
-import { AgentModule } from './modules/agent.module'
-import { WorkerModule } from './modules/worker.module'
-import { TaskModule } from './modules/task.module'
-import { AdminModule } from './modules/admin.module'
-import { AuthModule } from './modules/auth/auth.module'
-import { RepositoryModule } from './modules/repository.module'
-import { SessionModule } from './modules/session.module'
 import { getDatabaseConfig } from './config/database.config'
-import { AgentSimpleController } from './controllers/agent-simple.controller'
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard'
-import { ClaudeController } from './controllers/claude.controller'
-import { ClaudeService } from './services/claude.service'
-import { ClaudeConfig } from './entities/claude-config.entity'
+
+// 新的实体
+import { User } from './entities/user.entity'
+import { UserAiConfig } from './entities/user-ai-config.entity'
+import { UserRepository } from './entities/user-repository.entity'
+import { UserAssistant } from './entities/user-assistant.entity'
+import { AssistantRepository } from './entities/assistant-repository.entity'
+import { AssistantConversation } from './entities/assistant-conversation.entity'
+import { AssistantMessage } from './entities/assistant-message.entity'
+import { SystemConfig } from './entities/system-config.entity'
+import { OperationLog } from './entities/operation-log.entity'
+
+// 服务
+import { DatabaseInitService } from './database/init.service'
+import { UserService } from './services/user.service'
+import { UserAiConfigService } from './services/user-ai-config.service'
+import { UserRepositoryService } from './services/user-repository.service'
+import { UserAssistantService } from './services/user-assistant.service'
+import { AssistantConversationService } from './services/assistant-conversation.service'
+import { OperationLogService } from './services/operation-log.service'
+
+// 控制器
+import { UserController } from './controllers/user.controller'
+import { UserAiConfigController } from './controllers/user-ai-config.controller'
+import { UserRepositoryController } from './controllers/user-repository.controller'
+import { UserAssistantController } from './controllers/user-assistant.controller'
+import { AssistantConversationController } from './controllers/assistant-conversation.controller'
+
+// 认证模块
+import { AuthModule } from './modules/auth/auth.module'
+import { ChatModule } from './chat/chat.module'
 
 @Module({
   imports: [
     TypeOrmModule.forRoot(getDatabaseConfig()),
-    TypeOrmModule.forFeature([ClaudeConfig]),
+    TypeOrmModule.forFeature([
+      User,
+      UserAiConfig,
+      UserRepository,
+      UserAssistant,
+      AssistantRepository,
+      AssistantConversation,
+      AssistantMessage,
+      SystemConfig,
+      OperationLog
+    ]),
     EventEmitterModule.forRoot(),
-    AuthModule,  // 认证模块要放在前面
-    ChatModule,
-    AgentModule,
-    WorkerModule,
-    TaskModule,
-    AdminModule,
-    RepositoryModule,
-    SessionModule
+    AuthModule,
+    ChatModule
   ],
-  controllers: [AgentSimpleController, ClaudeController],
+  controllers: [
+    UserController,
+    UserAiConfigController,
+    UserRepositoryController,
+    UserAssistantController,
+    AssistantConversationController
+  ],
   providers: [
-    ClaudeService,
+    DatabaseInitService,
+    UserService,
+    UserAiConfigService,
+    UserRepositoryService,
+    UserAssistantService,
+    AssistantConversationService,
+    OperationLogService,
     // 全局启用 JWT 认证守卫
-    // 使用 @Public() 装饰器的路由会跳过认证
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard
     }
   ]
 })
-export class AppModule {}
+export class AppModule implements OnModuleInit {
+  constructor(private readonly databaseInitService: DatabaseInitService) {}
+
+  async onModuleInit() {
+    // 应用启动时初始化数据库
+    try {
+      await this.databaseInitService.initializeDatabase()
+    } catch (error) {
+      console.error('Database initialization failed:', error)
+      // 可以选择不阻止应用启动，只记录错误
+    }
+  }
+}

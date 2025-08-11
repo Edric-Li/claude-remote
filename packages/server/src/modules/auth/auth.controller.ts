@@ -127,7 +127,7 @@ export class AuthController {
   }
 
   /**
-   * 更新 API 密钥
+   * 更新 API 密钥 (已迁移到AI配置系统)
    */
   @UseGuards(JwtAuthGuard)
   @Put('api-keys')
@@ -135,18 +135,18 @@ export class AuthController {
     @CurrentUser() user,
     @Body() apiKeys: any
   ) {
-    await this.userService.updateUser(user.id, { apiKeys })
-    return { message: 'API密钥更新成功' }
+    // TODO: 重定向到新的AI配置API
+    return { message: 'API密钥功能已迁移到AI配置系统，请使用新的API端点' }
   }
 
   /**
-   * 获取 API 密钥
+   * 获取 API 密钥 (已迁移到AI配置系统)
    */
   @UseGuards(JwtAuthGuard)
   @Get('api-keys')
   async getApiKeys(@CurrentUser() user) {
-    const keys = await this.userService.getUserApiKeys(user.id)
-    return { apiKeys: keys }
+    // TODO: 重定向到新的AI配置API
+    return { message: 'API密钥功能已迁移到AI配置系统，请使用新的API端点', apiKeys: {} }
   }
 
   /**

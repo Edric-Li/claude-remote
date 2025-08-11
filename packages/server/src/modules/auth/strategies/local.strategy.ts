@@ -19,7 +19,7 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('用户名或密码错误')
     }
     
-    if (!user.isActive) {
+    if (user.status !== 'active') {
       throw new UnauthorizedException('账户已被禁用')
     }
     

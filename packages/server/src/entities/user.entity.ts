@@ -6,87 +6,88 @@ import {
   UpdateDateColumn,
   Index,
   BeforeInsert,
-  BeforeUpdate
+  BeforeUpdate,
+  OneToMany
 } from 'typeorm'
 import * as bcrypt from 'bcrypt'
+import { UserAiConfig } from './user-ai-config.entity'
+import { UserRepository } from './user-repository.entity'
+import { UserAssistant } from './user-assistant.entity'
+import { AssistantConversation } from './assistant-conversation.entity'
+import { OperationLog } from './operation-log.entity'
 
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string
 
-  @Column({ type: 'varchar', length: 100, unique: true })
+  @Column({ length: 50, unique: true })
   @Index()
   username: string
 
-  @Column({ type: 'varchar', length: 255, unique: true })
+  @Column({ length: 100, unique: true, nullable: true })
   @Index()
-  email: string
+  email?: string
 
-  @Column({ type: 'varchar', length: 255, select: false })
-  password: string
+  @Column({ length: 255, name: 'password_hash', select: false })
+  passwordHash: string
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  nickname: string
+  @Column({ length: 100, nullable: true, name: 'display_name' })
+  displayName?: string
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  avatar: string
+  @Column({ length: 500, nullable: true, name: 'avatar_url' })
+  avatarUrl?: string
 
-  @Column({ type: 'boolean', default: true })
-  isActive: boolean
+  @Column({
+    type: 'enum',
+    enum: ['active', 'inactive', 'banned'],
+    default: 'active'
+  })
+  @Index()
+  status: 'active' | 'inactive' | 'banned'
 
-  @Column({ type: 'timestamp', nullable: true })
-  lastLoginAt: Date
-
-  @Column({ type: 'varchar', length: 45, nullable: true })
-  lastLoginIp: string
-
-  @Column({ type: 'simple-json', nullable: true })
-  preferences: {
-    theme?: 'light' | 'dark'
-    language?: string
-    defaultModel?: string
-    notifications?: boolean
-  }
-
-  @Column({ type: 'simple-json', nullable: true })
-  apiKeys: {
-    claude?: string      // 加密存储
-    openai?: string      // 加密存储
-    cursor?: string      // 加密存储
-    qucoder?: string     // 加密存储
-  }
-
-  @Column({ type: 'simple-json', nullable: true })
-  usage: {
-    totalTasks?: number
-    totalTokens?: number
-    lastTaskAt?: Date
-  }
-
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date
+
+  @Column({ type: 'timestamp', nullable: true, name: 'last_login_at' })
+  lastLoginAt?: Date
+
+  // 关联关系
+  @OneToMany(() => UserAiConfig, config => config.user)
+  aiConfigs: UserAiConfig[]
+
+  @OneToMany(() => UserRepository, repo => repo.user)
+  repositories: UserRepository[]
+
+  @OneToMany(() => UserAssistant, assistant => assistant.user)
+  assistants: UserAssistant[]
+
+  @OneToMany(() => AssistantConversation, conversation => conversation.user)
+  conversations: AssistantConversation[]
+
+  @OneToMany(() => OperationLog, log => log.user)
+  operationLogs: OperationLog[]
 
   // 密码加密
   @BeforeInsert()
   @BeforeUpdate()
   async hashPassword() {
-    if (this.password && !this.password.startsWith('$2b$')) {
-      this.password = await bcrypt.hash(this.password, 10)
+    if (this.passwordHash && !this.passwordHash.startsWith('$2b$')) {
+      this.passwordHash = await bcrypt.hash(this.passwordHash, 10)
     }
   }
 
   // 验证密码
   async validatePassword(password: string): Promise<boolean> {
-    return bcrypt.compare(password, this.password)
+    return bcrypt.compare(password, this.passwordHash)
   }
 
   // 移除敏感信息
   toJSON() {
-    const { password, apiKeys, ...user } = this as any
+    const { passwordHash, ...user } = this as any
     return user
   }
 }

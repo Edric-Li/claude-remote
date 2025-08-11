@@ -8,14 +8,12 @@ export interface CreateUserDto {
   username: string
   email: string
   password: string
-  nickname?: string
+  displayName?: string
 }
 
 export interface UpdateUserDto {
-  nickname?: string
-  avatar?: string
-  preferences?: any
-  apiKeys?: any
+  displayName?: string
+  avatarUrl?: string
 }
 
 @Injectable()
@@ -39,23 +37,24 @@ export class UserService {
     }
 
     // 检查邮箱是否存在
-    const existingEmail = await this.userRepository.findOne({
-      where: { email: data.email }
-    })
-    
-    if (existingEmail) {
-      throw new ConflictException('邮箱已被注册')
+    if (data.email) {
+      const existingEmail = await this.userRepository.findOne({
+        where: { email: data.email }
+      })
+      
+      if (existingEmail) {
+        throw new ConflictException('邮箱已被注册')
+      }
     }
 
     // 创建新用户
     const user = this.userRepository.create({
-      ...data,
-      nickname: data.nickname || data.username,
-      avatar: this.generateAvatar(data.email),
-      usage: {
-        totalTasks: 0,
-        totalTokens: 0
-      }
+      username: data.username,
+      email: data.email,
+      passwordHash: data.password, // Will be hashed by entity hooks
+      displayName: data.displayName || data.username,
+      avatarUrl: this.generateAvatar(data.email || data.username),
+      status: 'active'
     })
 
     return this.userRepository.save(user)
@@ -67,7 +66,7 @@ export class UserService {
   async findByUsername(username: string): Promise<User | null> {
     return this.userRepository.findOne({
       where: { username },
-      select: ['id', 'username', 'email', 'password', 'nickname', 'avatar', 'isActive']
+      select: ['id', 'username', 'email', 'passwordHash', 'displayName', 'avatarUrl', 'status']
     })
   }
 
@@ -77,7 +76,7 @@ export class UserService {
   async findByEmail(email: string): Promise<User | null> {
     return this.userRepository.findOne({
       where: { email },
-      select: ['id', 'username', 'email', 'password', 'nickname', 'avatar', 'isActive']
+      select: ['id', 'username', 'email', 'passwordHash', 'displayName', 'avatarUrl', 'status']
     })
   }
 
@@ -100,11 +99,6 @@ export class UserService {
       throw new NotFoundException('用户不存在')
     }
 
-    // 如果更新 API 密钥，需要加密
-    if (data.apiKeys) {
-      data.apiKeys = this.encryptApiKeys(data.apiKeys)
-    }
-
     await this.userRepository.update(id, data)
     
     return this.findById(id)
@@ -113,9 +107,8 @@ export class UserService {
   /**
    * 通用更新方法（用于内部更新，如密码修改）
    */
-  async update(id: string, data: Partial<User>): Promise<void> {
-    // 如果是密码字段，会触发 User 实体的 @BeforeUpdate 钩子自动加密
-    await this.userRepository.save({ id, ...data })
+  async update(id: string, data: { passwordHash?: string }): Promise<void> {
+    await this.userRepository.update(id, data)
   }
 
   /**
@@ -123,27 +116,7 @@ export class UserService {
    */
   async updateLastLogin(id: string, ip: string): Promise<void> {
     await this.userRepository.update(id, {
-      lastLoginAt: new Date(),
-      lastLoginIp: ip
-    })
-  }
-
-  /**
-   * 更新使用统计
-   */
-  async updateUsageStats(id: string, tokens: number): Promise<void> {
-    const user = await this.findById(id)
-    
-    if (!user) return
-
-    const usage = user.usage || { totalTasks: 0, totalTokens: 0 }
-    
-    await this.userRepository.update(id, {
-      usage: {
-        totalTasks: (usage.totalTasks || 0) + 1,
-        totalTokens: (usage.totalTokens || 0) + tokens,
-        lastTaskAt: new Date()
-      }
+      lastLoginAt: new Date()
     })
   }
 
@@ -170,22 +143,6 @@ export class UserService {
   }
 
   /**
-   * 获取用户的 API 密钥（解密）
-   */
-  async getUserApiKeys(id: string): Promise<any> {
-    const user = await this.userRepository.findOne({
-      where: { id },
-      select: ['apiKeys']
-    })
-    
-    if (!user || !user.apiKeys) {
-      return {}
-    }
-
-    return this.decryptApiKeys(user.apiKeys)
-  }
-
-  /**
    * 生成头像
    */
   private generateAvatar(email: string): string {
@@ -196,66 +153,6 @@ export class UserService {
     
     // 使用 Gravatar 或默认头像服务
     return `https://www.gravatar.com/avatar/${hash}?d=identicon`
-  }
-
-  /**
-   * 加密 API 密钥
-   */
-  private encryptApiKeys(apiKeys: any): any {
-    const algorithm = 'aes-256-cbc'
-    const key = Buffer.from(
-      process.env.ENCRYPTION_KEY || 'default-encryption-key-change-it!',
-      'utf8'
-    ).slice(0, 32)
-    const iv = crypto.randomBytes(16)
-
-    const encrypted: any = {}
-    
-    for (const [provider, apiKey] of Object.entries(apiKeys)) {
-      if (apiKey && typeof apiKey === 'string') {
-        const cipher = crypto.createCipheriv(algorithm, key, iv)
-        let encryptedKey = cipher.update(apiKey, 'utf8', 'hex')
-        encryptedKey += cipher.final('hex')
-        
-        encrypted[provider] = {
-          data: encryptedKey,
-          iv: iv.toString('hex')
-        }
-      }
-    }
-    
-    return encrypted
-  }
-
-  /**
-   * 解密 API 密钥
-   */
-  private decryptApiKeys(encryptedKeys: any): any {
-    const algorithm = 'aes-256-cbc'
-    const key = Buffer.from(
-      process.env.ENCRYPTION_KEY || 'default-encryption-key-change-it!',
-      'utf8'
-    ).slice(0, 32)
-
-    const decrypted: any = {}
-    
-    for (const [provider, encryptedData] of Object.entries(encryptedKeys)) {
-      if (encryptedData && typeof encryptedData === 'object') {
-        const { data, iv } = encryptedData as any
-        const decipher = crypto.createDecipheriv(
-          algorithm,
-          key,
-          Buffer.from(iv, 'hex')
-        )
-        
-        let decryptedKey = decipher.update(data, 'hex', 'utf8')
-        decryptedKey += decipher.final('utf8')
-        
-        decrypted[provider] = decryptedKey
-      }
-    }
-    
-    return decrypted
   }
 
   /**
@@ -277,8 +174,9 @@ export class UserService {
       throw new NotFoundException('用户不存在')
     }
 
+    const newStatus = user.status === 'active' ? 'inactive' : 'active'
     await this.userRepository.update(id, {
-      isActive: !user.isActive
+      status: newStatus
     })
     
     return this.findById(id)
