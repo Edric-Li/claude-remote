@@ -47,9 +47,6 @@ dev.log
 .parcel-cache/
 
 # Database
-*.db
-*.sqlite
-*.sqlite3
 packages/server/data/
 
 # Backups

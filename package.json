@@ -7,35 +7,17 @@
     "packages/*"
   ],
   "scripts": {
+    "dev": "concurrently -n server,web \"pnpm run dev:server\" \"pnpm run dev:web\"",
     "dev:server": "pnpm --filter @ai-orchestra/server dev",
     "dev:web": "pnpm --filter @ai-orchestra/web dev",
     "dev:agent": "pnpm --filter @ai-orchestra/agent dev",
-    "dev": "concurrently -n server,web \"pnpm run dev:server\" \"pnpm run dev:web\"",
-    "dev:all": "concurrently -n server,web,agent \"pnpm run dev:server\" \"pnpm run dev:web\" \"pnpm run dev:agent\"",
     "build": "pnpm -r build",
-    "build:agent": "pnpm --filter @ai-orchestra/agent build",
-    "clean": "pnpm -r clean && rm -rf node_modules",
-    "test": "pnpm -r test",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
-    "lint": "oxlint . --fix",
-    "lint:style": "stylelint \"**/*.{css,scss,less}\" --fix",
-    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\"",
-    "quality": "pnpm run lint && pnpm run lint:style && pnpm run format",
-    "quality:check": "oxlint . && stylelint \"**/*.{css,scss,less}\" && prettier --check \"**/*.{js,jsx,ts,tsx,json,md}\""
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\""
   },
   "devDependencies": {
-    "@playwright/test": "^1.49.1",
-    "@stylistic/stylelint-config": "^3.0.1",
     "@types/node": "^22.10.2",
     "concurrently": "^9.1.2",
-    "eslint-config-prettier": "^10.1.8",
-    "oxlint": "^1.11.1",
-    "playwright": "^1.54.2",
     "prettier": "^3.6.2",
-    "socket.io-client": "^4.8.1",
-    "sqlite3": "^5.1.7",
-    "stylelint": "^16.23.1",
     "typescript": "^5.7.2"
   },
   "engines": {

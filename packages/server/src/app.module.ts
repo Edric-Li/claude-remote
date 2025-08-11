@@ -13,8 +13,6 @@ import { UserAssistant } from './entities/user-assistant.entity'
 import { AssistantRepository } from './entities/assistant-repository.entity'
 import { AssistantConversation } from './entities/assistant-conversation.entity'
 import { AssistantMessage } from './entities/assistant-message.entity'
-import { SystemConfig } from './entities/system-config.entity'
-import { OperationLog } from './entities/operation-log.entity'
 
 // 服务
 import { DatabaseInitService } from './database/init.service'
@@ -23,7 +21,6 @@ import { UserAiConfigService } from './services/user-ai-config.service'
 import { UserRepositoryService } from './services/user-repository.service'
 import { UserAssistantService } from './services/user-assistant.service'
 import { AssistantConversationService } from './services/assistant-conversation.service'
-import { OperationLogService } from './services/operation-log.service'
 
 // 控制器
 import { UserController } from './controllers/user.controller'
@@ -50,8 +47,6 @@ import { JwtModule } from '@nestjs/jwt'
       AssistantRepository,
       AssistantConversation,
       AssistantMessage,
-      SystemConfig,
-      OperationLog
     ]),
     EventEmitterModule.forRoot(),
     JwtModule.register({
@@ -79,7 +74,6 @@ import { JwtModule } from '@nestjs/jwt'
     UserRepositoryService,
     UserAssistantService,
     AssistantConversationService,
-    OperationLogService,
     // 全局启用 JWT 认证守卫
     {
       provide: APP_GUARD,

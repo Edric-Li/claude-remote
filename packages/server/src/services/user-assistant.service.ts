@@ -16,7 +16,6 @@ import {
   UpdateAssistantDto,
   AssistantRepositoryDto
 } from '../dto/user-assistant.dto'
-import { OperationLogService } from './operation-log.service'
 
 @Injectable()
 export class UserAssistantService {
@@ -31,7 +30,6 @@ export class UserAssistantService {
     private userRepoRepository: Repository<UserRepository>,
     @InjectRepository(UserAiConfig)
     private aiConfigRepository: Repository<UserAiConfig>,
-    private operationLogService: OperationLogService
   ) {}
 
   async createAssistant(
@@ -88,18 +86,6 @@ export class UserAssistantService {
     savedAssistant.status = 'active'
     await this.assistantRepository.save(savedAssistant)
 
-    // 记录操作日志
-    await this.operationLogService.createLog({
-      userId,
-      operationType: 'assistant_create',
-      resourceType: 'assistant',
-      resourceId: savedAssistant.id,
-      operationData: {
-        name: savedAssistant.name,
-        aiConfigId: savedAssistant.aiConfigId,
-        repositoryCount: createAssistantDto.repositoryIds?.length || 0
-      }
-    })
 
     this.logger.log(
       `Assistant created: ${savedAssistant.name} (${savedAssistant.id}) for user ${userId}`
@@ -163,14 +149,6 @@ export class UserAssistantService {
     Object.assign(assistant, updateAssistantDto)
     const updatedAssistant = await this.assistantRepository.save(assistant)
 
-    // 记录操作日志
-    await this.operationLogService.createLog({
-      userId,
-      operationType: 'assistant_update',
-      resourceType: 'assistant',
-      resourceId: id,
-      operationData: updateAssistantDto
-    })
 
     return updatedAssistant
   }
@@ -208,14 +186,6 @@ export class UserAssistantService {
 
     const savedAssistantRepo = await this.assistantRepoRepository.save(assistantRepo)
 
-    // 记录操作日志
-    await this.operationLogService.createLog({
-      userId,
-      operationType: 'assistant_add_repository',
-      resourceType: 'assistant',
-      resourceId: assistantId,
-      operationData: { repositoryId: repoDto.repositoryId, repositoryName: userRepo.name }
-    })
 
     this.logger.log(`Repository added to assistant: ${userRepo.name} -> ${assistant.name}`)
     return savedAssistantRepo
@@ -239,17 +209,6 @@ export class UserAssistantService {
 
     await this.assistantRepoRepository.remove(assistantRepo)
 
-    // 记录操作日志
-    await this.operationLogService.createLog({
-      userId,
-      operationType: 'assistant_remove_repository',
-      resourceType: 'assistant',
-      resourceId: assistantId,
-      operationData: {
-        repositoryId,
-        repositoryName: assistantRepo.repository?.name
-      }
-    })
 
     this.logger.log(`Repository removed from assistant: ${repositoryId} -> ${assistant.name}`)
   }
@@ -284,14 +243,6 @@ export class UserAssistantService {
       assistantRepo.syncStatus = 'success'
       await this.assistantRepoRepository.save(assistantRepo)
 
-      // 记录操作日志
-      await this.operationLogService.createLog({
-        userId,
-        operationType: 'assistant_sync_repository',
-        resourceType: 'assistant',
-        resourceId: assistantId,
-        operationData: { success: true, repositoryId }
-      })
 
       return { success: true, message: '同步成功' }
     } catch (error) {
@@ -299,14 +250,6 @@ export class UserAssistantService {
       assistantRepo.syncError = error.message
       await this.assistantRepoRepository.save(assistantRepo)
 
-      // 记录操作日志
-      await this.operationLogService.createLog({
-        userId,
-        operationType: 'assistant_sync_repository',
-        resourceType: 'assistant',
-        resourceId: assistantId,
-        operationData: { success: false, repositoryId, error: error.message }
-      })
 
       return { success: false, message: error.message }
     }
@@ -317,14 +260,6 @@ export class UserAssistantService {
 
     await this.assistantRepository.remove(assistant)
 
-    // 记录操作日志
-    await this.operationLogService.createLog({
-      userId,
-      operationType: 'assistant_delete',
-      resourceType: 'assistant',
-      resourceId: id,
-      operationData: { name: assistant.name }
-    })
 
     this.logger.log(`Assistant deleted: ${assistant.name} (${id}) for user ${userId}`)
   }

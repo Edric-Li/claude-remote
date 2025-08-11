@@ -9,7 +9,6 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { UserAiConfig } from '../entities/user-ai-config.entity'
 import { CreateAiConfigDto, UpdateAiConfigDto } from '../dto/user-ai-config.dto'
-import { OperationLogService } from './operation-log.service'
 
 @Injectable()
 export class UserAiConfigService {
@@ -18,7 +17,6 @@ export class UserAiConfigService {
   constructor(
     @InjectRepository(UserAiConfig)
     private aiConfigRepository: Repository<UserAiConfig>,
-    private operationLogService: OperationLogService
   ) {}
 
   async createConfig(userId: string, createConfigDto: CreateAiConfigDto): Promise<UserAiConfig> {
@@ -42,14 +40,6 @@ export class UserAiConfigService {
 
     const savedConfig = await this.aiConfigRepository.save(config)
 
-    // 记录操作日志
-    await this.operationLogService.createLog({
-      userId,
-      operationType: 'ai_config_create',
-      resourceType: 'ai_config',
-      resourceId: savedConfig.id,
-      operationData: { name: savedConfig.name, toolType: savedConfig.toolType }
-    })
 
     this.logger.log(`AI config created: ${savedConfig.name} (${savedConfig.id}) for user ${userId}`)
     return savedConfig
@@ -113,14 +103,6 @@ export class UserAiConfigService {
     Object.assign(config, updateConfigDto)
     const updatedConfig = await this.aiConfigRepository.save(config)
 
-    // 记录操作日志
-    await this.operationLogService.createLog({
-      userId,
-      operationType: 'ai_config_update',
-      resourceType: 'ai_config',
-      resourceId: id,
-      operationData: updateConfigDto
-    })
 
     return updatedConfig
   }
@@ -134,14 +116,6 @@ export class UserAiConfigService {
     config.isDefault = true
     const updatedConfig = await this.aiConfigRepository.save(config)
 
-    // 记录操作日志
-    await this.operationLogService.createLog({
-      userId,
-      operationType: 'ai_config_set_default',
-      resourceType: 'ai_config',
-      resourceId: id,
-      operationData: { toolType: config.toolType }
-    })
 
     this.logger.log(`AI config set as default: ${config.name} (${id}) for user ${userId}`)
     return updatedConfig
@@ -152,14 +126,6 @@ export class UserAiConfigService {
 
     await this.aiConfigRepository.remove(config)
 
-    // 记录操作日志
-    await this.operationLogService.createLog({
-      userId,
-      operationType: 'ai_config_delete',
-      resourceType: 'ai_config',
-      resourceId: id,
-      operationData: { name: config.name, toolType: config.toolType }
-    })
 
     this.logger.log(`AI config deleted: ${config.name} (${id}) for user ${userId}`)
   }
@@ -171,25 +137,9 @@ export class UserAiConfigService {
       // TODO: 实现具体的连接测试逻辑
       // 根据 toolType 调用对应的 AI 服务进行连接测试
 
-      // 记录操作日志
-      await this.operationLogService.createLog({
-        userId,
-        operationType: 'ai_config_test',
-        resourceType: 'ai_config',
-        resourceId: id,
-        operationData: { success: true, toolType: config.toolType }
-      })
 
       return { success: true, message: '连接测试成功' }
     } catch (error) {
-      // 记录操作日志
-      await this.operationLogService.createLog({
-        userId,
-        operationType: 'ai_config_test',
-        resourceType: 'ai_config',
-        resourceId: id,
-        operationData: { success: false, error: error.message, toolType: config.toolType }
-      })
 
       return { success: false, message: error.message }
     }

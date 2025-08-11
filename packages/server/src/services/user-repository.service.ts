@@ -13,7 +13,6 @@ import {
   UpdateRepositoryDto,
   SyncRepositoryDto
 } from '../dto/user-repository.dto'
-import { OperationLogService } from './operation-log.service'
 
 @Injectable()
 export class UserRepositoryService {
@@ -22,7 +21,6 @@ export class UserRepositoryService {
   constructor(
     @InjectRepository(UserRepository)
     private repositoryRepository: Repository<UserRepository>,
-    private operationLogService: OperationLogService
   ) {}
 
   async createRepository(
@@ -48,18 +46,6 @@ export class UserRepositoryService {
 
     const savedRepository = await this.repositoryRepository.save(repository)
 
-    // 记录操作日志
-    await this.operationLogService.createLog({
-      userId,
-      operationType: 'repository_create',
-      resourceType: 'repository',
-      resourceId: savedRepository.id,
-      operationData: {
-        name: savedRepository.name,
-        type: savedRepository.type,
-        url: savedRepository.url
-      }
-    })
 
     this.logger.log(
       `Repository created: ${savedRepository.name} (${savedRepository.id}) for user ${userId}`
@@ -117,14 +103,6 @@ export class UserRepositoryService {
     Object.assign(repository, updateRepoDto)
     const updatedRepository = await this.repositoryRepository.save(repository)
 
-    // 记录操作日志
-    await this.operationLogService.createLog({
-      userId,
-      operationType: 'repository_update',
-      resourceType: 'repository',
-      resourceId: id,
-      operationData: updateRepoDto
-    })
 
     return updatedRepository
   }
@@ -152,14 +130,6 @@ export class UserRepositoryService {
       // 1. Git仓库：执行git clone/pull操作
       // 2. 本地仓库：检查路径是否存在和可读
 
-      // 记录操作日志
-      await this.operationLogService.createLog({
-        userId,
-        operationType: 'repository_sync',
-        resourceType: 'repository',
-        resourceId: id,
-        operationData: { success: true, branch: repository.branch }
-      })
 
       this.logger.log(`Repository synced: ${repository.name} (${id}) for user ${userId}`)
       return { success: true, message: '同步成功' }
@@ -169,14 +139,6 @@ export class UserRepositoryService {
       repository.status = 'error'
       await this.repositoryRepository.save(repository)
 
-      // 记录操作日志
-      await this.operationLogService.createLog({
-        userId,
-        operationType: 'repository_sync',
-        resourceType: 'repository',
-        resourceId: id,
-        operationData: { success: false, error: error.message }
-      })
 
       return { success: false, message: error.message }
     }
@@ -190,25 +152,9 @@ export class UserRepositoryService {
       // 1. Git仓库：测试连接和认证
       // 2. 本地仓库：检查路径访问权限
 
-      // 记录操作日志
-      await this.operationLogService.createLog({
-        userId,
-        operationType: 'repository_test',
-        resourceType: 'repository',
-        resourceId: id,
-        operationData: { success: true, type: repository.type }
-      })
 
       return { success: true, message: '连接测试成功' }
     } catch (error) {
-      // 记录操作日志
-      await this.operationLogService.createLog({
-        userId,
-        operationType: 'repository_test',
-        resourceType: 'repository',
-        resourceId: id,
-        operationData: { success: false, error: error.message, type: repository.type }
-      })
 
       return { success: false, message: error.message }
     }
@@ -224,14 +170,6 @@ export class UserRepositoryService {
 
     await this.repositoryRepository.remove(repository)
 
-    // 记录操作日志
-    await this.operationLogService.createLog({
-      userId,
-      operationType: 'repository_delete',
-      resourceType: 'repository',
-      resourceId: id,
-      operationData: { name: repository.name, type: repository.type }
-    })
 
     this.logger.log(`Repository deleted: ${repository.name} (${id}) for user ${userId}`)
   }

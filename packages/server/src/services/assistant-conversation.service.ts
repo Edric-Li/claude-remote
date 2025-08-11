@@ -17,7 +17,6 @@ import {
   BatchCreateMessagesDto,
   ArchiveConversationDto
 } from '../dto/assistant-conversation.dto'
-import { OperationLogService } from './operation-log.service'
 
 @Injectable()
 export class AssistantConversationService {
@@ -30,7 +29,6 @@ export class AssistantConversationService {
     private messageRepository: Repository<AssistantMessage>,
     @InjectRepository(UserAssistant)
     private assistantRepository: Repository<UserAssistant>,
-    private operationLogService: OperationLogService
   ) {}
 
   async createConversation(
@@ -55,17 +53,6 @@ export class AssistantConversationService {
 
     const savedConversation = await this.conversationRepository.save(conversation)
 
-    // 记录操作日志
-    await this.operationLogService.createLog({
-      userId,
-      operationType: 'conversation_create',
-      resourceType: 'conversation',
-      resourceId: savedConversation.id,
-      operationData: {
-        assistantId: createConversationDto.assistantId,
-        title: savedConversation.title
-      }
-    })
 
     this.logger.log(`Conversation created: ${savedConversation.id} for user ${userId}`)
     return savedConversation
@@ -123,14 +110,6 @@ export class AssistantConversationService {
     Object.assign(conversation, updateConversationDto)
     const updatedConversation = await this.conversationRepository.save(conversation)
 
-    // 记录操作日志
-    await this.operationLogService.createLog({
-      userId,
-      operationType: 'conversation_update',
-      resourceType: 'conversation',
-      resourceId: id,
-      operationData: updateConversationDto
-    })
 
     return updatedConversation
   }
@@ -151,14 +130,6 @@ export class AssistantConversationService {
     conversation.status = 'archived'
     const archivedConversation = await this.conversationRepository.save(conversation)
 
-    // 记录操作日志
-    await this.operationLogService.createLog({
-      userId,
-      operationType: 'conversation_archive',
-      resourceType: 'conversation',
-      resourceId: id,
-      operationData: { messageCount: archiveDto.messages?.length || 0 }
-    })
 
     this.logger.log(
       `Conversation archived: ${id} with ${archiveDto.messages?.length || 0} messages`
@@ -240,14 +211,6 @@ export class AssistantConversationService {
 
     await this.conversationRepository.remove(conversation)
 
-    // 记录操作日志
-    await this.operationLogService.createLog({
-      userId,
-      operationType: 'conversation_delete',
-      resourceType: 'conversation',
-      resourceId: id,
-      operationData: { title: conversation.title, messageCount: conversation.messageCount }
-    })
 
     this.logger.log(`Conversation deleted: ${id} for user ${userId}`)
   }

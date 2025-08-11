@@ -14,7 +14,6 @@ import { UserAiConfig } from './user-ai-config.entity'
 import { UserRepository } from './user-repository.entity'
 import { UserAssistant } from './user-assistant.entity'
 import { AssistantConversation } from './assistant-conversation.entity'
-import { OperationLog } from './operation-log.entity'
 
 @Entity('users')
 export class User {
@@ -64,8 +63,6 @@ export class User {
   @OneToMany(() => AssistantConversation, conversation => conversation.user)
   conversations: AssistantConversation[]
 
-  @OneToMany(() => OperationLog, log => log.user)
-  operationLogs: OperationLog[]
 
   // 密码加密
   @BeforeInsert()

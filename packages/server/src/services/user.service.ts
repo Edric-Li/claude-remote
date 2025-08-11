@@ -14,7 +14,6 @@ import {
   ChangePasswordDto,
   UpdateUserStatusDto
 } from '../dto/user.dto'
-import { OperationLogService } from './operation-log.service'
 
 @Injectable()
 export class UserService {
@@ -23,7 +22,6 @@ export class UserService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
-    private operationLogService: OperationLogService
   ) {}
 
   async createUser(createUserDto: CreateUserDto, operatorId?: string): Promise<User> {
@@ -56,14 +54,6 @@ export class UserService {
 
     const savedUser = await this.userRepository.save(user)
 
-    // 记录操作日志
-    await this.operationLogService.createLog({
-      userId: operatorId,
-      operationType: 'user_create',
-      resourceType: 'user',
-      resourceId: savedUser.id,
-      operationData: { username: savedUser.username }
-    })
 
     this.logger.log(`User created: ${savedUser.username} (${savedUser.id})`)
     return savedUser
@@ -132,14 +122,6 @@ export class UserService {
     Object.assign(user, updateUserDto)
     const updatedUser = await this.userRepository.save(user)
 
-    // 记录操作日志
-    await this.operationLogService.createLog({
-      userId: operatorId,
-      operationType: 'user_update',
-      resourceType: 'user',
-      resourceId: id,
-      operationData: updateUserDto
-    })
 
     return updatedUser
   }
@@ -167,13 +149,6 @@ export class UserService {
     user.passwordHash = changePasswordDto.newPassword // 会被entity的beforeUpdate钩子加密
     await this.userRepository.save(user)
 
-    // 记录操作日志
-    await this.operationLogService.createLog({
-      userId: operatorId,
-      operationType: 'user_change_password',
-      resourceType: 'user',
-      resourceId: id
-    })
 
     this.logger.log(`Password changed for user: ${id}`)
   }
@@ -188,14 +163,6 @@ export class UserService {
     user.status = updateStatusDto.status
     const updatedUser = await this.userRepository.save(user)
 
-    // 记录操作日志
-    await this.operationLogService.createLog({
-      userId: operatorId,
-      operationType: 'user_status_update',
-      resourceType: 'user',
-      resourceId: id,
-      operationData: { status: updateStatusDto.status }
-    })
 
     this.logger.log(`User status updated: ${id} -> ${updateStatusDto.status}`)
     return updatedUser
@@ -212,14 +179,6 @@ export class UserService {
 
     await this.userRepository.remove(user)
 
-    // 记录操作日志
-    await this.operationLogService.createLog({
-      userId: operatorId,
-      operationType: 'user_delete',
-      resourceType: 'user',
-      resourceId: id,
-      operationData: { username: user.username }
-    })
 
     this.logger.log(`User deleted: ${user.username} (${id})`)
   }
