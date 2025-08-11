@@ -50,6 +50,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private recentMessages = new Map<string, number>() // 用于消息去重
   private sessionClients = new Map<string, Set<string>>() // sessionId -> Set<socketId>
   private historyRequestMap = new Map<string, string>() // requestId -> clientId
+  
+  // WebSocket 控制器引用，用于向前端发送事件
+  private webSocketController: any = null
 
   constructor(
     @Inject(forwardRef(() => AgentService))
@@ -65,6 +68,102 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // private readonly claudeService: ClaudeService
   ) {
     // Services will be used for agent/worker management
+  }
+
+  /**
+   * 设置 WebSocket 控制器引用
+   */
+  setWebSocketController(controller: any) {
+    this.webSocketController = controller
+  }
+
+  /**
+   * 向 WebSocket 客户端广播事件
+   */
+  private broadcastToWebClients(eventType: string, payload: any) {
+    if (this.webSocketController) {
+      this.webSocketController.broadcastToWebClients(eventType, payload)
+    }
+  }
+
+  /**
+   * 处理来自 WebSocket 前端的消息
+   */
+  public handleWebSocketMessage(eventType: string, payload: any) {
+    switch (eventType) {
+      case 'chat:message':
+        this.handleWebChatMessage(payload)
+        break
+      case 'worker:start':
+        this.handleWebWorkerStart(payload)
+        break
+      case 'worker:input':
+        this.handleWebWorkerInput(payload)
+        break
+      case 'worker:recreate_request':
+        this.handleWebWorkerRecreateRequest(payload)
+        break
+      default:
+        console.log(`未处理的WebSocket事件类型: ${eventType}`)
+    }
+  }
+
+  /**
+   * 处理来自Web的聊天消息
+   */
+  private handleWebChatMessage(data: { to?: string; content: string }) {
+    const message: ChatMessage = {
+      from: 'web',
+      content: data.content,
+      timestamp: new Date()
+    }
+
+    if (data.to) {
+      // Send to specific agent
+      this.server.to(`agent:${data.to}`).emit('chat:message', {
+        ...message,
+        agentId: data.to
+      })
+    } else {
+      // Broadcast to all agents
+      for (const agent of this.connectedAgents.values()) {
+        this.server.to(agent.socketId).emit('chat:message', message)
+      }
+    }
+  }
+
+  /**
+   * 处理来自Web的Worker启动请求
+   */
+  private handleWebWorkerStart(data: any) {
+    const agent = this.connectedAgents.get(data.agentId)
+    if (agent) {
+      this.server.to(agent.socketId).emit('worker:start', data)
+    }
+  }
+
+  /**
+   * 处理来自Web的Worker输入
+   */
+  private handleWebWorkerInput(data: any) {
+    const agent = this.connectedAgents.get(data.agentId)
+    if (agent) {
+      this.server.to(agent.socketId).emit('worker:input', data)
+    }
+  }
+
+  /**
+   * 处理来自Web的Worker重新创建请求
+   */
+  private handleWebWorkerRecreateRequest(data: any) {
+    const agent = this.connectedAgents.get(data.agentId)
+    if (agent) {
+      this.server.to(agent.socketId).emit('worker:recreate', {
+        taskId: data.taskId,
+        sessionId: data.sessionId,
+        model: 'claude-sonnet-4-20250514'
+      })
+    }
   }
 
   handleConnection(client: Socket): void {
@@ -101,6 +200,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
 
         this.server.emit('agent:disconnected', { agentId })
+        
+        // 同时通知 WebSocket 客户端
+        this.broadcastToWebClients('agent:disconnected', { agentId })
         console.log(`Agent ${agent.name} (${agentId}) disconnected`)
         break
       }
@@ -134,6 +236,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // Notify all clients about new agent
     this.server.emit('agent:connected', {
+      agentId: agent.id,
+      name: agent.name,
+      connectedAt: agent.connectedAt
+    })
+
+    // 同时通知 WebSocket 客户端
+    this.broadcastToWebClients('agent:connected', {
       agentId: agent.id,
       name: agent.name,
       connectedAt: agent.connectedAt
@@ -182,6 +291,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       })
 
       this.server.emit('agent:connected', {
+        agentId: agent.id,
+        name: agent.name,
+        connectedAt: connectedAgent.connectedAt
+      })
+
+      // 同时通知 WebSocket 客户端
+      this.broadcastToWebClients('agent:connected', {
         agentId: agent.id,
         name: agent.name,
         connectedAt: connectedAgent.connectedAt
@@ -270,6 +386,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       ...message,
       timestamp: message.timestamp.toISOString()
     })
+
+    // 同时通知 WebSocket 客户端
+    this.broadcastToWebClients('chat:reply', {
+      ...message,
+      timestamp: message.timestamp.toISOString()
+    })
+    
     console.log('Broadcasted reply to all web clients')
   }
 
@@ -472,9 +595,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (data.sessionId) {
       const roomName = `session:${data.sessionId}`
       this.server.to(roomName).emit('worker:status', data)
+      
+      // 同时发送给 WebSocket 客户端
+      this.broadcastToWebClients('worker:status', data)
     } else {
       // 兼容性：如果没有sessionId，广播给所有客户端
       this.server.emit('worker:status', data)
+      
+      // 同时发送给 WebSocket 客户端
+      this.broadcastToWebClients('worker:status', data)
     }
   }
 
@@ -580,10 +709,16 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const roomName = `session:${data.sessionId}`
       this.server.to(roomName).emit('worker:message', data)
       console.log(`Sent worker message to session ${data.sessionId}`)
+      
+      // 同时发送给 WebSocket 客户端
+      this.broadcastToWebClients('worker:message', data)
     } else {
       // 如果没有sessionId，回退到原有的广播行为（兼容性）
       console.warn('Worker message without sessionId, broadcasting to all')
       this.server.emit('worker:message', data)
+      
+      // 同时发送给 WebSocket 客户端
+      this.broadcastToWebClients('worker:message', data)
     }
   }
 

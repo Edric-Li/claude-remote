@@ -6,9 +6,6 @@ import * as dotenv from 'dotenv'
 dotenv.config()
 
 export const getDatabaseConfig = (): TypeOrmModuleOptions => {
-  const isProduction = process.env.NODE_ENV === 'production'
-
-  // 使用 PostgreSQL 数据库
   return {
     type: 'postgres',
     host: process.env.DB_HOST || 'localhost',

@@ -36,6 +36,7 @@ import { EventsController } from './controllers/events.controller'
 // 认证模块
 import { AuthModule } from './modules/auth/auth.module'
 import { ChatModule } from './chat/chat.module'
+import { WebSocketModule } from './websocket.module'
 import { JwtModule } from '@nestjs/jwt'
 
 @Module({
@@ -60,7 +61,8 @@ import { JwtModule } from '@nestjs/jwt'
       }
     }),
     AuthModule,
-    ChatModule
+    ChatModule,
+    WebSocketModule
   ],
   controllers: [
     UserController,
