@@ -16,7 +16,7 @@ import {
 import { RepositoryManager } from '../../components/repository/RepositoryManager'
 import { AgentSettings } from '../../components/settings/AgentSettings'
 import { ProfileSettings } from '../../components/settings/ProfileSettings'
-// import { AppearanceSettings } from '../../components/settings/AppearanceSettings'
+import { AppearanceSettings } from '../../components/settings/AppearanceSettings'
 
 interface SettingsNavItemProps {
   icon: React.ReactNode
@@ -71,11 +71,7 @@ export function SettingsPage() {
       case 'agents':
         return renderAgentSettings()
       case 'appearance':
-        return (
-          <div className="text-center py-12">
-            <p className="text-gray-500">外观设置功能正在开发中...</p>
-          </div>
-        )
+        return <AppearanceSettings />
       case 'assistants':
         return (
           <div className="text-center py-12">
