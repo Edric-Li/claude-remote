@@ -8,7 +8,7 @@ vi.mock('../../utils/httpClient', () => ({
     post: vi.fn(),
     get: vi.fn(),
     put: vi.fn(),
-    delete: vi.fn(),
+    delete: vi.fn()
   }
 }))
 
@@ -215,7 +215,10 @@ describe('AiConfigsApi', () => {
 
       const result = await aiConfigsApi.validateConfig(toolType, configData)
 
-      expect(HttpClient.post).toHaveBeenCalledWith('/api/ai-configs/validate', { toolType, configData })
+      expect(HttpClient.post).toHaveBeenCalledWith('/api/ai-configs/validate', {
+        toolType,
+        configData
+      })
       expect(result).toEqual(validationResult)
     })
 

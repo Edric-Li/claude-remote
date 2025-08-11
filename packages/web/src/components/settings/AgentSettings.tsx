@@ -1,8 +1,21 @@
 import React, { useState, useEffect } from 'react'
-import { 
-  Plus, Bot, Trash2, Edit, RefreshCw, Key, 
-  CheckCircle, XCircle, AlertCircle, Copy, Eye, EyeOff,
-  Wifi, WifiOff, TestTube, Loader2
+import {
+  Plus,
+  Bot,
+  Trash2,
+  Edit,
+  RefreshCw,
+  Key,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Copy,
+  Eye,
+  EyeOff,
+  Wifi,
+  WifiOff,
+  TestTube,
+  Loader2
 } from 'lucide-react'
 import { useAuthStore } from '../../store/auth.store'
 
@@ -29,15 +42,16 @@ export function AgentSettings() {
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null)
-  const [showSecretKey, setShowSecretKey] = useState<{[key: string]: boolean}>({})
-  const [testingConnection, setTestingConnection] = useState<{[key: string]: boolean}>({})
-  const [connectionResults, setConnectionResults] = useState<{[key: string]: {success: boolean, message: string, timestamp: Date} | null}>({})
+  const [showSecretKey, setShowSecretKey] = useState<{ [key: string]: boolean }>({})
+  const [testingConnection, setTestingConnection] = useState<{ [key: string]: boolean }>({})
+  const [connectionResults, setConnectionResults] = useState<{
+    [key: string]: { success: boolean; message: string; timestamp: Date } | null
+  }>({})
   const [formData, setFormData] = useState<AgentFormData>({
     name: '',
     description: '',
     capabilities: []
   })
-
 
   useEffect(() => {
     loadAgents()
@@ -48,10 +62,10 @@ export function AgentSettings() {
       setLoading(true)
       const response = await fetch('/api/agents', {
         headers: {
-          'Authorization': `Bearer ${accessToken}`
+          Authorization: `Bearer ${accessToken}`
         }
       })
-      
+
       if (response.ok) {
         const data = await response.json()
         setAgents(data)
@@ -65,16 +79,16 @@ export function AgentSettings() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     try {
       const method = editingAgent ? 'PUT' : 'POST'
       const url = editingAgent ? `/api/agents/${editingAgent.id}` : '/api/agents'
-      
+
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
+          Authorization: `Bearer ${accessToken}`
         },
         body: JSON.stringify(formData)
       })
@@ -101,7 +115,7 @@ export function AgentSettings() {
       const response = await fetch(`/api/agents/${id}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${accessToken}`
+          Authorization: `Bearer ${accessToken}`
         }
       })
 
@@ -123,14 +137,14 @@ export function AgentSettings() {
       const response = await fetch(`/api/agents/${id}/reset-key`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${accessToken}`
+          Authorization: `Bearer ${accessToken}`
         }
       })
 
       if (response.ok) {
         const result = await response.json()
         await loadAgents()
-        
+
         // 显示新密钥
         alert(`新密钥已生成:\n${result.secretKey}\n\n请妥善保存，密钥只显示一次。`)
       }
@@ -145,7 +159,7 @@ export function AgentSettings() {
       const response = await fetch(`/api/agents/${id}/disconnect`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${accessToken}`
+          Authorization: `Bearer ${accessToken}`
         }
       })
 
@@ -178,7 +192,6 @@ export function AgentSettings() {
     setShowForm(false)
   }
 
-
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text)
@@ -204,82 +217,71 @@ export function AgentSettings() {
 
     try {
       console.log(`🧪 Testing connection to Agent: ${agent.name} (${agent.id})`)
-      
-      // 模拟HTTP连通测试 - 这里应该调用实际的API端点
-      const response = await fetch(`/api/agents/${agent.id}/test-connection`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      })
 
-      const result = await response.json()
+      // 暂时模拟测试连接，因为后端还没有实现test-connection端点
+      // TODO: 实现后端的test-connection端点
+      await new Promise(resolve => setTimeout(resolve, 1000)) // 模拟延迟
 
-      if (response.ok && result.success) {
+      const result = {
+        success: false,
+        message: '测试连接功能暂未实现，请等待后端实现'
+      }
+      const response = { ok: false }
+
+      if (false) {
+        // 暂时禁用成功路径
         const successResult = {
           success: true,
           message: result.message || `Agent ${agent.name} 连接正常`,
           timestamp: new Date()
         }
-        
+
         setConnectionResults(prev => ({
           ...prev,
           [agent.id]: successResult
         }))
 
         // 可选：更新Agent状态为在线
-        setAgents(prev => prev.map(a => 
-          a.id === agent.id 
-            ? { ...a, status: 'online', lastConnected: new Date() }
-            : a
-        ))
+        setAgents(prev =>
+          prev.map(a =>
+            a.id === agent.id ? { ...a, status: 'online', lastConnected: new Date() } : a
+          )
+        )
 
         console.log(`✅ Connection test successful for ${agent.name}`)
-        
       } else {
         const errorResult = {
           success: false,
           message: result.message || result.error || `Agent ${agent.name} 连接失败`,
           timestamp: new Date()
         }
-        
+
         setConnectionResults(prev => ({
           ...prev,
           [agent.id]: errorResult
         }))
 
         // 可选：更新Agent状态为错误
-        setAgents(prev => prev.map(a => 
-          a.id === agent.id 
-            ? { ...a, status: 'error' }
-            : a
-        ))
+        setAgents(prev => prev.map(a => (a.id === agent.id ? { ...a, status: 'error' } : a)))
 
         console.log(`❌ Connection test failed for ${agent.name}: ${errorResult.message}`)
       }
-
     } catch (error: any) {
       console.error(`❌ Connection test error for ${agent.name}:`, error)
-      
+
       const errorResult = {
         success: false,
         message: `连接测试失败: ${error.message || '网络错误'}`,
         timestamp: new Date()
       }
-      
+
       setConnectionResults(prev => ({
         ...prev,
         [agent.id]: errorResult
       }))
 
       // 更新Agent状态为错误
-      setAgents(prev => prev.map(a => 
-        a.id === agent.id 
-          ? { ...a, status: 'error' }
-          : a
-      ))
-
+      setAgents(prev => prev.map(a => (a.id === agent.id ? { ...a, status: 'error' } : a)))
     } finally {
       setTestingConnection(prev => ({ ...prev, [agent.id]: false }))
     }
@@ -313,7 +315,7 @@ export function AgentSettings() {
     const now = new Date()
     const diff = now.getTime() - date.getTime()
     const minutes = Math.floor(diff / (1000 * 60))
-    
+
     if (minutes < 1) return '刚刚测试'
     if (minutes < 60) return `${minutes}分钟前测试`
     return `${Math.floor(minutes / 60)}小时前测试`
@@ -394,38 +396,41 @@ export function AgentSettings() {
           </div>
         ) : (
           <div className="divide-y divide-gray-200">
-            {agents.map((agent) => (
+            {agents.map(agent => (
               <div key={agent.id} className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h4 className="font-medium text-gray-900">{agent.name}</h4>
-                      <span className={`px-2 py-1 text-xs rounded-full flex items-center gap-1 ${getStatusBgColor(agent.status)}`}>
+                      <span
+                        className={`px-2 py-1 text-xs rounded-full flex items-center gap-1 ${getStatusBgColor(agent.status)}`}
+                      >
                         {getStatusIcon(agent.status)}
                         {getStatusText(agent.status)}
                       </span>
                     </div>
-                    
+
                     <p className="text-sm text-gray-600 mb-2">{agent.description}</p>
-                    
+
                     {/* 连接状态和测试结果 */}
                     <div className="mb-3">
                       <div className="flex items-center gap-2 mb-2">
                         {getConnectionStatusIcon(agent)}
                         <span className="text-xs text-gray-600">
-                          {testingConnection[agent.id] 
-                            ? '正在测试连接...' 
-                            : `连接状态: ${getStatusText(agent.status)}`
-                          }
+                          {testingConnection[agent.id]
+                            ? '正在测试连接...'
+                            : `连接状态: ${getStatusText(agent.status)}`}
                         </span>
                       </div>
-                      
+
                       {connectionResults[agent.id] && (
-                        <div className={`p-2 rounded text-xs ${
-                          connectionResults[agent.id]!.success 
-                            ? 'bg-green-50 border border-green-200 text-green-700' 
-                            : 'bg-red-50 border border-red-200 text-red-700'
-                        }`}>
+                        <div
+                          className={`p-2 rounded text-xs ${
+                            connectionResults[agent.id]!.success
+                              ? 'bg-green-50 border border-green-200 text-green-700'
+                              : 'bg-red-50 border border-red-200 text-red-700'
+                          }`}
+                        >
                           <div className="flex items-center gap-2">
                             {connectionResults[agent.id]!.success ? (
                               <CheckCircle className="w-3 h-3" />
@@ -450,7 +455,11 @@ export function AgentSettings() {
                               onClick={() => toggleShowKey(agent.id)}
                               className="text-xs text-gray-500 hover:text-gray-700"
                             >
-                              {showSecretKey[agent.id] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                              {showSecretKey[agent.id] ? (
+                                <EyeOff className="w-3 h-3" />
+                              ) : (
+                                <Eye className="w-3 h-3" />
+                              )}
                             </button>
                             <button
                               onClick={() => copyToClipboard(agent.secretKey!)}
@@ -465,7 +474,7 @@ export function AgentSettings() {
                         </code>
                       </div>
                     )}
-                    
+
                     <div className="flex items-center gap-4 text-xs text-gray-500">
                       <span>创建时间: {new Date(agent.createdAt).toLocaleDateString()}</span>
                       {agent.lastConnected && (
@@ -473,7 +482,7 @@ export function AgentSettings() {
                       )}
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-2 ml-4">
                     {agent.status === 'online' && (
                       <button
@@ -533,7 +542,7 @@ export function AgentSettings() {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 {editingAgent ? '编辑Agent' : '添加Agent'}
               </h3>
-              
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Agent名称</label>
@@ -541,7 +550,7 @@ export function AgentSettings() {
                     type="text"
                     required
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={e => setFormData({ ...formData, name: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
                     placeholder="输入Agent名称"
                   />
@@ -551,13 +560,12 @@ export function AgentSettings() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">描述</label>
                   <textarea
                     value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    onChange={e => setFormData({ ...formData, description: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
                     rows={3}
                     placeholder="Agent描述和用途"
                   />
                 </div>
-
 
                 <div className="flex justify-end gap-3 pt-4 border-t">
                   <button

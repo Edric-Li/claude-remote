@@ -1,4 +1,15 @@
-import { IsString, IsUUID, IsOptional, MaxLength, IsEnum, IsArray, ValidateNested, IsInt, Min, Max } from 'class-validator'
+import {
+  IsString,
+  IsUUID,
+  IsOptional,
+  MaxLength,
+  IsEnum,
+  IsArray,
+  ValidateNested,
+  IsInt,
+  Min,
+  Max
+} from 'class-validator'
 import { Type } from 'class-transformer'
 
 export class CreateConversationDto {

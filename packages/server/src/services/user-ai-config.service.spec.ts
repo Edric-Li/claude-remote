@@ -19,15 +19,15 @@ describe('UserAiConfigService', () => {
         UserAiConfigService,
         {
           provide: getRepositoryToken(UserAiConfig),
-          useValue: createMockRepository(),
+          useValue: createMockRepository()
         },
         {
           provide: OperationLogService,
           useValue: {
-            createLog: jest.fn().mockResolvedValue({}),
-          },
-        },
-      ],
+            createLog: jest.fn().mockResolvedValue({})
+          }
+        }
+      ]
     }).compile()
 
     service = module.get<UserAiConfigService>(UserAiConfigService)
@@ -43,9 +43,9 @@ describe('UserAiConfigService', () => {
         provider: 'anthropic',
         model: 'claude-3-sonnet',
         api_key: 'test_key',
-        base_url: 'https://api.anthropic.com',
+        base_url: 'https://api.anthropic.com'
       },
-      isDefault: true,
+      isDefault: true
     }
 
     it('should create AI config successfully', async () => {
@@ -65,7 +65,7 @@ describe('UserAiConfigService', () => {
       )
       expect(aiConfigRepository.create).toHaveBeenCalledWith({
         userId: 'user-1',
-        ...createConfigDto,
+        ...createConfigDto
       })
       expect(aiConfigRepository.save).toHaveBeenCalledWith(mockAiConfig)
       expect(operationLogService.createLog).toHaveBeenCalled()
@@ -75,8 +75,9 @@ describe('UserAiConfigService', () => {
     it('should throw ConflictException if config name exists', async () => {
       aiConfigRepository.findOne.mockResolvedValue(mockAiConfig as UserAiConfig)
 
-      await expect(service.createConfig('user-1', createConfigDto))
-        .rejects.toThrow(ConflictException)
+      await expect(service.createConfig('user-1', createConfigDto)).rejects.toThrow(
+        ConflictException
+      )
     })
 
     it('should create config without setting as default', async () => {
@@ -134,8 +135,7 @@ describe('UserAiConfigService', () => {
     it('should throw NotFoundException if config not found', async () => {
       aiConfigRepository.findOne.mockResolvedValue(null)
 
-      await expect(service.findById('config-1', 'user-1'))
-        .rejects.toThrow(NotFoundException)
+      await expect(service.findById('config-1', 'user-1')).rejects.toThrow(NotFoundException)
     })
   })
 
@@ -164,7 +164,7 @@ describe('UserAiConfigService', () => {
   describe('updateConfig', () => {
     const updateConfigDto: UpdateAiConfigDto = {
       name: 'Updated Config',
-      isDefault: true,
+      isDefault: true
     }
 
     it('should update config successfully', async () => {
@@ -195,8 +195,9 @@ describe('UserAiConfigService', () => {
         .mockResolvedValueOnce(mockAiConfig as UserAiConfig) // findById call
         .mockResolvedValueOnce(anotherConfig as UserAiConfig) // name check
 
-      await expect(service.updateConfig('config-1', 'user-1', updateConfigDto))
-        .rejects.toThrow(ConflictException)
+      await expect(service.updateConfig('config-1', 'user-1', updateConfigDto)).rejects.toThrow(
+        ConflictException
+      )
     })
 
     it('should not clear default if not setting as default', async () => {
@@ -281,11 +282,7 @@ describe('UserAiConfigService', () => {
 
   describe('getUserConfigStats', () => {
     it('should return user config statistics', async () => {
-      const configs = [
-        { toolType: 'claude' },
-        { toolType: 'openai' },
-        { toolType: 'claude' },
-      ]
+      const configs = [{ toolType: 'claude' }, { toolType: 'openai' }, { toolType: 'claude' }]
       aiConfigRepository.find.mockResolvedValue(configs as UserAiConfig[])
 
       const result = await service.getUserConfigStats('user-1')

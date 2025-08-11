@@ -6,7 +6,12 @@ import { UserService } from './user.service'
 import { OperationLogService } from './operation-log.service'
 import { User } from '../entities/user.entity'
 import { mockUser, createMockRepository } from '../test/test-utils'
-import { CreateUserDto, UpdateUserDto, ChangePasswordDto, UpdateUserStatusDto } from '../dto/user.dto'
+import {
+  CreateUserDto,
+  UpdateUserDto,
+  ChangePasswordDto,
+  UpdateUserStatusDto
+} from '../dto/user.dto'
 
 describe('UserService', () => {
   let service: UserService
@@ -19,15 +24,15 @@ describe('UserService', () => {
         UserService,
         {
           provide: getRepositoryToken(User),
-          useValue: createMockRepository(),
+          useValue: createMockRepository()
         },
         {
           provide: OperationLogService,
           useValue: {
-            createLog: jest.fn().mockResolvedValue({}),
-          },
-        },
-      ],
+            createLog: jest.fn().mockResolvedValue({})
+          }
+        }
+      ]
     }).compile()
 
     service = module.get<UserService>(UserService)
@@ -40,7 +45,7 @@ describe('UserService', () => {
       username: 'testuser',
       email: 'test@example.com',
       password: 'password123',
-      displayName: 'Test User',
+      displayName: 'Test User'
     }
 
     it('should create a user successfully', async () => {
@@ -57,7 +62,7 @@ describe('UserService', () => {
         passwordHash: createUserDto.password,
         displayName: createUserDto.displayName,
         avatarUrl: createUserDto.avatarUrl,
-        status: 'active',
+        status: 'active'
       })
       expect(userRepository.save).toHaveBeenCalledWith(mockUser)
       expect(operationLogService.createLog).toHaveBeenCalled()
@@ -67,8 +72,7 @@ describe('UserService', () => {
     it('should throw ConflictException if username exists', async () => {
       userRepository.findOne.mockResolvedValueOnce(mockUser as User)
 
-      await expect(service.createUser(createUserDto))
-        .rejects.toThrow(ConflictException)
+      await expect(service.createUser(createUserDto)).rejects.toThrow(ConflictException)
 
       expect(userRepository.findOne).toHaveBeenCalledWith({
         where: { username: createUserDto.username }
@@ -80,8 +84,7 @@ describe('UserService', () => {
         .mockResolvedValueOnce(null) // username check
         .mockResolvedValueOnce(mockUser as User) // email check
 
-      await expect(service.createUser(createUserDto))
-        .rejects.toThrow(ConflictException)
+      await expect(service.createUser(createUserDto)).rejects.toThrow(ConflictException)
     })
 
     it('should create user without email', async () => {
@@ -139,8 +142,7 @@ describe('UserService', () => {
     it('should throw NotFoundException if user not found', async () => {
       userRepository.findOne.mockResolvedValue(null)
 
-      await expect(service.findById('user-1'))
-        .rejects.toThrow(NotFoundException)
+      await expect(service.findById('user-1')).rejects.toThrow(NotFoundException)
     })
   })
 
@@ -152,7 +154,18 @@ describe('UserService', () => {
 
       expect(userRepository.findOne).toHaveBeenCalledWith({
         where: { username: 'testuser' },
-        select: ['id', 'username', 'email', 'passwordHash', 'displayName', 'avatarUrl', 'status', 'createdAt', 'updatedAt', 'lastLoginAt']
+        select: [
+          'id',
+          'username',
+          'email',
+          'passwordHash',
+          'displayName',
+          'avatarUrl',
+          'status',
+          'createdAt',
+          'updatedAt',
+          'lastLoginAt'
+        ]
       })
       expect(result).toEqual(mockUser)
     })
@@ -160,15 +173,14 @@ describe('UserService', () => {
     it('should throw NotFoundException if user not found', async () => {
       userRepository.findOne.mockResolvedValue(null)
 
-      await expect(service.findByUsername('testuser'))
-        .rejects.toThrow(NotFoundException)
+      await expect(service.findByUsername('testuser')).rejects.toThrow(NotFoundException)
     })
   })
 
   describe('updateUser', () => {
     const updateUserDto: UpdateUserDto = {
       displayName: 'Updated User',
-      email: 'updated@example.com',
+      email: 'updated@example.com'
     }
 
     it('should update user successfully', async () => {
@@ -194,8 +206,7 @@ describe('UserService', () => {
         .mockResolvedValueOnce(mockUser as User) // findById call
         .mockResolvedValueOnce(anotherUser as User) // email check
 
-      await expect(service.updateUser('user-1', updateUserDto))
-        .rejects.toThrow(ConflictException)
+      await expect(service.updateUser('user-1', updateUserDto)).rejects.toThrow(ConflictException)
     })
 
     it('should allow updating to same email', async () => {
@@ -212,7 +223,7 @@ describe('UserService', () => {
   describe('changePassword', () => {
     const changePasswordDto: ChangePasswordDto = {
       currentPassword: 'oldPassword',
-      newPassword: 'newPassword',
+      newPassword: 'newPassword'
     }
 
     it('should change password successfully', async () => {
@@ -233,16 +244,18 @@ describe('UserService', () => {
     it('should throw NotFoundException if user not found', async () => {
       userRepository.findOne.mockResolvedValue(null)
 
-      await expect(service.changePassword('user-1', changePasswordDto))
-        .rejects.toThrow(NotFoundException)
+      await expect(service.changePassword('user-1', changePasswordDto)).rejects.toThrow(
+        NotFoundException
+      )
     })
 
     it('should throw BadRequestException if current password is invalid', async () => {
       const userWithPassword = { ...mockUser, validatePassword: jest.fn().mockResolvedValue(false) }
       userRepository.findOne.mockResolvedValue(userWithPassword as User)
 
-      await expect(service.changePassword('user-1', changePasswordDto))
-        .rejects.toThrow(BadRequestException)
+      await expect(service.changePassword('user-1', changePasswordDto)).rejects.toThrow(
+        BadRequestException
+      )
     })
   })
 
@@ -296,9 +309,9 @@ describe('UserService', () => {
     it('should return user statistics', async () => {
       userRepository.count
         .mockResolvedValueOnce(100) // total
-        .mockResolvedValueOnce(80)  // active
-        .mockResolvedValueOnce(15)  // inactive
-        .mockResolvedValueOnce(5)   // banned
+        .mockResolvedValueOnce(80) // active
+        .mockResolvedValueOnce(15) // inactive
+        .mockResolvedValueOnce(5) // banned
 
       const result = await service.getUserStats()
 
@@ -306,7 +319,7 @@ describe('UserService', () => {
         total: 100,
         active: 80,
         inactive: 15,
-        banned: 5,
+        banned: 5
       })
     })
   })

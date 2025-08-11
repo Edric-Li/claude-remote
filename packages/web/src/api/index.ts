@@ -17,12 +17,12 @@ export * from '../types/api.types'
 export const api = {
   auth: authApi,
   users: usersApi,
-  aiConfigs: aiConfigsApi,
+  aiConfigs: aiConfigsApi
 }
 
 // 全局错误处理器
 export const setupGlobalErrorHandler = () => {
-  window.addEventListener('unhandledrejection', (event) => {
+  window.addEventListener('unhandledrejection', event => {
     if (event.reason instanceof ApiErrorClass) {
       console.error('API Error:', {
         statusCode: event.reason.statusCode,
@@ -30,12 +30,12 @@ export const setupGlobalErrorHandler = () => {
         path: event.reason.path,
         timestamp: event.reason.timestamp
       })
-      
+
       // 如果是401错误，可以触发重新登录
       if (event.reason.statusCode === 401) {
         window.dispatchEvent(new CustomEvent('auth:unauthorized'))
       }
-      
+
       event.preventDefault()
     }
   })

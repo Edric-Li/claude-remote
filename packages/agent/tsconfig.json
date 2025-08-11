@@ -24,8 +24,8 @@
     "src/workers/claude-code.worker.ts"
   ],
   "exclude": [
-    "node_modules", 
-    "dist", 
+    "node_modules",
+    "dist",
     "**/*.test.ts",
     "src/example/**/*",
     "src/workers/cursor.worker.ts",

@@ -34,7 +34,7 @@ interface Session {
     tokenUsage?: number
     workerStatus?: 'idle' | 'busy'
     claudeSessionId?: string
-    isProcessing?: boolean  // 添加处理状态
+    isProcessing?: boolean // 添加处理状态
   }
 }
 
@@ -44,11 +44,11 @@ interface SessionStore {
   currentSessionId: string | null
   loading: boolean
   error: string | null
-  
+
   // 不再作为计算属性，改为派生状态
   // currentSession: Session | null
   // activeSessions: Session[]
-  
+
   // Actions
   createSession: (data: {
     name: string
@@ -56,24 +56,24 @@ interface SessionStore {
     repositoryName: string
     aiTool: string
     branch?: string
-    metadata?: any  // 添加metadata参数
+    metadata?: any // 添加metadata参数
   }) => Promise<Session>
-  
+
   loadSessions: () => Promise<void>
   selectSession: (sessionId: string) => void
   updateSession: (sessionId: string, updates: Partial<Session>) => void
   deleteSession: (sessionId: string) => Promise<void>
   renameSession: (sessionId: string, newName: string) => Promise<void>
-  
+
   // 消息相关
   addMessage: (sessionId: string, message: Omit<Message, 'id' | 'timestamp'>) => Promise<void>
   loadMessages: (sessionId: string) => Promise<void>
-  
+
   // Worker相关
   assignWorker: (sessionId: string, workerId: string, agentId: string) => Promise<void>
   updateWorkerStatus: (sessionId: string, status: 'idle' | 'busy') => void
   setProcessingStatus: (sessionId: string, isProcessing: boolean) => void
-  
+
   // 持久化
   clearLocalCache: () => void
 }
@@ -87,21 +87,20 @@ const useSessionStoreBase = create<SessionStore>()(
       currentSessionId: null,
       loading: false,
       error: null,
-      
+
       // 创建会话 - 调用后端API
-      createSession: async (data) => {
+      createSession: async data => {
         try {
-          
           // 获取当前token
           const authStorage = localStorage.getItem('auth-storage')
           const authState = authStorage ? JSON.parse(authStorage) : null
           const token = authState?.state?.accessToken
-          
+
           let response = await fetch(`${API_BASE_URL}/api/sessions`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
+              Authorization: `Bearer ${token}`
             },
             body: JSON.stringify({
               name: data.name,
@@ -109,11 +108,11 @@ const useSessionStoreBase = create<SessionStore>()(
               aiTool: data.aiTool,
               metadata: {
                 branch: data.branch,
-                ...(data.metadata || {})  // 合并传入的metadata
+                ...data.metadata // 合并传入的metadata
               }
             })
           })
-          
+
           // 如果401错误，尝试刷新token
           if (response.status === 401) {
             try {
@@ -121,32 +120,32 @@ const useSessionStoreBase = create<SessionStore>()(
               const refreshStorage = localStorage.getItem('auth-storage')
               const refreshState = refreshStorage ? JSON.parse(refreshStorage) : null
               const refreshToken = refreshState?.state?.refreshToken
-              
+
               if (refreshToken) {
                 const refreshResponse = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    Authorization: `Bearer ${token}`
                   }
                 })
-                
+
                 if (refreshResponse.ok) {
                   const refreshData = await refreshResponse.json()
                   // 更新localStorage
-                  const updatedState = {...refreshState}
+                  const updatedState = { ...refreshState }
                   updatedState.state.accessToken = refreshData.accessToken
                   if (refreshData.refreshToken) {
                     updatedState.state.refreshToken = refreshData.refreshToken
                   }
                   localStorage.setItem('auth-storage', JSON.stringify(updatedState))
-                  
+
                   // 使用新token重试
                   response = await fetch(`${API_BASE_URL}/api/sessions`, {
                     method: 'POST',
                     headers: {
                       'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${refreshData.accessToken}`
+                      Authorization: `Bearer ${refreshData.accessToken}`
                     },
                     body: JSON.stringify({
                       name: data.name,
@@ -154,7 +153,7 @@ const useSessionStoreBase = create<SessionStore>()(
                       aiTool: data.aiTool,
                       metadata: {
                         branch: data.branch,
-                        ...(data.metadata || {})  // 合并传入的metadata
+                        ...data.metadata // 合并传入的metadata
                       }
                     })
                   })
@@ -165,13 +164,13 @@ const useSessionStoreBase = create<SessionStore>()(
               throw new Error('认证失败，请重新登录')
             }
           }
-          
+
           if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`)
           }
-          
+
           const serverSession = await response.json()
-          
+
           // 转换格式
           const newSession: Session = {
             id: serverSession.id,
@@ -187,30 +186,30 @@ const useSessionStoreBase = create<SessionStore>()(
             agentId: serverSession.agentId,
             metadata: serverSession.metadata
           }
-          
+
           // 更新本地状态
-          set((state) => {
+          set(state => {
             const newState = {
               sessions: [newSession, ...state.sessions],
               currentSessionId: newSession.id
             }
             return newState
           })
-          
+
           return newSession
         } catch (error) {
           console.error('Failed to create session:', error)
           throw error
         }
       },
-      
+
       // 加载会话列表 - 从后端获取
       loadSessions: async () => {
         set({ loading: true, error: null })
-        
+
         try {
           const sessions = await httpGet<any[]>('/api/sessions')
-          
+
           set({
             sessions: sessions.map((s: any) => ({
               id: s.id,
@@ -223,43 +222,42 @@ const useSessionStoreBase = create<SessionStore>()(
               agentId: s.agentId,
               createdAt: new Date(s.createdAt),
               updatedAt: new Date(s.updatedAt),
-              messages: s.messages?.map((m: any) => ({
-                id: m.id,
-                from: m.from,
-                content: m.content,
-                timestamp: new Date(m.createdAt),
-                metadata: m.metadata
-              })) || [],
+              messages:
+                s.messages?.map((m: any) => ({
+                  id: m.id,
+                  from: m.from,
+                  content: m.content,
+                  timestamp: new Date(m.createdAt),
+                  metadata: m.metadata
+                })) || [],
               metadata: s.metadata
             })),
             loading: false
           })
         } catch (error) {
-          set({ 
+          set({
             error: error instanceof Error ? error.message : 'Unknown error',
-            loading: false 
+            loading: false
           })
         }
       },
-      
+
       // 选择会话
-      selectSession: (sessionId) => {
+      selectSession: sessionId => {
         set({ currentSessionId: sessionId })
-        
+
         // 加载该会话的消息历史
         get().loadMessages(sessionId)
       },
-      
+
       // 更新会话
       updateSession: (sessionId, updates) => {
-        set((state) => ({
+        set(state => ({
           sessions: state.sessions.map(s =>
-            s.id === sessionId
-              ? { ...s, ...updates, updatedAt: new Date() }
-              : s
+            s.id === sessionId ? { ...s, ...updates, updatedAt: new Date() } : s
           )
         }))
-        
+
         // 异步同步到服务器
         const authStorage = localStorage.getItem('auth-storage')
         const authState = authStorage ? JSON.parse(authStorage) : null
@@ -268,16 +266,16 @@ const useSessionStoreBase = create<SessionStore>()(
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            Authorization: `Bearer ${token}`
           },
           body: JSON.stringify(updates)
         }).catch(error => {
           console.error('Failed to update session:', error)
         })
       },
-      
+
       // 删除会话
-      deleteSession: async (sessionId) => {
+      deleteSession: async sessionId => {
         try {
           const authStorage = localStorage.getItem('auth-storage')
           const authState = authStorage ? JSON.parse(authStorage) : null
@@ -285,16 +283,14 @@ const useSessionStoreBase = create<SessionStore>()(
           const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}`, {
             method: 'DELETE',
             headers: {
-              'Authorization': `Bearer ${token}`
+              Authorization: `Bearer ${token}`
             }
           })
-          
+
           if (response.ok) {
-            set((state) => ({
+            set(state => ({
               sessions: state.sessions.filter(s => s.id !== sessionId),
-              currentSessionId: state.currentSessionId === sessionId 
-                ? null 
-                : state.currentSessionId
+              currentSessionId: state.currentSessionId === sessionId ? null : state.currentSessionId
             }))
           }
         } catch (error) {
@@ -302,12 +298,12 @@ const useSessionStoreBase = create<SessionStore>()(
           throw error
         }
       },
-      
+
       // 重命名会话
       renameSession: async (sessionId, newName) => {
         get().updateSession(sessionId, { name: newName })
       },
-      
+
       // 添加消息 - 更新本地状态并同步到数据库
       addMessage: async (sessionId, message) => {
         // 创建新消息
@@ -316,9 +312,9 @@ const useSessionStoreBase = create<SessionStore>()(
           id: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           timestamp: new Date()
         }
-        
+
         // 立即更新本地状态用于显示
-        set((state) => ({
+        set(state => ({
           sessions: state.sessions.map(s =>
             s.id === sessionId
               ? {
@@ -332,18 +328,18 @@ const useSessionStoreBase = create<SessionStore>()(
               : s
           )
         }))
-        
+
         // 异步保存到数据库
         try {
           const authStorage = localStorage.getItem('auth-storage')
           const authState = authStorage ? JSON.parse(authStorage) : null
           const token = authState?.state?.accessToken
-          
+
           const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/messages`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
+              Authorization: `Bearer ${token}`
             },
             body: JSON.stringify({
               from: message.from,
@@ -351,21 +347,19 @@ const useSessionStoreBase = create<SessionStore>()(
               metadata: message.metadata
             })
           })
-          
+
           if (!response.ok) {
             console.error('Failed to save message to database:', response.status)
           } else {
             const savedMessage = await response.json()
             // 更新消息ID为服务器返回的ID
-            set((state) => ({
+            set(state => ({
               sessions: state.sessions.map(s =>
                 s.id === sessionId
                   ? {
                       ...s,
                       messages: s.messages.map(m =>
-                        m.id === newMessage.id
-                          ? { ...m, id: savedMessage.id }
-                          : m
+                        m.id === newMessage.id ? { ...m, id: savedMessage.id } : m
                       )
                     }
                   : s
@@ -376,28 +370,28 @@ const useSessionStoreBase = create<SessionStore>()(
           console.error('Failed to save message:', error)
         }
       },
-      
+
       // 加载消息历史 - 先从数据库加载，如果没有再从 Agent 端获取 Claude 本地历史
-      loadMessages: async (sessionId) => {
+      loadMessages: async sessionId => {
         try {
           // 先尝试从数据库加载消息
           const authStorage = localStorage.getItem('auth-storage')
           const authState = authStorage ? JSON.parse(authStorage) : null
           const token = authState?.state?.accessToken
-          
+
           const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/messages`, {
             method: 'GET',
             headers: {
-              'Authorization': `Bearer ${token}`
+              Authorization: `Bearer ${token}`
             }
           })
-          
+
           if (response.ok) {
             const messages = await response.json()
-            
+
             if (messages && messages.length > 0) {
               // 如果数据库有消息，使用数据库的消息
-              set((state) => ({
+              set(state => ({
                 sessions: state.sessions.map(s =>
                   s.id === sessionId
                     ? {
@@ -419,43 +413,45 @@ const useSessionStoreBase = create<SessionStore>()(
         } catch (error) {
           console.error('Failed to load messages from database:', error)
         }
-        
+
         // 如果数据库没有消息，尝试从 Agent 端获取 Claude 本地历史
         const session = get().sessions.find(s => s.id === sessionId)
         if (!session || !session.workerId) {
           return
         }
-        
+
         // 通过HTTP API请求历史记录
         try {
           const authStorage = localStorage.getItem('auth-storage')
           const authState = authStorage ? JSON.parse(authStorage) : null
           const token = authState?.state?.accessToken
-          
+
           const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/history`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
+              Authorization: `Bearer ${token}`
             },
             body: JSON.stringify({
               workerId: session.workerId,
               agentId: session.agentId
             })
           })
-          
+
           if (response.ok) {
             const data = await response.json()
-            
+
             if (data.success && data.messages) {
               // 更新会话的消息列表
-              set((state) => ({
+              set(state => ({
                 sessions: state.sessions.map(s =>
                   s.id === sessionId
                     ? {
                         ...s,
                         messages: data.messages.map((m: any) => ({
-                          id: m.id || `history-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                          id:
+                            m.id ||
+                            `history-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                           from: m.role === 'user' ? 'user' : 'assistant',
                           content: m.content,
                           timestamp: new Date(m.timestamp || m.createdAt),
@@ -473,7 +469,7 @@ const useSessionStoreBase = create<SessionStore>()(
           console.error('Failed to fetch history:', error)
         }
       },
-      
+
       // 分配Worker - 调用后端API
       assignWorker: async (sessionId, workerId, agentId) => {
         try {
@@ -484,18 +480,16 @@ const useSessionStoreBase = create<SessionStore>()(
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
+              Authorization: `Bearer ${token}`
             },
             body: JSON.stringify({ workerId, agentId })
           })
-          
+
           if (response.ok) {
             const updated = await response.json()
-            set((state) => ({
+            set(state => ({
               sessions: state.sessions.map(s =>
-                s.id === sessionId
-                  ? { ...s, workerId, agentId, metadata: updated.metadata }
-                  : s
+                s.id === sessionId ? { ...s, workerId, agentId, metadata: updated.metadata } : s
               )
             }))
           }
@@ -503,10 +497,10 @@ const useSessionStoreBase = create<SessionStore>()(
           console.error('Failed to assign worker:', error)
         }
       },
-      
+
       // 更新Worker状态
       updateWorkerStatus: (sessionId, status) => {
-        set((state) => ({
+        set(state => ({
           sessions: state.sessions.map(s =>
             s.id === sessionId
               ? {
@@ -520,9 +514,9 @@ const useSessionStoreBase = create<SessionStore>()(
           )
         }))
       },
-      
+
       setProcessingStatus: (sessionId, isProcessing) => {
-        set((state) => ({
+        set(state => ({
           sessions: state.sessions.map(s =>
             s.id === sessionId
               ? {
@@ -536,7 +530,7 @@ const useSessionStoreBase = create<SessionStore>()(
           )
         }))
       },
-      
+
       // 清除本地缓存
       clearLocalCache: () => {
         set({
@@ -549,7 +543,7 @@ const useSessionStoreBase = create<SessionStore>()(
     }),
     {
       name: 'ai-orchestra-sessions',
-      partialize: (state) => ({
+      partialize: state => ({
         // 持久化会话列表和当前选中的会话ID
         sessions: state.sessions,
         currentSessionId: state.currentSessionId
@@ -561,11 +555,11 @@ const useSessionStoreBase = create<SessionStore>()(
 // 导出包装的hook，包含派生状态
 export const useSessionStore = () => {
   const state = useSessionStoreBase()
-  
+
   // 计算派生状态
   const currentSession = state.sessions.find(s => s.id === state.currentSessionId) || null
   const activeSessions = state.sessions.filter(s => s.status === 'active')
-  
+
   return {
     ...state,
     currentSession,

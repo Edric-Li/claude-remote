@@ -2,11 +2,25 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AgentManagement } from '../components/AgentManagement'
 import { RepositoryManagement } from '../components/RepositoryManagement'
-import { 
-  ArrowLeft, Settings, Database, Activity, 
-  RefreshCw, Download, Trash2, Server, 
-  HardDrive, Cpu, Clock, AlertCircle,
-  FileText, Zap, Bot, Eye, EyeOff, GitBranch,
+import {
+  ArrowLeft,
+  Settings,
+  Database,
+  Activity,
+  RefreshCw,
+  Download,
+  Trash2,
+  Server,
+  HardDrive,
+  Cpu,
+  Clock,
+  AlertCircle,
+  FileText,
+  Zap,
+  Bot,
+  Eye,
+  EyeOff,
+  GitBranch,
   CheckCircle
 } from 'lucide-react'
 import { Button } from '../components/ui/button'
@@ -24,15 +38,15 @@ type AdminTab = 'overview' | 'agents' | 'repositories' | 'claude' | 'database'
 export function AdminPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  
+
   // 从 URL 参数或 localStorage 获取初始标签
   const getInitialTab = (): AdminTab => {
     const urlTab = searchParams.get('tab') as AdminTab
     const savedTab = localStorage.getItem('adminActiveTab') as AdminTab
-    
+
     // 验证标签是否有效
     const validTabs: AdminTab[] = ['overview', 'agents', 'repositories', 'claude', 'database']
-    
+
     if (urlTab && validTabs.includes(urlTab)) {
       return urlTab
     }
@@ -41,7 +55,7 @@ export function AdminPage() {
     }
     return 'overview'
   }
-  
+
   const [activeTab, setActiveTab] = useState<AdminTab>(getInitialTab())
 
   const tabs = [
@@ -51,26 +65,26 @@ export function AdminPage() {
     { id: 'claude' as AdminTab, label: 'Claude 配置', icon: Bot },
     { id: 'database' as AdminTab, label: '数据库', icon: Database }
   ]
-  
+
   // 当标签改变时，更新 URL 和 localStorage
   const handleTabChange = (tab: AdminTab) => {
     setActiveTab(tab)
     setSearchParams({ tab })
     localStorage.setItem('adminActiveTab', tab)
   }
-  
+
   // 初始化时同步 URL
   useEffect(() => {
     if (!searchParams.get('tab')) {
       setSearchParams({ tab: activeTab })
     }
   }, [])
-  
+
   // 监听 URL 变化（处理浏览器前进/后退）
   useEffect(() => {
     const urlTab = searchParams.get('tab') as AdminTab
     const validTabs: AdminTab[] = ['overview', 'agents', 'repositories', 'claude', 'database']
-    
+
     if (urlTab && validTabs.includes(urlTab) && urlTab !== activeTab) {
       setActiveTab(urlTab)
       localStorage.setItem('adminActiveTab', urlTab)
@@ -81,7 +95,7 @@ export function AdminPage() {
     <div className="min-h-screen bg-background relative">
       {/* 背景 */}
       <RadixBackground />
-      
+
       {/* Header */}
       <header className="relative z-10 backdrop-blur-md bg-background/60 border-b border-border/50">
         <div className="flex items-center justify-between px-6 py-4">
@@ -101,7 +115,10 @@ export function AdminPage() {
             </h1>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="bg-purple-500/10 text-purple-400 border-purple-500/20">
+            <Badge
+              variant="secondary"
+              className="bg-purple-500/10 text-purple-400 border-purple-500/20"
+            >
               管理员
             </Badge>
           </div>
@@ -113,7 +130,7 @@ export function AdminPage() {
         {/* Sidebar */}
         <aside className="w-64 backdrop-blur-md bg-card/40 border-r border-border/50">
           <nav className="p-4 space-y-2">
-            {tabs.map((tab) => {
+            {tabs.map(tab => {
               const Icon = tab.icon
               return (
                 <button
@@ -185,9 +202,9 @@ function OverviewPanel() {
         <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent">
           系统概览
         </h2>
-        <Button 
-          size="sm" 
-          variant="outline" 
+        <Button
+          size="sm"
+          variant="outline"
           onClick={fetchOverview}
           className="border-purple-500/20 hover:bg-purple-500/10"
         >
@@ -195,14 +212,13 @@ function OverviewPanel() {
           刷新
         </Button>
       </div>
-      
+
       {/* 统计卡片 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="backdrop-blur-md bg-card/60 border-purple-500/20 hover:shadow-lg hover:shadow-purple-500/10 transition-all">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              总 Agents
+              <Settings className="h-4 w-4" />总 Agents
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -210,11 +226,12 @@ function OverviewPanel() {
               {overview?.statistics?.totalAgents || 0}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              <span className="text-green-400">{overview?.statistics?.connectedAgents || 0}</span> 在线
+              <span className="text-green-400">{overview?.statistics?.connectedAgents || 0}</span>{' '}
+              在线
             </p>
           </CardContent>
         </Card>
-        
+
         <Card className="backdrop-blur-md bg-card/60 border-purple-500/20 hover:shadow-lg hover:shadow-purple-500/10 transition-all">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -224,7 +241,9 @@ function OverviewPanel() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">
-              <span className={`${(overview?.resources?.cpu?.usage || 0) > 80 ? 'text-red-400' : 'text-green-400'}`}>
+              <span
+                className={`${(overview?.resources?.cpu?.usage || 0) > 80 ? 'text-red-400' : 'text-green-400'}`}
+              >
                 {overview?.resources?.cpu?.usage || 0}%
               </span>
             </div>
@@ -233,7 +252,7 @@ function OverviewPanel() {
             </p>
           </CardContent>
         </Card>
-        
+
         <Card className="backdrop-blur-md bg-card/60 border-purple-500/20 hover:shadow-lg hover:shadow-purple-500/10 transition-all">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -243,7 +262,9 @@ function OverviewPanel() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">
-              <span className={`${(overview?.resources?.memory?.usage || 0) > 80 ? 'text-red-400' : 'text-green-400'}`}>
+              <span
+                className={`${(overview?.resources?.memory?.usage || 0) > 80 ? 'text-red-400' : 'text-green-400'}`}
+              >
                 {overview?.resources?.memory?.usage || 0}%
               </span>
             </div>
@@ -286,8 +307,8 @@ function OverviewPanel() {
               { label: '架构', value: overview?.platform?.arch },
               { label: '主机名', value: overview?.platform?.hostname },
               { label: '系统运行时间', value: overview?.platform?.uptime },
-              { label: 'Node 版本', value: overview?.application?.nodeVersion },
-            ].map((item) => (
+              { label: 'Node 版本', value: overview?.application?.nodeVersion }
+            ].map(item => (
               <div key={item.label} className="flex justify-between text-sm">
                 <span className="text-muted-foreground">{item.label}:</span>
                 <span className="font-mono text-purple-400">{item.value || 'N/A'}</span>
@@ -318,9 +339,7 @@ function OverviewPanel() {
                   </div>
                 ))
               ) : (
-                <div className="text-sm text-muted-foreground text-center py-4">
-                  暂无活动记录
-                </div>
+                <div className="text-sm text-muted-foreground text-center py-4">暂无活动记录</div>
               )}
             </div>
           </CardContent>
@@ -403,7 +422,7 @@ function DatabasePanel() {
     if (!confirm('确定要清除所有对话内容吗？此操作不可恢复！')) {
       return
     }
-    
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/database/conversations`, {
         method: 'DELETE'
@@ -434,7 +453,7 @@ function DatabasePanel() {
       <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent">
         数据库管理
       </h2>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="backdrop-blur-md bg-card/60 border-purple-500/20">
           <CardHeader>
@@ -448,8 +467,8 @@ function DatabasePanel() {
               { label: '类型', value: dbInfo?.type?.toUpperCase() },
               { label: '数据库', value: dbInfo?.database },
               { label: '版本', value: dbInfo?.version },
-              { label: '大小', value: dbInfo?.size },
-            ].map((item) => (
+              { label: '大小', value: dbInfo?.size }
+            ].map(item => (
               <div key={item.label} className="flex justify-between text-sm">
                 <span className="text-muted-foreground">{item.label}:</span>
                 <span className="font-mono text-purple-400">{item.value || 'N/A'}</span>
@@ -457,9 +476,13 @@ function DatabasePanel() {
             ))}
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">状态:</span>
-              <Badge 
+              <Badge
                 variant={dbInfo?.status === 'connected' ? 'default' : 'destructive'}
-                className={dbInfo?.status === 'connected' ? 'bg-green-500/10 text-green-400 border-green-500/20' : ''}
+                className={
+                  dbInfo?.status === 'connected'
+                    ? 'bg-green-500/10 text-green-400 border-green-500/20'
+                    : ''
+                }
               >
                 {dbInfo?.status === 'connected' ? '已连接' : '未连接'}
               </Badge>
@@ -475,22 +498,22 @@ function DatabasePanel() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button 
-              onClick={handleBackup} 
+            <Button
+              onClick={handleBackup}
               className="w-full bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 text-purple-400"
             >
               <Download className="h-4 w-4 mr-2" />
               创建备份
             </Button>
-            <Button 
-              onClick={handleOptimize} 
+            <Button
+              onClick={handleOptimize}
               className="w-full bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 text-purple-400"
             >
               <RefreshCw className="h-4 w-4 mr-2" />
               优化数据库
             </Button>
-            <Button 
-              onClick={handleClearConversations} 
+            <Button
+              onClick={handleClearConversations}
               className="w-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400"
             >
               <Trash2 className="h-4 w-4 mr-2" />
@@ -512,7 +535,10 @@ function DatabasePanel() {
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {dbInfo.tables.map((table: any) => (
-                <div key={table.name} className="p-3 rounded-lg bg-purple-500/5 border border-purple-500/10">
+                <div
+                  key={table.name}
+                  className="p-3 rounded-lg bg-purple-500/5 border border-purple-500/10"
+                >
                   <p className="font-mono text-sm text-purple-400">{table.name}</p>
                   <p className="text-xs text-muted-foreground mt-1">{table.rowCount} 行</p>
                 </div>
@@ -534,23 +560,28 @@ function DatabasePanel() {
           {backups.length > 0 ? (
             <div className="space-y-2">
               {backups.map((backup: any) => (
-                <div key={backup.filename} className="flex items-center justify-between p-3 rounded-lg bg-purple-500/5 border border-purple-500/10">
+                <div
+                  key={backup.filename}
+                  className="flex items-center justify-between p-3 rounded-lg bg-purple-500/5 border border-purple-500/10"
+                >
                   <div className="text-sm">
                     <p className="font-mono text-purple-400">{backup.filename}</p>
                     <p className="text-xs text-muted-foreground">
                       {backup.size} · {new Date(backup.createdAt).toLocaleString()}
                     </p>
                   </div>
-                  <Button size="sm" variant="ghost" className="hover:bg-red-500/10 hover:text-red-400">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="hover:bg-red-500/10 hover:text-red-400"
+                  >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground text-center py-8">
-              暂无备份
-            </div>
+            <div className="text-sm text-muted-foreground text-center py-8">暂无备份</div>
           )}
         </CardContent>
       </Card>
@@ -570,7 +601,9 @@ function ClaudeConfigPanel() {
   const [showToken, setShowToken] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'success' | 'error'>('unknown')
+  const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'success' | 'error'>(
+    'unknown'
+  )
 
   useEffect(() => {
     fetchClaudeConfig()
@@ -586,7 +619,7 @@ function ClaudeConfigPanel() {
 
       let response = await fetch(`${API_BASE_URL}/api/claude/config`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`
         }
       })
 
@@ -596,30 +629,30 @@ function ClaudeConfigPanel() {
           console.log('Token过期，尝试刷新...')
           // 手动调用refresh API
           const refreshToken = authState?.state?.refreshToken
-          
+
           if (refreshToken) {
             const refreshResponse = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                Authorization: `Bearer ${token}`
               }
             })
-            
+
             if (refreshResponse.ok) {
               const refreshData = await refreshResponse.json()
               // 更新localStorage
-              const updatedState = {...authState}
+              const updatedState = { ...authState }
               updatedState.state.accessToken = refreshData.accessToken
               if (refreshData.refreshToken) {
                 updatedState.state.refreshToken = refreshData.refreshToken
               }
               localStorage.setItem('auth-storage', JSON.stringify(updatedState))
-              
+
               // 使用新token重试
               response = await fetch(`${API_BASE_URL}/api/claude/config`, {
                 headers: {
-                  'Authorization': `Bearer ${refreshData.accessToken}`
+                  Authorization: `Bearer ${refreshData.accessToken}`
                 }
               })
             }
@@ -653,20 +686,20 @@ function ClaudeConfigPanel() {
     setSaving(true)
     setError(null)
     setSuccess(null)
-    
+
     // 验证配置
     if (!config.baseUrl.trim()) {
       setError('请填写 Base URL')
       setSaving(false)
       return
     }
-    
+
     if (!config.authToken.trim()) {
       setError('请填写 Auth Token')
       setSaving(false)
       return
     }
-    
+
     // 验证URL格式
     try {
       new URL(config.baseUrl)
@@ -675,7 +708,7 @@ function ClaudeConfigPanel() {
       setSaving(false)
       return
     }
-    
+
     try {
       // 获取当前token
       const authStorage = localStorage.getItem('auth-storage')
@@ -684,9 +717,9 @@ function ClaudeConfigPanel() {
 
       let response = await fetch(`${API_BASE_URL}/api/claude/config`, {
         method: 'PUT',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
           baseUrl: config.baseUrl,
@@ -699,32 +732,32 @@ function ClaudeConfigPanel() {
         try {
           console.log('Token过期，尝试刷新...')
           const refreshToken = authState?.state?.refreshToken
-          
+
           if (refreshToken) {
             const refreshResponse = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                Authorization: `Bearer ${token}`
               }
             })
-            
+
             if (refreshResponse.ok) {
               const refreshData = await refreshResponse.json()
               // 更新localStorage
-              const updatedState = {...authState}
+              const updatedState = { ...authState }
               updatedState.state.accessToken = refreshData.accessToken
               if (refreshData.refreshToken) {
                 updatedState.state.refreshToken = refreshData.refreshToken
               }
               localStorage.setItem('auth-storage', JSON.stringify(updatedState))
-              
+
               // 使用新token重试
               response = await fetch(`${API_BASE_URL}/api/claude/config`, {
                 method: 'PUT',
-                headers: { 
+                headers: {
                   'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${refreshData.accessToken}`
+                  Authorization: `Bearer ${refreshData.accessToken}`
                 },
                 body: JSON.stringify({
                   baseUrl: config.baseUrl,
@@ -739,7 +772,7 @@ function ClaudeConfigPanel() {
           return
         }
       }
-      
+
       if (response.ok) {
         setSuccess('配置保存成功')
         setConnectionStatus('unknown') // 重置连接状态，需要重新测试
@@ -762,14 +795,14 @@ function ClaudeConfigPanel() {
     setError(null)
     setSuccess(null)
     setConnectionStatus('unknown')
-    
+
     // 验证配置
     if (!config.baseUrl.trim() || !config.authToken.trim()) {
       setError('请先填写完整的配置信息')
       setTesting(false)
       return
     }
-    
+
     try {
       // 获取当前token
       const authStorage = localStorage.getItem('auth-storage')
@@ -778,12 +811,12 @@ function ClaudeConfigPanel() {
 
       let response = await fetch(`${API_BASE_URL}/api/claude/test`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ 
-          baseUrl: config.baseUrl, 
+        body: JSON.stringify({
+          baseUrl: config.baseUrl,
           authToken: config.authToken
         })
       })
@@ -793,37 +826,37 @@ function ClaudeConfigPanel() {
         try {
           console.log('Token过期，尝试刷新...')
           const refreshToken = authState?.state?.refreshToken
-          
+
           if (refreshToken) {
             const refreshResponse = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                Authorization: `Bearer ${token}`
               }
             })
-            
+
             if (refreshResponse.ok) {
               const refreshData = await refreshResponse.json()
               // 更新localStorage
-              const updatedState = {...authState}
+              const updatedState = { ...authState }
               updatedState.state.accessToken = refreshData.accessToken
               if (refreshData.refreshToken) {
                 updatedState.state.refreshToken = refreshData.refreshToken
               }
               localStorage.setItem('auth-storage', JSON.stringify(updatedState))
-              
+
               // 使用新token重试
               response = await fetch(`${API_BASE_URL}/api/claude/test`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                   'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${refreshData.accessToken}`
+                  Authorization: `Bearer ${refreshData.accessToken}`
                 },
-                body: JSON.stringify({ 
-          baseUrl: config.baseUrl, 
-          authToken: config.authToken
-        })
+                body: JSON.stringify({
+                  baseUrl: config.baseUrl,
+                  authToken: config.authToken
+                })
               })
             }
           }
@@ -834,14 +867,14 @@ function ClaudeConfigPanel() {
           return
         }
       }
-      
+
       if (!response.ok) {
         const errorText = await response.text().catch(() => '')
         setError(`测试请求失败: HTTP ${response.status} ${errorText}`)
         setConnectionStatus('error')
         return
       }
-      
+
       const result = await response.json()
       if (result.success) {
         setSuccess('✅ Claude API 连接测试成功！')
@@ -874,7 +907,7 @@ function ClaudeConfigPanel() {
       <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent">
         Claude 配置
       </h2>
-      
+
       {/* 错误和成功消息 */}
       {error && (
         <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
@@ -885,7 +918,7 @@ function ClaudeConfigPanel() {
           <p className="text-sm text-red-300 mt-1">{error}</p>
         </div>
       )}
-      
+
       {success && (
         <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
           <div className="flex items-center gap-2">
@@ -895,7 +928,7 @@ function ClaudeConfigPanel() {
           <p className="text-sm text-green-300 mt-1">{success}</p>
         </div>
       )}
-      
+
       {/* API配置 */}
       <Card className="backdrop-blur-md bg-card/60 border-purple-500/20">
         <CardHeader>
@@ -907,25 +940,25 @@ function ClaudeConfigPanel() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label className="text-purple-400">Base URL</Label>
-            <Input 
-              placeholder="https://api.anthropic.com" 
+            <Input
+              placeholder="https://api.anthropic.com"
               value={config.baseUrl}
-              onChange={(e) => setConfig({ ...config, baseUrl: e.target.value })}
+              onChange={e => setConfig({ ...config, baseUrl: e.target.value })}
               className="border-purple-500/20 bg-purple-500/5 placeholder:text-muted-foreground/50"
             />
             <p className="text-xs text-muted-foreground">
               Claude API 的基础地址，默认为官方地址 (https://api.anthropic.com)
             </p>
           </div>
-          
+
           <div className="space-y-2">
             <Label className="text-purple-400">Auth Token</Label>
             <div className="relative">
-              <Input 
+              <Input
                 type={showToken ? 'text' : 'password'}
-                placeholder="sk-ant-api03-..." 
+                placeholder="sk-ant-api03-..."
                 value={config.authToken}
-                onChange={(e) => setConfig({ ...config, authToken: e.target.value })}
+                onChange={e => setConfig({ ...config, authToken: e.target.value })}
                 className="border-purple-500/20 bg-purple-500/5 placeholder:text-muted-foreground/50 pr-10"
               />
               <Button
@@ -956,19 +989,19 @@ function ClaudeConfigPanel() {
             {/* 连接状态指示器 */}
             {connectionStatus !== 'unknown' && (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-purple-500/5 border border-purple-500/10">
-                <div className={`w-2 h-2 rounded-full ${
-                  connectionStatus === 'success' ? 'bg-green-500' : 'bg-red-500'
-                } animate-pulse`} />
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    connectionStatus === 'success' ? 'bg-green-500' : 'bg-red-500'
+                  } animate-pulse`}
+                />
                 <span className="text-sm text-muted-foreground">
-                  连接状态: {
-                    connectionStatus === 'success' ? '✅ 连接正常' : '❌ 连接失败'
-                  }
+                  连接状态: {connectionStatus === 'success' ? '✅ 连接正常' : '❌ 连接失败'}
                 </span>
               </div>
             )}
-            
+
             <div className="flex gap-3">
-              <Button 
+              <Button
                 onClick={saveConfig}
                 disabled={saving || loading}
                 className="bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-600"
@@ -982,8 +1015,8 @@ function ClaudeConfigPanel() {
                   '保存配置'
                 )}
               </Button>
-              
-              <Button 
+
+              <Button
                 onClick={testConnection}
                 variant="outline"
                 className="border-purple-500/20 hover:bg-purple-500/10 text-purple-400 disabled:border-gray-500/20 disabled:text-gray-400"
@@ -998,8 +1031,8 @@ function ClaudeConfigPanel() {
                   '测试连接'
                 )}
               </Button>
-              
-              <Button 
+
+              <Button
                 onClick={() => {
                   setError(null)
                   setSuccess(null)

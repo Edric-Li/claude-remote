@@ -6,7 +6,7 @@ import { Loader2 } from 'lucide-react'
 export function PrivateRoute() {
   const { isAuthenticated, isLoading, accessToken } = useAuthStore()
   const location = useLocation()
-  
+
   // 检查localStorage中的token
   useEffect(() => {
     // 如果没有token，直接跳转到登录页
@@ -14,7 +14,7 @@ export function PrivateRoute() {
       console.log('No access token found, redirecting to login')
     }
   }, [accessToken, isLoading])
-  
+
   // 加载中状态
   if (isLoading) {
     return (
@@ -26,13 +26,13 @@ export function PrivateRoute() {
       </div>
     )
   }
-  
+
   // 未登录，重定向到登录页，并保存当前路径
   if (!isAuthenticated || !accessToken) {
     // 根据当前路径决定重定向到哪个登录页面
     const loginPath = location.pathname.startsWith('/next/') ? '/next/login' : '/login'
     return <Navigate to={loginPath} state={{ from: location }} replace />
   }
-  
+
   return <Outlet />
 }

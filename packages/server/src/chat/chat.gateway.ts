@@ -10,11 +10,11 @@ import {
 import { Server, Socket } from 'socket.io'
 import { Inject, forwardRef } from '@nestjs/common'
 import { AgentService } from '../services/agent.service'
-import { WorkerService } from '../services/worker.service'
+// import { WorkerService } from '../services/worker.service' // 已移除
 import { TaskService } from '../services/task.service'
 import { SessionService } from '../services/session.service'
 import { RepositoryService } from '../services/repository.service'
-import { ClaudeService } from '../services/claude.service'
+// import { ClaudeService } from '../services/claude.service' // 已移除
 import { OnEvent } from '@nestjs/event-emitter'
 
 interface ConnectedAgent {
@@ -22,8 +22,8 @@ interface ConnectedAgent {
   name: string
   socketId: string
   connectedAt: Date
-  agentId: string  // Database ID
-  latency?: number  // Agent延迟（毫秒）
+  agentId: string // Database ID
+  latency?: number // Agent延迟（毫秒）
 }
 
 interface ChatMessage {
@@ -35,9 +35,10 @@ interface ChatMessage {
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.NODE_ENV === 'production' 
-      ? ['http://localhost:5173', 'http://localhost:3000'] 
-      : '*',
+    origin:
+      process.env.NODE_ENV === 'production'
+        ? ['http://localhost:5173', 'http://localhost:3000']
+        : '*',
     credentials: true
   }
 })
@@ -53,15 +54,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     @Inject(forwardRef(() => AgentService))
     private readonly agentService: AgentService,
-    @Inject(forwardRef(() => WorkerService))
-    private readonly workerService: WorkerService,
+    // @Inject(forwardRef(() => WorkerService))
+    // private readonly workerService: WorkerService,
     @Inject(forwardRef(() => TaskService))
     private readonly taskService: TaskService,
     @Inject(forwardRef(() => SessionService))
     private readonly sessionService: SessionService,
     @Inject(forwardRef(() => RepositoryService))
     private readonly repositoryService: RepositoryService,
-    private readonly claudeService: ClaudeService
+    // private readonly claudeService: ClaudeService
   ) {
     // Services will be used for agent/worker management
   }
@@ -73,7 +74,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleDisconnect(client: Socket): Promise<void> {
     console.log(`Client disconnected: ${client.id}`)
-    
+
     // 从所有会话中移除该客户端
     for (const [sessionId, clients] of this.sessionClients.entries()) {
       if (clients.has(client.id)) {
@@ -84,12 +85,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         console.log(`Removed client ${client.id} from session ${sessionId}`)
       }
     }
-    
+
     // Remove agent if it was registered and update database status
     for (const [agentId, agent] of this.connectedAgents.entries()) {
       if (agent.socketId === client.id) {
         this.connectedAgents.delete(agentId)
-        
+
         // Update database status to offline
         try {
           await this.agentService.updateAgentStatus(agentId, {
@@ -98,7 +99,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         } catch (error) {
           console.error(`Failed to update agent status to offline: ${agentId}`, error)
         }
-        
+
         this.server.emit('agent:disconnected', { agentId })
         console.log(`Agent ${agent.name} (${agentId}) disconnected`)
         break
@@ -125,19 +126,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       connectedAt: new Date(),
       agentId: data.agentId
     }
-    
+
     this.connectedAgents.set(data.agentId, agent)
-    
+
     // Join agent-specific room
     client.join(`agent:${data.agentId}`)
-    
+
     // Notify all clients about new agent
     this.server.emit('agent:connected', {
       agentId: agent.id,
       name: agent.name,
       connectedAt: agent.connectedAt
     })
-    
+
     console.log(`Agent registered: ${data.agentId} (${data.name})`)
   }
 
@@ -148,7 +149,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ): Promise<void> {
     try {
       const agent = await this.agentService.validateAgentKey(data.secretKey)
-      
+
       if (!agent || agent.name !== data.name) {
         const reason = !agent ? 'Invalid secret key' : 'Agent name mismatch'
         client.emit('agent:auth_failed', { message: reason })
@@ -169,23 +170,23 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         connectedAt: new Date(),
         agentId: agent.id
       }
-      
+
       this.connectedAgents.set(agent.id, connectedAgent)
       client.join(`agent:${agent.id}`)
-      
+
       client.emit('agent:authenticated', {
         agentId: agent.id,
         name: agent.name,
         status: 'connected',
         hostname: agent.hostname
       })
-      
+
       this.server.emit('agent:connected', {
         agentId: agent.id,
         name: agent.name,
         connectedAt: connectedAgent.connectedAt
       })
-      
+
       console.log(`Agent authenticated: ${agent.name} (${agent.id})`)
     } catch (error) {
       console.error('Authentication error:', error)
@@ -195,15 +196,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('agent:list')
   handleAgentList(): { agents: Array<Omit<ConnectedAgent, 'socketId'>> } {
-    const agentList = Array.from(this.connectedAgents.values()).map(({ socketId, ...agent }) => agent)
+    const agentList = Array.from(this.connectedAgents.values()).map(
+      ({ socketId, ...agent }) => agent
+    )
     return { agents: agentList }
   }
 
   @SubscribeMessage('ping')
-  handlePing(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() timestamp: number
-  ): void {
+  handlePing(@ConnectedSocket() client: Socket, @MessageBody() timestamp: number): void {
     // 立即返回pong响应
     client.emit('pong', timestamp)
   }
@@ -217,7 +217,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const agent = this.connectedAgents.get(data.agentId)
     if (agent) {
       agent.latency = data.latency
-      
+
       // 广播延迟信息给所有客户端
       this.server.emit('agent:latency_update', {
         agentId: data.agentId,
@@ -236,7 +236,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       content: data.content,
       timestamp: new Date()
     }
-    
+
     if (data.to) {
       // Send to specific agent
       this.server.to(`agent:${data.to}`).emit('chat:message', {
@@ -257,14 +257,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { agentId: string; content: string }
   ): void {
     console.log(`Received reply from agent ${data.agentId}: ${data.content}`)
-    
+
     const message: ChatMessage = {
       from: 'agent',
       agentId: data.agentId,
       content: data.content,
       timestamp: new Date()
     }
-    
+
     // Broadcast agent's reply to all web clients
     this.server.emit('chat:reply', {
       ...message,
@@ -276,22 +276,23 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('worker:start')
   async handleWorkerStart(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { 
-      agentId: string; 
-      taskId: string; 
-      workingDirectory?: string; 
-      initialPrompt?: string;
-      sessionId?: string;
-      claudeSessionId?: string;
-      repositoryId?: string;
-      repositoryName?: string;
-      model?: string;  // 添加model参数
+    @MessageBody()
+    data: {
+      agentId: string
+      taskId: string
+      workingDirectory?: string
+      initialPrompt?: string
+      sessionId?: string
+      claudeSessionId?: string
+      repositoryId?: string
+      repositoryName?: string
+      model?: string // 添加model参数
     }
   ): Promise<void> {
     console.log(`Starting Worker for agent ${data.agentId}, task ${data.taskId}`)
     console.log(`sessionId: ${data.sessionId}, claudeSessionId: ${data.claudeSessionId}`)
     console.log(`repositoryId: ${data.repositoryId}, repositoryName: ${data.repositoryName}`)
-    
+
     // 如果有repositoryId，从数据库获取仓库信息
     let repository = null
     if (data.repositoryId) {
@@ -302,15 +303,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         console.error('Failed to get repository:', error)
       }
     }
-    
+
     // 获取 Claude 配置
     let claudeConfig = null
     try {
-      claudeConfig = await this.claudeService.getConfig()
+      // claudeConfig = await this.claudeService.getConfig() // Claude已移除
     } catch (error) {
       console.error('Failed to get Claude config:', error)
     }
-    
+
     // Forward to specific agent
     const agent = this.connectedAgents.get(data.agentId)
     if (agent) {
@@ -320,15 +321,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         initialPrompt: data.initialPrompt,
         sessionId: data.sessionId,
         claudeSessionId: data.claudeSessionId,
-        model: data.model,  // 传递model参数到Agent
-        repository: repository ? {
-          id: repository.id,
-          name: repository.name,
-          url: repository.url,
-          branch: repository.branch,
-          credentials: repository.credentials,
-          settings: repository.settings
-        } : null,
+        model: data.model, // 传递model参数到Agent
+        repository: repository
+          ? {
+              id: repository.id,
+              name: repository.name,
+              url: repository.url,
+              branch: repository.branch,
+              credentials: repository.credentials,
+              settings: repository.settings
+            }
+          : null,
         claudeConfig: claudeConfig
       })
     }
@@ -337,14 +340,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('worker:recreate_request')
   async handleWorkerRecreateRequest(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: {
+    @MessageBody()
+    data: {
       taskId: string
       sessionId: string
       agentId: string
     }
   ): Promise<void> {
     console.log(`Received worker recreate request for session ${data.sessionId}`)
-    
+
     // 向Worker发送重新创建请求，包含必要的配置信息
     const agent = this.connectedAgents.get(data.agentId)
     if (agent) {
@@ -355,24 +359,25 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       })
     }
   }
-  
+
   @SubscribeMessage('worker:input')
   async handleWorkerInput(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { 
-      agentId: string; 
-      taskId: string; 
-      input: string; 
-      sessionId?: string;
-      model?: string;
+    @MessageBody()
+    data: {
+      agentId: string
+      taskId: string
+      input: string
+      sessionId?: string
+      model?: string
       mode?: 'ask' | 'auto' | 'yolo' | 'plan'
     }
   ): Promise<void> {
     console.log(`Sending input to Worker: ${data.input}`)
     console.log(`Mode: ${data.mode}, Model: ${data.model}`)
-    
+
     // 不再从数据库获取历史，直接传递 sessionId 给 Agent
-    
+
     // Forward to specific agent
     const agent = this.connectedAgents.get(data.agentId)
     if (agent) {
@@ -390,7 +395,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('worker:output')
   handleWorkerOutput(
     @ConnectedSocket() _client: Socket,
-    @MessageBody() data: { taskId: string; output: string; outputType: 'stdout' | 'stderr'; sessionId?: string }
+    @MessageBody()
+    data: { taskId: string; output: string; outputType: 'stdout' | 'stderr'; sessionId?: string }
   ): void {
     // 只发送给属于该会话的客户端
     if (data.sessionId) {
@@ -450,10 +456,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('worker:status')
   handleWorkerStatus(
     @ConnectedSocket() _client: Socket,
-    @MessageBody() data: { taskId: string; status: string; error?: string; exitCode?: number; sessionId?: string; agentId?: string }
+    @MessageBody()
+    data: {
+      taskId: string
+      status: string
+      error?: string
+      exitCode?: number
+      sessionId?: string
+      agentId?: string
+    }
   ): void {
     console.log(`Worker status for task ${data.taskId}: ${data.status}`)
-    
+
     // 只发送给属于该会话的客户端
     if (data.sessionId) {
       const roomName = `session:${data.sessionId}`
@@ -470,17 +484,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { sessionId: string }
   ): void {
     if (!data.sessionId) return
-    
+
     // 将客户端加入会话专用房间
     const roomName = `session:${data.sessionId}`
     client.join(roomName)
-    
+
     // 记录客户端与会话的关联
     if (!this.sessionClients.has(data.sessionId)) {
       this.sessionClients.set(data.sessionId, new Set())
     }
     this.sessionClients.get(data.sessionId)!.add(client.id)
-    
+
     console.log(`Client ${client.id} joined session ${data.sessionId}`)
   }
 
@@ -490,11 +504,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { sessionId: string }
   ): void {
     if (!data.sessionId) return
-    
+
     // 将客户端从会话房间移除
     const roomName = `session:${data.sessionId}`
     client.leave(roomName)
-    
+
     // 更新记录
     const clients = this.sessionClients.get(data.sessionId)
     if (clients) {
@@ -503,7 +517,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.sessionClients.delete(data.sessionId)
       }
     }
-    
+
     console.log(`Client ${client.id} left session ${data.sessionId}`)
   }
 
@@ -513,7 +527,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { taskId: string; message: any; agentId?: string; sessionId?: string }
   ): void {
     console.log(`Worker message for task ${data.taskId}:`, data.message.type)
-    
+
     // 优化消息去重机制 - 基于内容哈希 + 短时间窗口
     if (data.message.type === 'assistant' && data.message.message?.content) {
       // 提取消息内容
@@ -523,42 +537,44 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
           textContents.push(contentItem.text)
         }
       }
-      
+
       if (textContents.length > 0) {
         const messageContent = textContents.join('')
         const now = Date.now()
-        
+
         // 初始化去重缓存
         if (!this.recentMessages) {
           this.recentMessages = new Map()
         }
-        
+
         // 创建消息键：任务ID + 内容哈希
         const messageKey = `${data.taskId}:${Buffer.from(messageContent).toString('base64').substring(0, 32)}`
         const lastMessageTime = this.recentMessages.get(messageKey)
-        
+
         // 只阻止15秒内的相同消息（防止真正的重复发送）
         const duplicateThreshold = 15 * 1000 // 15秒
-        if (lastMessageTime && (now - lastMessageTime) < duplicateThreshold) {
-          console.log(`Duplicate assistant message blocked (within ${duplicateThreshold/1000}s) for task ${data.taskId}`)
+        if (lastMessageTime && now - lastMessageTime < duplicateThreshold) {
+          console.log(
+            `Duplicate assistant message blocked (within ${duplicateThreshold / 1000}s) for task ${data.taskId}`
+          )
           return
         }
-        
+
         // 记录当前消息时间
         this.recentMessages.set(messageKey, now)
-        
+
         // 清理过期条目（超过5分钟的记录）
         const cleanupThreshold = 5 * 60 * 1000 // 5分钟
         for (const [key, timestamp] of this.recentMessages.entries()) {
-          if ((now - timestamp) > cleanupThreshold) {
+          if (now - timestamp > cleanupThreshold) {
             this.recentMessages.delete(key)
           }
         }
-        
+
         console.log(`Assistant message forwarded for task ${data.taskId}`)
       }
     }
-    
+
     // 只发送给属于该会话的客户端
     if (data.sessionId) {
       const roomName = `session:${data.sessionId}`
@@ -577,7 +593,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { taskId: string; thinking: any; agentId?: string; sessionId?: string }
   ): void {
     console.log(`Worker thinking for task ${data.taskId}`)
-    
+
     // 只发送给属于该会话的客户端
     if (data.sessionId) {
       const roomName = `session:${data.sessionId}`
@@ -594,7 +610,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('worker:register')
   async handleWorkerRegister(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { 
+    @MessageBody()
+    data: {
       workerId: string
       name: string
       agentId: string
@@ -609,28 +626,31 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         workerId: data.workerId,
         name: data.name,
         agentId: data.agentId,
-        capabilities: data.capabilities ? {
-          supportedTools: data.capabilities,
-          maxConcurrentTasks: 1,
-          resourceLimits: {
-            maxMemory: 4096,
-            maxCpu: 100,
-            maxDiskIO: 1000
-          }
-        } : undefined
+        capabilities: data.capabilities
+          ? {
+              supportedTools: data.capabilities,
+              maxConcurrentTasks: 1,
+              resourceLimits: {
+                maxMemory: 4096,
+                maxCpu: 100,
+                maxDiskIO: 1000
+              }
+            }
+          : undefined
       }
-      
-      const worker = await this.workerService.registerWorker(registerData)
-      
+
+      // const worker = await this.workerService.registerWorker(registerData) // Worker已移除
+      const worker = null
+
       // Store worker socket mapping
       client.data.workerId = worker.id
       client.join(`worker:${worker.id}`)
-      
+
       client.emit('worker:registered', {
         workerId: worker.id,
         status: 'success'
       })
-      
+
       // Notify all clients about new worker
       this.server.emit('worker:connected', {
         workerId: worker.id,
@@ -639,13 +659,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         status: worker.status,
         capabilities: worker.capabilities
       })
-      
+
       console.log(`Worker registered: ${worker.name} (${worker.id})`)
     } catch (error) {
       console.error('Worker registration error:', error)
-      client.emit('worker:error', { 
+      client.emit('worker:error', {
         message: 'Failed to register worker',
-        error: error.message 
+        error: error.message
       })
     }
   }
@@ -653,7 +673,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('worker:permission')
   handleWorkerPermission(
     @ConnectedSocket() _client: Socket,
-    @MessageBody() data: {
+    @MessageBody()
+    data: {
       agentId: string
       taskId: string
       sessionId: string
@@ -664,7 +685,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   ): void {
     console.log(`Permission ${data.action} for ${data.permissionId} from ${data.agentId}`)
-    
+
     // 转发权限响应给对应的Agent
     const agent = this.findAgentByDatabaseId(data.agentId)
     if (agent) {
@@ -680,7 +701,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: any
   ): Promise<void> {
     try {
-      await this.workerService.handleHeartbeat(data)
+      // await this.workerService.handleHeartbeat(data) // Worker已移除
     } catch (error) {
       console.error('Worker heartbeat error:', error)
     }
@@ -689,7 +710,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('worker:task:complete')
   async handleWorkerTaskComplete(
     @ConnectedSocket() _client: Socket,
-    @MessageBody() data: {
+    @MessageBody()
+    data: {
       taskId: string
       workerId: string
       result: any
@@ -698,7 +720,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ): Promise<void> {
     try {
       await this.taskService.completeTask(data.taskId, data.result, data.executionTime)
-      
+
       // Notify all clients
       this.server.emit('task:completed', {
         taskId: data.taskId,
@@ -713,7 +735,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('worker:task:failed')
   async handleWorkerTaskFailed(
     @ConnectedSocket() _client: Socket,
-    @MessageBody() data: {
+    @MessageBody()
+    data: {
       taskId: string
       workerId: string
       error: string
@@ -722,7 +745,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ): Promise<void> {
     try {
       await this.taskService.failTask(data.taskId, data.error, data.executionTime)
-      
+
       // Notify all clients
       this.server.emit('task:failed', {
         taskId: data.taskId,
@@ -751,39 +774,43 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         console.error('Failed to get repository:', error)
       }
     }
-    
+
     // Get Claude configuration
     let claudeConfig = null
     try {
-      claudeConfig = await this.claudeService.getConfig()
+      // claudeConfig = await this.claudeService.getConfig() // Claude已移除
     } catch (error) {
       console.error('Failed to get Claude config:', error)
     }
-    
+
     // Send task to specific worker
     this.server.to(`worker:${data.workerId}`).emit('task:assign', {
       taskId: data.task.id,
-      repository: repository ? {
-        id: repository.id,
-        name: repository.name,
-        url: repository.url,
-        branch: repository.branch,
-        credentials: repository.credentials,
-        settings: repository.settings
-      } : null,
-      claudeConfig: claudeConfig ? {
-        baseUrl: claudeConfig.baseUrl,
-        authToken: claudeConfig.authToken,
-        model: claudeConfig.model,
-        maxTokens: claudeConfig.maxTokens,
-        temperature: claudeConfig.temperature,
-        timeout: claudeConfig.timeout
-      } : null,
+      repository: repository
+        ? {
+            id: repository.id,
+            name: repository.name,
+            url: repository.url,
+            branch: repository.branch,
+            credentials: repository.credentials,
+            settings: repository.settings
+          }
+        : null,
+      claudeConfig: claudeConfig
+        ? {
+            baseUrl: claudeConfig.baseUrl,
+            authToken: claudeConfig.authToken,
+            model: claudeConfig.model,
+            maxTokens: claudeConfig.maxTokens,
+            temperature: claudeConfig.temperature,
+            timeout: claudeConfig.timeout
+          }
+        : null,
       command: data.task.command || 'claude',
       args: data.task.args || [],
       env: data.task.env || {}
     })
-    
+
     // Notify all clients
     this.server.emit('task:assigned', data)
   }
@@ -813,7 +840,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('repository:ready')
   handleRepositoryReady(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: {
+    @MessageBody()
+    data: {
       sessionId: string
       agentId: string
       repositoryId: string
@@ -831,7 +859,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('repository:prepare_failed')
   handleRepositoryPrepareFailed(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: {
+    @MessageBody()
+    data: {
       sessionId: string
       agentId: string
       repositoryId: string
@@ -849,14 +878,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('history:request')
   handleHistoryRequest(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: {
+    @MessageBody()
+    data: {
       sessionId: string
       agentId?: string
       claudeSessionId?: string
     }
   ): void {
     const requestId = `history-${Date.now()}-${Math.random()}`
-    
+
     // 如果提供了agentId，直接转发给对应的agent
     if (data.agentId) {
       const agent = this.connectedAgents.get(data.agentId)
@@ -867,7 +897,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
           sessionId: data.sessionId,
           claudeSessionId: data.claudeSessionId
         })
-        
+
         // 记录请求来源，用于响应路由
         this.historyRequestMap.set(requestId, client.id)
       } else {
@@ -891,12 +921,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       })
     }
   }
-  
+
   // 处理从 Agent 获取历史记录响应
   @SubscribeMessage('history:response')
   handleHistoryResponse(
     @ConnectedSocket() _client: Socket,
-    @MessageBody() data: {
+    @MessageBody()
+    data: {
       requestId: string
       sessionId: string
       messages: any[]
@@ -923,7 +954,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('history:list:response')
   handleHistoryListResponse(
     @ConnectedSocket() _client: Socket,
-    @MessageBody() data: {
+    @MessageBody()
+    data: {
       requestId: string
       conversations: any[]
       success: boolean

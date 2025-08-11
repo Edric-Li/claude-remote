@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
 import { TaskRepository } from '../repositories/task.repository'
 import { Task } from '../entities/task.entity'
-import { WorkerService } from './worker.service'
+// import { WorkerService } from './worker.service' // 已移除
 import { AgentService } from './agent.service'
 import { EventEmitter2 } from '@nestjs/event-emitter'
 
@@ -35,7 +35,7 @@ export interface UpdateTaskDto {
 export class TaskService {
   constructor(
     private readonly taskRepository: TaskRepository,
-    private readonly workerService: WorkerService,
+    // private readonly workerService: WorkerService, // 已移除
     private readonly agentService: AgentService,
     private readonly eventEmitter: EventEmitter2
   ) {}
@@ -52,13 +52,13 @@ export class TaskService {
       retryCount: 0,
       scheduledFor: data.scheduledFor || new Date()
     })
-    
+
     // 触发任务创建事件
     this.eventEmitter.emit('task.created', task)
-    
+
     // 尝试立即分配任务
     await this.tryAssignTask(task)
-    
+
     return task
   }
 
@@ -67,12 +67,12 @@ export class TaskService {
    */
   async createTasksBatch(tasks: CreateTaskDto[]): Promise<Task[]> {
     const createdTasks: Task[] = []
-    
+
     for (const taskData of tasks) {
       const task = await this.createTask(taskData)
       createdTasks.push(task)
     }
-    
+
     return createdTasks
   }
 
@@ -86,14 +86,14 @@ export class TaskService {
     createdBy?: string
   }): Promise<Task[]> {
     let where: any = {}
-    
+
     if (filters) {
       if (filters.status) where.status = filters.status
       if (filters.agentId) where.agentId = filters.agentId
       if (filters.workerId) where.workerId = filters.workerId
       if (filters.createdBy) where.createdBy = filters.createdBy
     }
-    
+
     return this.taskRepository.findAll({
       where,
       order: { createdAt: 'DESC' },
@@ -117,12 +117,12 @@ export class TaskService {
    */
   async updateTask(id: string, data: UpdateTaskDto): Promise<Task> {
     await this.getTaskById(id) // 确保存在
-    
+
     const updated = await this.taskRepository.update(id, data)
     if (!updated) {
       throw new Error('Failed to update task')
     }
-    
+
     return updated
   }
 
@@ -131,23 +131,22 @@ export class TaskService {
    */
   async cancelTask(id: string): Promise<void> {
     const task = await this.getTaskById(id)
-    
+
     if (task.status === 'completed' || task.status === 'cancelled') {
       throw new BadRequestException('Task is already completed or cancelled')
     }
-    
+
     await this.taskRepository.cancelTask(id)
-    
+
     // 如果任务已分配给 Worker，更新 Worker 状态
-    if (task.workerId) {
-      await this.workerService.updateWorkerStatus(
-        task.workerId,
-        task.agentId,
-        'idle',
-        { taskId: null, taskType: null }
-      )
-    }
-    
+    // Worker已移除 - 注释掉workerId相关代码
+    // if (task.workerId) {
+    //   await this.workerService.updateWorkerStatus(task.workerId, task.agentId, 'idle', {
+    //     taskId: null,
+    //     taskType: null
+    //   })
+    // }
+
     // 触发任务取消事件
     this.eventEmitter.emit('task.cancelled', task)
   }
@@ -157,11 +156,11 @@ export class TaskService {
    */
   async deleteTask(id: string): Promise<void> {
     const task = await this.getTaskById(id)
-    
+
     if (task.status === 'running') {
       throw new BadRequestException('Cannot delete a running task')
     }
-    
+
     const deleted = await this.taskRepository.delete(id)
     if (!deleted) {
       throw new Error('Failed to delete task')
@@ -174,63 +173,55 @@ export class TaskService {
   async tryAssignTask(task: Task): Promise<boolean> {
     // 获取所有已连接的 Agent
     const connectedAgents = await this.agentService.getConnectedAgents()
-    
+
     if (connectedAgents.length === 0) {
       return false
     }
-    
+
     // 按优先级排序（可以根据负载、性能等因素）
     for (const agent of connectedAgents) {
       // 检查 Agent 是否符合任务要求
       if (task.requirements?.tags) {
         const agentTags = agent.tags || []
-        const hasAllTags = task.requirements.tags.every(tag => 
-          agentTags.includes(tag)
-        )
+        const hasAllTags = task.requirements.tags.every(tag => agentTags.includes(tag))
         if (!hasAllTags) continue
       }
-      
+
       // 查找最佳可用 Worker
-      const worker = await this.workerService.findBestWorkerForTask(
-        agent.id,
-        task.requirements
-      )
-      
+      // Worker已移除 - 注释掉Worker相关代码
+      // const worker = await this.workerService.findBestWorkerForTask(agent.id, task.requirements)
+      const worker = null
+
       if (worker) {
         // 分配任务
         await this.assignTaskToWorker(task.id, worker.id, agent.id)
         return true
       }
     }
-    
+
     return false
   }
 
   /**
    * 分配任务给 Worker
    */
-  async assignTaskToWorker(
-    taskId: string,
-    workerId: string,
-    agentId: string
-  ): Promise<void> {
+  async assignTaskToWorker(taskId: string, workerId: string, agentId: string): Promise<void> {
     const task = await this.getTaskById(taskId)
-    
+
     if (task.status !== 'pending') {
       throw new BadRequestException('Task is not in pending status')
     }
-    
+
     // 更新任务状态
     await this.taskRepository.assignToWorker(taskId, workerId, agentId)
-    
+
     // 更新 Worker 状态
-    await this.workerService.updateWorkerStatus(
-      workerId,
-      agentId,
-      'busy',
-      { taskId, taskType: task.type }
-    )
-    
+    // Worker已移除 - 注释掉Worker相关代码
+    // await this.workerService.updateWorkerStatus(workerId, agentId, 'busy', {
+    //   taskId,
+    //   taskType: task.type
+    // })
+
     // 触发任务分配事件
     this.eventEmitter.emit('task.assigned', {
       task,
@@ -244,13 +235,13 @@ export class TaskService {
    */
   async startTask(taskId: string): Promise<void> {
     const task = await this.getTaskById(taskId)
-    
+
     if (task.status !== 'assigned') {
       throw new BadRequestException('Task must be assigned before starting')
     }
-    
+
     await this.taskRepository.updateStatus(taskId, 'running')
-    
+
     // 触发任务开始事件
     this.eventEmitter.emit('task.started', task)
   }
@@ -258,32 +249,24 @@ export class TaskService {
   /**
    * 完成任务
    */
-  async completeTask(
-    taskId: string,
-    result: any,
-    executionTime: number
-  ): Promise<void> {
+  async completeTask(taskId: string, result: any, executionTime: number): Promise<void> {
     const task = await this.getTaskById(taskId)
-    
+
     if (task.status !== 'running') {
       throw new BadRequestException('Task is not running')
     }
-    
+
     await this.taskRepository.updateStatus(taskId, 'completed', {
       result,
       executionTime
     })
-    
+
     // 更新 Worker 状态和指标
-    if (task.workerId && task.agentId) {
-      await this.workerService.reportTaskComplete(
-        task.workerId,
-        task.agentId,
-        true,
-        executionTime
-      )
-    }
-    
+    // Worker已移除 - 注释掉workerId相关代码
+    // if (task.workerId && task.agentId) {
+    //   await this.workerService.reportTaskComplete(task.workerId, task.agentId, true, executionTime)
+    // }
+
     // 触发任务完成事件
     this.eventEmitter.emit('task.completed', {
       task,
@@ -295,37 +278,34 @@ export class TaskService {
   /**
    * 任务失败
    */
-  async failTask(
-    taskId: string,
-    error: string,
-    executionTime?: number
-  ): Promise<void> {
+  async failTask(taskId: string, error: string, executionTime?: number): Promise<void> {
     const task = await this.getTaskById(taskId)
-    
+
     if (task.status !== 'running') {
       throw new BadRequestException('Task is not running')
     }
-    
+
     await this.taskRepository.updateStatus(taskId, 'failed', {
       error,
       executionTime
     })
-    
+
     // 更新 Worker 状态和指标
-    if (task.workerId && task.agentId) {
-      await this.workerService.reportTaskComplete(
-        task.workerId,
-        task.agentId,
-        false,
-        executionTime || 0
-      )
-    }
-    
+    // Worker已移除
+    // if (task.workerId && task.agentId) {
+    //   await this.workerService.reportTaskComplete(
+    //     task.workerId,
+    //     task.agentId,
+    //     false,
+    //     executionTime || 0
+    //   )
+    // }
+
     // 检查是否需要重试
     if (task.retryCount < task.maxRetries) {
       await this.retryTask(taskId)
     }
-    
+
     // 触发任务失败事件
     this.eventEmitter.emit('task.failed', {
       task,
@@ -339,17 +319,17 @@ export class TaskService {
    */
   async retryTask(taskId: string): Promise<void> {
     const task = await this.getTaskById(taskId)
-    
+
     if (task.retryCount >= task.maxRetries) {
       throw new BadRequestException('Task has reached maximum retry attempts')
     }
-    
+
     await this.taskRepository.incrementRetryCount(taskId)
-    
+
     // 重新尝试分配任务
     const updatedTask = await this.getTaskById(taskId)
     await this.tryAssignTask(updatedTask)
-    
+
     // 触发任务重试事件
     this.eventEmitter.emit('task.retried', updatedTask)
   }
@@ -359,7 +339,7 @@ export class TaskService {
    */
   async processPendingTasks(): Promise<void> {
     const pendingTasks = await this.taskRepository.findPendingTasks(50)
-    
+
     for (const task of pendingTasks) {
       await this.tryAssignTask(task)
     }
@@ -370,12 +350,12 @@ export class TaskService {
    */
   async processExpiredTasks(): Promise<void> {
     const expiredTasks = await this.taskRepository.findExpiredTasks()
-    
+
     for (const task of expiredTasks) {
       await this.taskRepository.updateStatus(task.id, 'failed', {
         error: 'Task expired'
       })
-      
+
       // 触发任务过期事件
       this.eventEmitter.emit('task.expired', task)
     }

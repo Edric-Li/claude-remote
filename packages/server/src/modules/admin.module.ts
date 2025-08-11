@@ -11,20 +11,9 @@ import { SystemController } from '../controllers/system.controller'
 import { DatabaseController } from '../controllers/database.controller'
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Agent])
-  ],
-  controllers: [
-    SystemController,
-    DatabaseController
-  ],
-  providers: [
-    SystemService,
-    DatabaseService
-  ],
-  exports: [
-    SystemService,
-    DatabaseService
-  ]
+  imports: [TypeOrmModule.forFeature([Agent])],
+  controllers: [SystemController, DatabaseController],
+  providers: [SystemService, DatabaseService],
+  exports: [SystemService, DatabaseService]
 })
 export class AdminModule {}

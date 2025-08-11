@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException, Logger } from '@nestjs/common'
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+  Logger
+} from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { UserAiConfig } from '../entities/user-ai-config.entity'
@@ -15,10 +21,7 @@ export class UserAiConfigService {
     private operationLogService: OperationLogService
   ) {}
 
-  async createConfig(
-    userId: string, 
-    createConfigDto: CreateAiConfigDto
-  ): Promise<UserAiConfig> {
+  async createConfig(userId: string, createConfigDto: CreateAiConfigDto): Promise<UserAiConfig> {
     // 检查配置名称是否已存在
     const existingName = await this.aiConfigRepository.findOne({
       where: { userId, name: createConfigDto.name }
@@ -68,15 +71,18 @@ export class UserAiConfigService {
     const config = await this.aiConfigRepository.findOne({
       where: { id, userId }
     })
-    
+
     if (!config) {
       throw new NotFoundException('AI配置不存在')
     }
-    
+
     return config
   }
 
-  async getDefaultConfig(userId: string, toolType: 'claude' | 'openai' | 'gemini' | 'ollama' | 'custom'): Promise<UserAiConfig | null> {
+  async getDefaultConfig(
+    userId: string,
+    toolType: 'claude' | 'openai' | 'gemini' | 'ollama' | 'custom'
+  ): Promise<UserAiConfig | null> {
     return await this.aiConfigRepository.findOne({
       where: { userId, toolType, isDefault: true }
     })
@@ -121,10 +127,10 @@ export class UserAiConfigService {
 
   async setAsDefault(id: string, userId: string): Promise<UserAiConfig> {
     const config = await this.findById(id, userId)
-    
+
     // 先清除该工具类型的其他默认配置
     await this.clearDefaultConfig(userId, config.toolType)
-    
+
     config.isDefault = true
     const updatedConfig = await this.aiConfigRepository.save(config)
 
@@ -143,7 +149,7 @@ export class UserAiConfigService {
 
   async deleteConfig(id: string, userId: string): Promise<void> {
     const config = await this.findById(id, userId)
-    
+
     await this.aiConfigRepository.remove(config)
 
     // 记录操作日志
@@ -160,11 +166,11 @@ export class UserAiConfigService {
 
   async testConnection(id: string, userId: string): Promise<{ success: boolean; message: string }> {
     const config = await this.findById(id, userId)
-    
+
     try {
       // TODO: 实现具体的连接测试逻辑
       // 根据 toolType 调用对应的 AI 服务进行连接测试
-      
+
       // 记录操作日志
       await this.operationLogService.createLog({
         userId,
@@ -189,7 +195,10 @@ export class UserAiConfigService {
     }
   }
 
-  private async clearDefaultConfig(userId: string, toolType: 'claude' | 'openai' | 'gemini' | 'ollama' | 'custom'): Promise<void> {
+  private async clearDefaultConfig(
+    userId: string,
+    toolType: 'claude' | 'openai' | 'gemini' | 'ollama' | 'custom'
+  ): Promise<void> {
     await this.aiConfigRepository.update(
       { userId, toolType, isDefault: true },
       { isDefault: false }
@@ -206,10 +215,13 @@ export class UserAiConfigService {
     })
 
     const total = configs.length
-    const byToolType = configs.reduce((acc, config) => {
-      acc[config.toolType] = (acc[config.toolType] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
+    const byToolType = configs.reduce(
+      (acc, config) => {
+        acc[config.toolType] = (acc[config.toolType] || 0) + 1
+        return acc
+      },
+      {} as Record<string, number>
+    )
 
     return { total, byToolType }
   }

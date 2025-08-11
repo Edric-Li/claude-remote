@@ -1,11 +1,11 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Put, 
-  Delete, 
-  Body, 
-  Param, 
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
   Query,
   HttpCode,
   HttpStatus
@@ -63,7 +63,7 @@ export class AgentSimpleController {
       secretKey: this.generateSecretKey(),
       status: 'pending'
     })
-    
+
     return repository.save(agent)
   }
 
@@ -74,14 +74,14 @@ export class AgentSimpleController {
     }
 
     const repository = this.dataSource.getRepository(Agent)
-    
+
     if (createdBy) {
       return repository.find({
         where: { createdBy },
         order: { createdAt: 'DESC' }
       })
     }
-    
+
     return repository.find({
       order: { createdAt: 'DESC' }
     })
@@ -108,31 +108,28 @@ export class AgentSimpleController {
 
     const repository = this.dataSource.getRepository(Agent)
     const agent = await repository.findOne({ where: { id } })
-    
+
     if (!agent) {
       throw new Error('Agent not found')
     }
-    
+
     return agent
   }
 
   @Put(':id')
-  async update(
-    @Param('id') id: string,
-    @Body() updateAgentDto: UpdateAgentDto
-  ): Promise<Agent> {
+  async update(@Param('id') id: string, @Body() updateAgentDto: UpdateAgentDto): Promise<Agent> {
     if (!this.dataSource?.isInitialized) {
       await this.initDataSource()
     }
 
     const repository = this.dataSource.getRepository(Agent)
     await repository.update(id, updateAgentDto)
-    
+
     const agent = await repository.findOne({ where: { id } })
     if (!agent) {
       throw new Error('Agent not found')
     }
-    
+
     return agent
   }
 
@@ -145,7 +142,7 @@ export class AgentSimpleController {
 
     const repository = this.dataSource.getRepository(Agent)
     const result = await repository.delete(id)
-    
+
     if (!result.affected) {
       throw new Error('Agent not found')
     }
@@ -159,9 +156,9 @@ export class AgentSimpleController {
 
     const repository = this.dataSource.getRepository(Agent)
     const secretKey = this.generateSecretKey()
-    
+
     await repository.update(id, { secretKey })
-    
+
     return { secretKey }
   }
 }

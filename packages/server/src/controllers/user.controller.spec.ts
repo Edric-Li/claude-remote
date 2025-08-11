@@ -2,7 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing'
 import { UserController } from './user.controller'
 import { UserService } from '../services/user.service'
 import { mockUser } from '../test/test-utils'
-import { CreateUserDto, UpdateUserDto, ChangePasswordDto, UpdateUserStatusDto } from '../dto/user.dto'
+import {
+  CreateUserDto,
+  UpdateUserDto,
+  ChangePasswordDto,
+  UpdateUserStatusDto
+} from '../dto/user.dto'
 import { User } from '../entities/user.entity'
 
 describe('UserController', () => {
@@ -23,10 +28,10 @@ describe('UserController', () => {
             updateUser: jest.fn(),
             changePassword: jest.fn(),
             updateStatus: jest.fn(),
-            deleteUser: jest.fn(),
-          },
-        },
-      ],
+            deleteUser: jest.fn()
+          }
+        }
+      ]
     }).compile()
 
     controller = module.get<UserController>(UserController)
@@ -39,7 +44,7 @@ describe('UserController', () => {
         username: 'testuser',
         email: 'test@example.com',
         password: 'password123',
-        displayName: 'Test User',
+        displayName: 'Test User'
       }
       const mockRequest = { ip: '192.168.1.1' } as any
 
@@ -129,7 +134,11 @@ describe('UserController', () => {
 
       const result = await controller.updateUser('user-1', updateUserDto, currentUser)
 
-      expect(userService.updateUser).toHaveBeenCalledWith('user-1', updateUserDto, 'current-user-id')
+      expect(userService.updateUser).toHaveBeenCalledWith(
+        'user-1',
+        updateUserDto,
+        'current-user-id'
+      )
       expect(result).toEqual(updatedUser)
     })
   })
@@ -138,7 +147,7 @@ describe('UserController', () => {
     it('should change user password', async () => {
       const changePasswordDto: ChangePasswordDto = {
         currentPassword: 'oldPassword',
-        newPassword: 'newPassword',
+        newPassword: 'newPassword'
       }
       userService.changePassword.mockResolvedValue(undefined)
 
@@ -161,7 +170,11 @@ describe('UserController', () => {
 
       const result = await controller.updateUserStatus('user-1', updateStatusDto, currentUser)
 
-      expect(userService.updateStatus).toHaveBeenCalledWith('user-1', updateStatusDto, 'current-user-id')
+      expect(userService.updateStatus).toHaveBeenCalledWith(
+        'user-1',
+        updateStatusDto,
+        'current-user-id'
+      )
       expect(result).toEqual(updatedUser)
     })
   })

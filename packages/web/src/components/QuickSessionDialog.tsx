@@ -5,7 +5,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
+  DialogTitle
 } from './ui/dialog'
 import { Button } from './ui/button'
 import { Label } from './ui/label'
@@ -35,32 +35,32 @@ interface SessionData {
   repositoryId: string
   repositoryName?: string
   aiTool: string
-  model?: string  // 添加模型字段
+  model?: string // 添加模型字段
   autoAssignWorker: boolean
 }
 
 const AI_TOOLS = [
-  { 
-    id: 'claude', 
-    name: 'Claude', 
-    icon: '🤖', 
+  {
+    id: 'claude',
+    name: 'Claude',
+    icon: '🤖',
     description: '强大的AI编程助手',
     features: ['代码生成', '重构优化', '错误修复']
   },
-  { 
-    id: 'qwen', 
-    name: 'Qwen (通义千问)', 
-    icon: '🎯', 
+  {
+    id: 'qwen',
+    name: 'Qwen (通义千问)',
+    icon: '🎯',
     description: '阿里云AI编程助手',
     features: ['智能补全', '上下文理解', '快速编辑']
   },
-  { 
-    id: 'cursor', 
-    name: 'Cursor', 
-    icon: '🚀', 
+  {
+    id: 'cursor',
+    name: 'Cursor',
+    icon: '🚀',
     description: '快速代码生成工具',
     features: ['快速生成', '模板支持', '批量处理']
-  },
+  }
 ]
 
 export function QuickSessionDialog({ open, onClose, onSubmit }: QuickSessionDialogProps) {
@@ -68,57 +68,57 @@ export function QuickSessionDialog({ open, onClose, onSubmit }: QuickSessionDial
   const [repositories, setRepositories] = useState<Repository[]>([])
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  
+
   const [selectedRepo, setSelectedRepo] = useState<string>('')
   const [selectedTool, setSelectedTool] = useState<string>('claude')
   const [selectedModel, setSelectedModel] = useState<string>('claude-sonnet-4-20250514')
   const [sessionName, setSessionName] = useState('')
   const [autoName, setAutoName] = useState(true)
-  
+
   // 获取仓库列表
   useEffect(() => {
     if (open) {
       fetchRepositories()
     }
   }, [open])
-  
+
   // 自动生成会话名称
   useEffect(() => {
     if (autoName && selectedRepo && selectedTool) {
       const repo = repositories.find(r => r.id === selectedRepo)
       const tool = AI_TOOLS.find(t => t.id === selectedTool)
       if (repo && tool) {
-        const date = new Date().toLocaleDateString('zh-CN', { 
-          month: 'short', 
-          day: 'numeric' 
+        const date = new Date().toLocaleDateString('zh-CN', {
+          month: 'short',
+          day: 'numeric'
         })
         setSessionName(`${repo.name}-${tool.name}-${date}`)
       }
     }
   }, [selectedRepo, selectedTool, repositories, autoName])
-  
+
   const fetchRepositories = async () => {
     setLoading(true)
     try {
       let response = await fetch(`${API_BASE_URL}/api/repositories`, {
         headers: {
-          'Authorization': `Bearer ${accessToken}`
+          Authorization: `Bearer ${accessToken}`
         }
       })
-      
+
       // 如果是401错误，尝试刷新token
       if (response.status === 401) {
         try {
           console.log('Token过期，尝试刷新...')
           const { refreshAccessToken } = useAuthStore.getState()
           await refreshAccessToken()
-          
+
           const { accessToken: newToken } = useAuthStore.getState()
-          
+
           // 使用新token重试请求
           response = await fetch(`${API_BASE_URL}/api/repositories`, {
             headers: {
-              'Authorization': `Bearer ${newToken}`
+              Authorization: `Bearer ${newToken}`
             }
           })
         } catch (refreshError) {
@@ -127,7 +127,7 @@ export function QuickSessionDialog({ open, onClose, onSubmit }: QuickSessionDial
           return
         }
       }
-      
+
       if (response.ok) {
         const data = await response.json()
         console.log('获取到仓库数据:', data)
@@ -146,21 +146,21 @@ export function QuickSessionDialog({ open, onClose, onSubmit }: QuickSessionDial
       setLoading(false)
     }
   }
-  
+
   const handleSubmit = async () => {
     if (!selectedRepo || !sessionName.trim()) return
-    
+
     console.log('Submitting session with:', {
       name: sessionName,
       repositoryId: selectedRepo,
       aiTool: selectedTool
     })
-    
+
     setSubmitting(true)
     try {
       // 获取选中仓库的完整信息
       const selectedRepoData = repositories.find(r => r.id === selectedRepo)
-      
+
       await onSubmit({
         name: sessionName.trim(),
         repositoryId: selectedRepo,
@@ -169,7 +169,7 @@ export function QuickSessionDialog({ open, onClose, onSubmit }: QuickSessionDial
         model: selectedTool === 'claude' ? selectedModel : undefined,
         autoAssignWorker: true
       })
-      
+
       // 重置表单
       setSessionName('')
       setAutoName(true)
@@ -181,22 +181,20 @@ export function QuickSessionDialog({ open, onClose, onSubmit }: QuickSessionDial
       setSubmitting(false)
     }
   }
-  
+
   const selectedToolData = AI_TOOLS.find(t => t.id === selectedTool)
-  
+
   return (
-    <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={open} onOpenChange={open => !open && onClose()}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-purple-500" />
             快速创建对话
           </DialogTitle>
-          <DialogDescription>
-            选择仓库和AI助手，系统将自动分配可用的Worker
-          </DialogDescription>
+          <DialogDescription>选择仓库和AI助手，系统将自动分配可用的Worker</DialogDescription>
         </DialogHeader>
-        
+
         <div className="grid gap-4 py-4">
           {/* 仓库选择 */}
           <div className="grid gap-2">
@@ -218,7 +216,7 @@ export function QuickSessionDialog({ open, onClose, onSubmit }: QuickSessionDial
                   <SelectValue placeholder="选择一个仓库" />
                 </SelectTrigger>
                 <SelectContent>
-                  {repositories.map((repo) => (
+                  {repositories.map(repo => (
                     <SelectItem key={repo.id} value={repo.id}>
                       <div className="flex items-center gap-2">
                         <GitBranch className="h-3 w-3" />
@@ -235,21 +233,19 @@ export function QuickSessionDialog({ open, onClose, onSubmit }: QuickSessionDial
               </Select>
             )}
           </div>
-          
+
           {/* AI助手选择 - 卡片式 */}
           <div className="grid gap-2">
             <Label>选择AI助手</Label>
             <div className="grid grid-cols-3 gap-2">
-              {AI_TOOLS.map((tool) => (
+              {AI_TOOLS.map(tool => (
                 <button
                   key={tool.id}
                   onClick={() => setSelectedTool(tool.id)}
                   className={cn(
-                    "flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-all",
-                    "hover:border-purple-400 hover:bg-purple-50/50",
-                    selectedTool === tool.id
-                      ? "border-purple-500 bg-purple-50"
-                      : "border-border"
+                    'flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-all',
+                    'hover:border-purple-400 hover:bg-purple-50/50',
+                    selectedTool === tool.id ? 'border-purple-500 bg-purple-50' : 'border-border'
                   )}
                 >
                   <span className="text-2xl">{tool.icon}</span>
@@ -257,12 +253,10 @@ export function QuickSessionDialog({ open, onClose, onSubmit }: QuickSessionDial
                 </button>
               ))}
             </div>
-            
+
             {selectedToolData && (
               <div className="mt-2 p-3 bg-purple-50 rounded-lg border border-purple-200">
-                <p className="text-sm text-purple-900 mb-2">
-                  {selectedToolData.description}
-                </p>
+                <p className="text-sm text-purple-900 mb-2">{selectedToolData.description}</p>
                 <div className="flex flex-wrap gap-1">
                   {selectedToolData.features.map((feature, idx) => (
                     <span
@@ -276,7 +270,7 @@ export function QuickSessionDialog({ open, onClose, onSubmit }: QuickSessionDial
               </div>
             )}
           </div>
-          
+
           {/* 模型选择 - 仅在选择Claude时显示 */}
           {selectedTool === 'claude' && (
             <div className="grid gap-2">
@@ -324,7 +318,7 @@ export function QuickSessionDialog({ open, onClose, onSubmit }: QuickSessionDial
               </Select>
             </div>
           )}
-          
+
           {/* 会话名称 */}
           <div className="grid gap-2">
             <div className="flex items-center justify-between">
@@ -339,7 +333,7 @@ export function QuickSessionDialog({ open, onClose, onSubmit }: QuickSessionDial
             <Input
               id="name"
               value={sessionName}
-              onChange={(e) => {
+              onChange={e => {
                 setSessionName(e.target.value)
                 setAutoName(false)
               }}
@@ -347,25 +341,19 @@ export function QuickSessionDialog({ open, onClose, onSubmit }: QuickSessionDial
               disabled={autoName}
             />
           </div>
-          
+
           {/* Worker状态提示 */}
           <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
             <Zap className="h-4 w-4 text-green-600" />
             <div className="flex-1">
               <p className="text-sm text-green-900">系统将自动分配闲置Worker</p>
-              <p className="text-xs text-green-700 mt-0.5">
-                当前有 3 个可用Worker
-              </p>
+              <p className="text-xs text-green-700 mt-0.5">当前有 3 个可用Worker</p>
             </div>
           </div>
         </div>
-        
+
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={onClose}
-            disabled={submitting}
-          >
+          <Button variant="outline" onClick={onClose} disabled={submitting}>
             取消
           </Button>
           <Button

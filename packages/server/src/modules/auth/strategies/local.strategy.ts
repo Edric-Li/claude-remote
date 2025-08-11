@@ -17,17 +17,17 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
       console.log('🔍 LocalStrategy validating:', { username })
       const user = await this.userService.validateUser(username, password)
       console.log('🧪 User validation result:', user ? 'Found user' : 'User not found')
-      
+
       if (!user) {
         console.log('❌ User validation failed: User not found or password incorrect')
         throw new UnauthorizedException('用户名或密码错误')
       }
-      
+
       if (user.status !== 'active') {
         console.log('❌ User validation failed: Account not active')
         throw new UnauthorizedException('账户已被禁用')
       }
-      
+
       console.log('✅ LocalStrategy validation successful')
       return user
     } catch (error) {

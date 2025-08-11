@@ -31,10 +31,12 @@ import { UserAiConfigController } from './controllers/user-ai-config.controller'
 import { UserRepositoryController } from './controllers/user-repository.controller'
 import { UserAssistantController } from './controllers/user-assistant.controller'
 import { AssistantConversationController } from './controllers/assistant-conversation.controller'
+import { EventsController } from './controllers/events.controller'
 
 // 认证模块
 import { AuthModule } from './modules/auth/auth.module'
 import { ChatModule } from './chat/chat.module'
+import { JwtModule } from '@nestjs/jwt'
 
 @Module({
   imports: [
@@ -51,6 +53,12 @@ import { ChatModule } from './chat/chat.module'
       OperationLog
     ]),
     EventEmitterModule.forRoot(),
+    JwtModule.register({
+      secret: process.env.JWT_SECRET || 'ai-orchestra-secret-key-change-in-production',
+      signOptions: {
+        expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+      }
+    }),
     AuthModule,
     ChatModule
   ],
@@ -59,7 +67,8 @@ import { ChatModule } from './chat/chat.module'
     UserAiConfigController,
     UserRepositoryController,
     UserAssistantController,
-    AssistantConversationController
+    AssistantConversationController,
+    EventsController
   ],
   providers: [
     DatabaseInitService,

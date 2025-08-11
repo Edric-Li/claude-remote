@@ -6,17 +6,9 @@ import { AgentService } from '../services/agent.service'
 import { AgentController } from '../controllers/agent.controller'
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Agent])
-  ],
+  imports: [TypeOrmModule.forFeature([Agent])],
   controllers: [AgentController],
-  providers: [
-    AgentRepository,
-    AgentService
-  ],
-  exports: [
-    AgentService,
-    AgentRepository
-  ]
+  providers: [AgentRepository, AgentService],
+  exports: [AgentService, AgentRepository]
 })
 export class AgentModule {}

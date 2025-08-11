@@ -16,12 +16,12 @@ import {
 import { JwtAuthGuard } from '../modules/auth/guards/jwt-auth.guard'
 import { CurrentUser } from '../modules/auth/decorators/current-user.decorator'
 import { AssistantConversationService } from '../services/assistant-conversation.service'
-import { 
-  CreateConversationDto, 
-  UpdateConversationDto, 
-  CreateMessageDto, 
+import {
+  CreateConversationDto,
+  UpdateConversationDto,
+  CreateMessageDto,
   BatchCreateMessagesDto,
-  ArchiveConversationDto 
+  ArchiveConversationDto
 } from '../dto/assistant-conversation.dto'
 import { AssistantConversation } from '../entities/assistant-conversation.entity'
 import { AssistantMessage } from '../entities/assistant-message.entity'
@@ -52,9 +52,7 @@ export class AssistantConversationController {
   }
 
   @Get('stats')
-  async getUserConversationStats(
-    @CurrentUser() user: User
-  ): Promise<{
+  async getUserConversationStats(@CurrentUser() user: User): Promise<{
     total: number
     byStatus: Record<string, number>
     totalMessages: number

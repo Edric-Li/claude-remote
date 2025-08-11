@@ -26,7 +26,7 @@ export class RepositoryService {
     if (data.credentials) {
       data.credentials = this.encrypt(data.credentials)
     }
-    
+
     const repository = this.repositoryRepo.create(data)
     return this.repositoryRepo.save(repository)
   }
@@ -62,7 +62,7 @@ export class RepositoryService {
       // 如果是掩码，不更新凭据字段
       delete data.credentials
     }
-    
+
     await this.repositoryRepo.update(id, data)
     return this.findOne(id)
   }
@@ -87,22 +87,22 @@ export class RepositoryService {
         // 构建带认证的URL或使用SSH
         let testUrl = repo.url
         let gitCommand = ''
-        
+
         if (repo.credentials) {
           const credentials = this.decrypt(repo.credentials)
-          
+
           // 判断是SSH还是HTTPS
           if (repo.url.startsWith('git@') || repo.url.includes('ssh://')) {
             // SSH方式，需要配置SSH key（后续实现）
-            return { 
-              success: false, 
+            return {
+              success: false,
               message: 'SSH认证方式暂未实现，请使用HTTPS方式',
               details: { type: 'ssh' }
             }
           } else if (repo.url.startsWith('http://') || repo.url.startsWith('https://')) {
             // HTTPS方式，支持token或用户名密码
             const urlObj = new URL(repo.url)
-            
+
             // 判断凭据格式
             if (credentials.includes(':')) {
               // username:password 格式
@@ -114,7 +114,7 @@ export class RepositoryService {
               urlObj.username = encodeURIComponent(credentials)
               urlObj.password = 'x-oauth-basic'
             }
-            
+
             testUrl = urlObj.toString()
           }
         }
@@ -129,14 +129,15 @@ export class RepositoryService {
 
         // 测试连接（只获取引用信息，不克隆）
         gitCommand = `git ls-remote --heads "${testUrl}"`
-        
+
         const { stdout, stderr } = await execAsync(gitCommand, {
           timeout: 15000,
           env
         })
 
         // 解析返回的分支信息
-        const branches = stdout.split('\n')
+        const branches = stdout
+          .split('\n')
           .filter(line => line.trim())
           .map(line => {
             const [hash, ref] = line.split('\t')
@@ -144,38 +145,41 @@ export class RepositoryService {
           })
           .filter(Boolean)
 
-        return { 
-          success: true, 
+        return {
+          success: true,
           message: '连接成功，仓库验证通过',
           details: {
             branches,
-            defaultBranch: branches.includes('main') ? 'main' : 
-                          branches.includes('master') ? 'master' : 
-                          branches[0] || 'main'
+            defaultBranch: branches.includes('main')
+              ? 'main'
+              : branches.includes('master')
+                ? 'master'
+                : branches[0] || 'main'
           }
         }
       } else if (repo.type === 'local') {
         // 测试本地路径
         await fs.access(repo.localPath)
-        
+
         // 检查是否是git仓库
-        const isGitRepo = await fs.access(path.join(repo.localPath, '.git'))
+        const isGitRepo = await fs
+          .access(path.join(repo.localPath, '.git'))
           .then(() => true)
           .catch(() => false)
-        
-        return { 
-          success: true, 
+
+        return {
+          success: true,
           message: '路径存在且可访问',
           details: { isGitRepo }
         }
       }
-      
+
       return { success: false, message: '不支持的仓库类型' }
     } catch (error) {
       // 分析错误类型，提供更详细的错误信息
       let message = '连接失败'
       let details = {}
-      
+
       if (error.message.includes('Authentication failed')) {
         message = '认证失败：用户名密码或Token不正确'
         details = { errorType: 'auth' }
@@ -195,7 +199,7 @@ export class RepositoryService {
         message = `连接失败：${error.message}`
         details = { errorType: 'unknown', error: error.message }
       }
-      
+
       return { success: false, message, details }
     }
   }
@@ -203,19 +207,21 @@ export class RepositoryService {
   private isValidGitUrl(url: string): boolean {
     // 支持的Git URL格式
     const patterns = [
-      /^https?:\/\/.+$/,                        // HTTP(S)
-      /^git@.+:.+\.git$/,                       // SSH (git@github.com:user/repo.git)
-      /^ssh:\/\/.+$/,                           // SSH URL
-      /^git:\/\/.+$/,                           // Git protocol
-      /^file:\/\/.+$/,                          // Local file
-      /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_.-]+$/      // GitHub shorthand (user/repo)
+      /^https?:\/\/.+$/, // HTTP(S)
+      /^git@.+:.+\.git$/, // SSH (git@github.com:user/repo.git)
+      /^ssh:\/\/.+$/, // SSH URL
+      /^git:\/\/.+$/, // Git protocol
+      /^file:\/\/.+$/, // Local file
+      /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_.-]+$/ // GitHub shorthand (user/repo)
     ]
-    
+
     return patterns.some(pattern => pattern.test(url))
   }
 
   // 直接测试配置，不需要保存到数据库
-  async testConfig(data: Partial<RepositoryEntity>): Promise<{ success: boolean; message: string; details?: any }> {
+  async testConfig(
+    data: Partial<RepositoryEntity>
+  ): Promise<{ success: boolean; message: string; details?: any }> {
     try {
       if (data.type === 'git') {
         // 验证URL格式
@@ -225,27 +231,27 @@ export class RepositoryService {
 
         // 构建测试URL
         let testUrl = data.url
-        
+
         if (data.credentials) {
           // 判断是SSH还是HTTPS
           if (data.url.startsWith('git@') || data.url.includes('ssh://')) {
-            return { 
-              success: false, 
+            return {
+              success: false,
               message: 'SSH认证方式暂未实现，请使用HTTPS方式',
               details: { type: 'ssh' }
             }
           } else if (data.url.startsWith('http://') || data.url.startsWith('https://')) {
             const urlObj = new URL(data.url)
-            
+
             // 判断凭据格式
             if (data.credentials.includes(':')) {
               const [username, password] = data.credentials.split(':')
-              
+
               // 如果 URL 中已经有用户名，检查是否匹配
               if (urlObj.username && urlObj.username !== username) {
                 console.log(`URL中的用户名 ${urlObj.username} 与凭据中的 ${username} 不匹配`)
               }
-              
+
               // 设置认证信息（注意：不要对用户名和密码进行 URL 编码，URL 对象会自动处理）
               urlObj.username = username
               urlObj.password = password
@@ -254,7 +260,7 @@ export class RepositoryService {
               urlObj.username = data.credentials
               urlObj.password = 'x-oauth-basic'
             }
-            
+
             testUrl = urlObj.toString()
           }
         }
@@ -279,7 +285,8 @@ export class RepositoryService {
         })
 
         // 解析分支信息
-        const branches = stdout.split('\n')
+        const branches = stdout
+          .split('\n')
           .filter(line => line.trim())
           .map(line => {
             const [hash, ref] = line.split('\t')
@@ -287,14 +294,16 @@ export class RepositoryService {
           })
           .filter(Boolean)
 
-        return { 
-          success: true, 
+        return {
+          success: true,
           message: '连接成功，仓库验证通过',
           details: {
             branches,
-            defaultBranch: branches.includes('main') ? 'main' : 
-                          branches.includes('master') ? 'master' : 
-                          branches[0] || 'main'
+            defaultBranch: branches.includes('main')
+              ? 'main'
+              : branches.includes('master')
+                ? 'master'
+                : branches[0] || 'main'
           }
         }
       } else if (data.type === 'local') {
@@ -302,39 +311,44 @@ export class RepositoryService {
         if (!data.localPath) {
           return { success: false, message: '请提供本地路径' }
         }
-        
+
         await fs.access(data.localPath)
-        
+
         // 检查是否是git仓库
-        const isGitRepo = await fs.access(path.join(data.localPath, '.git'))
+        const isGitRepo = await fs
+          .access(path.join(data.localPath, '.git'))
           .then(() => true)
           .catch(() => false)
-        
-        return { 
-          success: true, 
+
+        return {
+          success: true,
           message: '路径存在且可访问',
           details: { isGitRepo }
         }
       }
-      
+
       return { success: false, message: '不支持的仓库类型' }
     } catch (error) {
       // 分析错误类型
       let message = '连接失败'
       let details = {}
-      
+
       console.error('Git连接错误:', error.message)
-      
-      if (error.message.includes('Authentication failed') || 
-          error.message.includes('Invalid username or password') ||
-          error.message.includes('fatal: Authentication failed')) {
+
+      if (
+        error.message.includes('Authentication failed') ||
+        error.message.includes('Invalid username or password') ||
+        error.message.includes('fatal: Authentication failed')
+      ) {
         message = '认证失败：用户名密码或Token不正确'
         details = { errorType: 'auth', hint: 'Bitbucket需要使用App Password，不是账户密码' }
       } else if (error.message.includes('Could not resolve host')) {
         message = '无法解析主机：请检查URL是否正确'
         details = { errorType: 'host' }
-      } else if (error.message.includes('Repository not found') || 
-                 error.message.includes('does not exist')) {
+      } else if (
+        error.message.includes('Repository not found') ||
+        error.message.includes('does not exist')
+      ) {
         message = '仓库不存在或无权访问'
         details = { errorType: 'not_found' }
       } else if (error.message.includes('timeout')) {
@@ -347,7 +361,7 @@ export class RepositoryService {
         message = `连接失败：${error.message}`
         details = { errorType: 'unknown', error: error.message }
       }
-      
+
       return { success: false, message, details }
     }
   }
@@ -372,7 +386,7 @@ export class RepositoryService {
       // 克隆仓库
       const credentials = repo.credentials ? this.decrypt(repo.credentials) : ''
       let cloneUrl = repo.url
-      
+
       // 如果有凭据，构建带认证的 URL
       if (credentials) {
         const [username, password] = credentials.split(':')

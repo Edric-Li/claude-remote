@@ -17,7 +17,11 @@ interface InlinePermissionRequestProps {
   onDeny: (request: PermissionRequest, reason?: string) => void
 }
 
-export function InlinePermissionRequest({ request, onApprove, onDeny }: InlinePermissionRequestProps) {
+export function InlinePermissionRequest({
+  request,
+  onApprove,
+  onDeny
+}: InlinePermissionRequestProps) {
   const [denyFeedback, setDenyFeedback] = useState('')
   const [showDenyInput, setShowDenyInput] = useState(false)
 
@@ -48,7 +52,10 @@ export function InlinePermissionRequest({ request, onApprove, onDeny }: InlinePe
           <div className="p-3 font-mono text-sm">
             {lines.map((line: string, i: number) => (
               <div key={i} className="flex hover:bg-gray-800/50">
-                <span className="text-gray-600 select-none pr-3 text-right" style={{ minWidth: '3em' }}>
+                <span
+                  className="text-gray-600 select-none pr-3 text-right"
+                  style={{ minWidth: '3em' }}
+                >
                   {i + 1}
                 </span>
                 <span className="text-green-400 select-none pr-2">+</span>
@@ -64,11 +71,11 @@ export function InlinePermissionRequest({ request, onApprove, onDeny }: InlinePe
   // 渲染编辑内容（Edit工具）
   const renderEditContent = () => {
     const { file_path, old_string, new_string } = request.toolInput
-    
+
     if (old_string || new_string) {
       const oldLines = (old_string || '').split('\n')
       const newLines = (new_string || '').split('\n')
-      
+
       return (
         <div className="bg-gray-900 rounded-md overflow-hidden mt-3">
           <div className="px-3 py-2 text-xs text-gray-400 font-mono border-b border-gray-800">
@@ -76,24 +83,32 @@ export function InlinePermissionRequest({ request, onApprove, onDeny }: InlinePe
           </div>
           <div className="max-h-64 overflow-y-auto">
             <div className="p-3 font-mono text-sm">
-              {old_string && oldLines.map((line: string, i: number) => (
-                <div key={`old-${i}`} className="flex hover:bg-gray-800/50">
-                  <span className="text-gray-600 select-none pr-3 text-right" style={{ minWidth: '3em' }}>
-                    {i + 1}
-                  </span>
-                  <span className="text-red-400 select-none pr-2">-</span>
-                  <span className="text-gray-500 whitespace-pre line-through">{line || ' '}</span>
-                </div>
-              ))}
-              {new_string && newLines.map((line: string, i: number) => (
-                <div key={`new-${i}`} className="flex hover:bg-gray-800/50">
-                  <span className="text-gray-600 select-none pr-3 text-right" style={{ minWidth: '3em' }}>
-                    {oldLines.length + i + 1}
-                  </span>
-                  <span className="text-green-400 select-none pr-2">+</span>
-                  <span className="text-gray-300 whitespace-pre">{line || ' '}</span>
-                </div>
-              ))}
+              {old_string &&
+                oldLines.map((line: string, i: number) => (
+                  <div key={`old-${i}`} className="flex hover:bg-gray-800/50">
+                    <span
+                      className="text-gray-600 select-none pr-3 text-right"
+                      style={{ minWidth: '3em' }}
+                    >
+                      {i + 1}
+                    </span>
+                    <span className="text-red-400 select-none pr-2">-</span>
+                    <span className="text-gray-500 whitespace-pre line-through">{line || ' '}</span>
+                  </div>
+                ))}
+              {new_string &&
+                newLines.map((line: string, i: number) => (
+                  <div key={`new-${i}`} className="flex hover:bg-gray-800/50">
+                    <span
+                      className="text-gray-600 select-none pr-3 text-right"
+                      style={{ minWidth: '3em' }}
+                    >
+                      {oldLines.length + i + 1}
+                    </span>
+                    <span className="text-green-400 select-none pr-2">+</span>
+                    <span className="text-gray-300 whitespace-pre">{line || ' '}</span>
+                  </div>
+                ))}
             </div>
           </div>
         </div>
@@ -112,14 +127,13 @@ export function InlinePermissionRequest({ request, onApprove, onDeny }: InlinePe
   // 渲染命令内容（Bash工具）
   const renderBashContent = () => {
     const { command } = request.toolInput
-    
+
     return (
       <div className="bg-gray-900 rounded-md overflow-hidden mt-3">
-        <div className="px-3 py-2 text-xs text-gray-400 border-b border-gray-800">
-          Terminal
-        </div>
+        <div className="px-3 py-2 text-xs text-gray-400 border-b border-gray-800">Terminal</div>
         <div className="p-3 font-mono text-sm">
-          <span className="text-gray-500">$</span> <span className="text-green-400">{command || '执行系统命令'}</span>
+          <span className="text-gray-500">$</span>{' '}
+          <span className="text-green-400">{command || '执行系统命令'}</span>
         </div>
       </div>
     )
@@ -184,11 +198,11 @@ export function InlinePermissionRequest({ request, onApprove, onDeny }: InlinePe
             <input
               type="text"
               value={denyFeedback}
-              onChange={(e) => setDenyFeedback(e.target.value)}
+              onChange={e => setDenyFeedback(e.target.value)}
               placeholder="Deny and tell Claude what to do"
               className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-sm text-gray-300 placeholder-gray-500 focus:outline-none focus:border-blue-500"
               autoFocus
-              onKeyDown={(e) => {
+              onKeyDown={e => {
                 if (e.key === 'Enter') handleDeny()
                 if (e.key === 'Escape') {
                   setShowDenyInput(false)

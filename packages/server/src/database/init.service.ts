@@ -17,14 +17,14 @@ export class DatabaseInitService {
 
   async initializeDatabase(): Promise<void> {
     this.logger.log('Initializing database...')
-    
+
     try {
       // 1. 创建系统基础配置
       await this.createSystemConfigs()
-      
+
       // 2. 检查是否需要创建默认用户
       await this.createDefaultUserIfNeeded()
-      
+
       this.logger.log('Database initialization completed')
     } catch (error) {
       this.logger.error('Database initialization failed', error)
@@ -87,7 +87,7 @@ export class DatabaseInitService {
 
   private async createDefaultUserIfNeeded(): Promise<void> {
     const userCount = await this.userRepository.count()
-    
+
     // 如果没有用户，创建一个默认管理员用户
     if (userCount === 0) {
       const defaultUser = this.userRepository.create({
@@ -97,7 +97,7 @@ export class DatabaseInitService {
         displayName: 'System Administrator',
         status: 'active'
       })
-      
+
       await this.userRepository.save(defaultUser)
       this.logger.log(`Created default admin user: ${defaultUser.username}`)
     }
@@ -110,7 +110,12 @@ export class DatabaseInitService {
     return config?.valueData
   }
 
-  async setSystemConfig(category: string, key: string, value: any, description?: string): Promise<void> {
+  async setSystemConfig(
+    category: string,
+    key: string,
+    value: any,
+    description?: string
+  ): Promise<void> {
     const existing = await this.systemConfigRepository.findOne({
       where: { category, keyName: key }
     })

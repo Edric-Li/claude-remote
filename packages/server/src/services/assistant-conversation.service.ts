@@ -1,15 +1,21 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common'
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+  Logger
+} from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { AssistantConversation } from '../entities/assistant-conversation.entity'
 import { AssistantMessage } from '../entities/assistant-message.entity'
 import { UserAssistant } from '../entities/user-assistant.entity'
-import { 
-  CreateConversationDto, 
-  UpdateConversationDto, 
-  CreateMessageDto, 
+import {
+  CreateConversationDto,
+  UpdateConversationDto,
+  CreateMessageDto,
   BatchCreateMessagesDto,
-  ArchiveConversationDto 
+  ArchiveConversationDto
 } from '../dto/assistant-conversation.dto'
 import { OperationLogService } from './operation-log.service'
 
@@ -55,7 +61,10 @@ export class AssistantConversationService {
       operationType: 'conversation_create',
       resourceType: 'conversation',
       resourceId: savedConversation.id,
-      operationData: { assistantId: createConversationDto.assistantId, title: savedConversation.title }
+      operationData: {
+        assistantId: createConversationDto.assistantId,
+        title: savedConversation.title
+      }
     })
 
     this.logger.log(`Conversation created: ${savedConversation.id} for user ${userId}`)
@@ -69,7 +78,8 @@ export class AssistantConversationService {
     page = 1,
     limit = 20
   ): Promise<{ conversations: AssistantConversation[]; total: number }> {
-    const query = this.conversationRepository.createQueryBuilder('conversation')
+    const query = this.conversationRepository
+      .createQueryBuilder('conversation')
       .leftJoinAndSelect('conversation.assistant', 'assistant')
       .where('conversation.userId = :userId', { userId })
       .orderBy('conversation.lastMessageAt', 'DESC')
@@ -95,11 +105,11 @@ export class AssistantConversationService {
       where: { id, userId },
       relations: ['assistant', 'messages']
     })
-    
+
     if (!conversation) {
       throw new NotFoundException('对话不存在')
     }
-    
+
     return conversation
   }
 
@@ -150,7 +160,9 @@ export class AssistantConversationService {
       operationData: { messageCount: archiveDto.messages?.length || 0 }
     })
 
-    this.logger.log(`Conversation archived: ${id} with ${archiveDto.messages?.length || 0} messages`)
+    this.logger.log(
+      `Conversation archived: ${id} with ${archiveDto.messages?.length || 0} messages`
+    )
     return archivedConversation
   }
 
@@ -205,7 +217,7 @@ export class AssistantConversationService {
   ): Promise<AssistantMessage[]> {
     const conversation = await this.findById(conversationId, userId)
 
-    const messages = batchDto.messages.map(messageDto => 
+    const messages = batchDto.messages.map(messageDto =>
       this.messageRepository.create({
         conversationId,
         ...messageDto
@@ -217,13 +229,15 @@ export class AssistantConversationService {
     // 更新对话统计信息
     await this.updateConversationStats(conversationId)
 
-    this.logger.log(`Batch created ${savedMessages.length} messages for conversation ${conversationId}`)
+    this.logger.log(
+      `Batch created ${savedMessages.length} messages for conversation ${conversationId}`
+    )
     return savedMessages
   }
 
   async deleteConversation(id: string, userId: string): Promise<void> {
     const conversation = await this.findById(id, userId)
-    
+
     await this.conversationRepository.remove(conversation)
 
     // 记录操作日志
@@ -238,18 +252,14 @@ export class AssistantConversationService {
     this.logger.log(`Conversation deleted: ${id} for user ${userId}`)
   }
 
-  async deleteMessage(
-    messageId: string,
-    conversationId: string,
-    userId: string
-  ): Promise<void> {
+  async deleteMessage(messageId: string, conversationId: string, userId: string): Promise<void> {
     // 验证对话是否属于用户
     const conversation = await this.findById(conversationId, userId)
 
     const message = await this.messageRepository.findOne({
       where: { id: messageId, conversationId }
     })
-    
+
     if (!message) {
       throw new NotFoundException('消息不存在')
     }
@@ -291,18 +301,24 @@ export class AssistantConversationService {
     })
 
     const total = conversations.length
-    const byStatus = conversations.reduce((acc, conv) => {
-      acc[conv.status] = (acc[conv.status] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
+    const byStatus = conversations.reduce(
+      (acc, conv) => {
+        acc[conv.status] = (acc[conv.status] || 0) + 1
+        return acc
+      },
+      {} as Record<string, number>
+    )
 
     const totalMessages = conversations.reduce((sum, conv) => sum + conv.messageCount, 0)
 
-    const byAssistant = conversations.reduce((acc, conv) => {
-      const assistantName = conv.assistant?.name || 'Unknown'
-      acc[assistantName] = (acc[assistantName] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
+    const byAssistant = conversations.reduce(
+      (acc, conv) => {
+        const assistantName = conv.assistant?.name || 'Unknown'
+        acc[assistantName] = (acc[assistantName] || 0) + 1
+        return acc
+      },
+      {} as Record<string, number>
+    )
 
     return { total, byStatus, totalMessages, byAssistant }
   }
@@ -316,7 +332,10 @@ export class AssistantConversationService {
       .createQueryBuilder('message')
       .delete()
       .where('message.createdAt < :cutoffDate', { cutoffDate })
-      .andWhere('message.conversationId IN (SELECT id FROM assistant_conversations WHERE status = :status)', { status: 'archived' })
+      .andWhere(
+        'message.conversationId IN (SELECT id FROM assistant_conversations WHERE status = :status)',
+        { status: 'archived' }
+      )
       .execute()
 
     return result.affected || 0

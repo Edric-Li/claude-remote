@@ -16,57 +16,60 @@ export function WorkerPanel() {
   const [isRunning, setIsRunning] = useState(false)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
-  
-  const { 
-    agents, 
-    selectedAgentId, 
-    workerOutput, 
+
+  const {
+    agents,
+    selectedAgentId,
+    workerOutput,
     currentTaskId,
-    startWorker, 
+    startWorker,
     sendWorkerInput,
-    stopWorker 
+    stopWorker
   } = useStore()
-  
+
   // const selectedAgent = agents.find(a => a.id === selectedAgentId)
-  
+
   const handleStart = (): void => {
     if (!selectedAgentId) {
       alert('Please select an agent first')
       return
     }
-    
+
     startWorker(selectedAgentId, undefined, initialPrompt || undefined)
     setIsRunning(true)
     setInitialPrompt('')
   }
-  
+
   const handleStop = (): void => {
     if (currentTaskId) {
       stopWorker(selectedAgentId!, currentTaskId)
       setIsRunning(false)
     }
   }
-  
+
   const handleSendInput = (): void => {
     if (input.trim() && currentTaskId) {
-      useStore.setState((state) => ({
-        workerOutput: [...state.workerOutput, {
-          type: 'user' as const,
-          content: input,
-          timestamp: new Date()
-        }]
+      useStore.setState(state => ({
+        workerOutput: [
+          ...state.workerOutput,
+          {
+            type: 'user' as const,
+            content: input,
+            timestamp: new Date()
+          }
+        ]
       }))
-      
+
       sendWorkerInput(selectedAgentId!, currentTaskId, input)
       setInput('')
     }
   }
-  
+
   // Auto-scroll to bottom
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [workerOutput])
-  
+
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="pb-4">
@@ -76,7 +79,7 @@ export function WorkerPanel() {
             <select
               className="flex h-10 w-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               value={selectedAgentId || ''}
-              onChange={(e) => useStore.setState({ selectedAgentId: e.target.value || null })}
+              onChange={e => useStore.setState({ selectedAgentId: e.target.value || null })}
             >
               <option value="">Select an agent</option>
               {agents.map(agent => (
@@ -85,40 +88,32 @@ export function WorkerPanel() {
                 </option>
               ))}
             </select>
-            
+
             {!isRunning ? (
-              <Button
-                onClick={handleStart}
-                disabled={!selectedAgentId}
-                className="gap-2"
-              >
+              <Button onClick={handleStart} disabled={!selectedAgentId} className="gap-2">
                 <Play className="h-4 w-4" />
                 Start Worker
               </Button>
             ) : (
-              <Button
-                variant="destructive"
-                onClick={handleStop}
-                className="gap-2"
-              >
+              <Button variant="destructive" onClick={handleStop} className="gap-2">
                 <Square className="h-4 w-4" />
                 Stop Worker
               </Button>
             )}
           </div>
-          
+
           {!isRunning && (
             <Input
               placeholder="Initial prompt (leave empty for default greeting)"
               value={initialPrompt}
-              onChange={(e) => setInitialPrompt(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleStart()}
+              onChange={e => setInitialPrompt(e.target.value)}
+              onKeyPress={e => e.key === 'Enter' && handleStart()}
               disabled={!selectedAgentId}
             />
           )}
         </div>
       </CardHeader>
-      
+
       <CardContent className="flex-1 flex flex-col gap-4 p-0 px-6 min-h-0">
         <ScrollArea className="flex-1 pr-4 min-h-0" ref={scrollAreaRef}>
           <div className="space-y-4 pb-4">
@@ -135,9 +130,9 @@ export function WorkerPanel() {
                     </MessageBubble>
                   )
                 }
-                
+
                 const { type, content, details, stats, usage } = item
-                
+
                 if (type === 'user') {
                   return (
                     <MessageBubble key={index} type="user">
@@ -148,18 +143,12 @@ export function WorkerPanel() {
                   return (
                     <MessageBubble key={index} type="assistant">
                       <div className="prose prose-sm dark:prose-invert max-w-none">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {content}
-                        </ReactMarkdown>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
                       </div>
                       {usage && (
                         <div className="mt-2 flex gap-2 text-xs text-muted-foreground">
-                          <Badge variant="secondary">
-                            {usage.input_tokens} in
-                          </Badge>
-                          <Badge variant="secondary">
-                            {usage.output_tokens} out
-                          </Badge>
+                          <Badge variant="secondary">{usage.input_tokens} in</Badge>
+                          <Badge variant="secondary">{usage.output_tokens} out</Badge>
                         </div>
                       )}
                     </MessageBubble>
@@ -181,27 +170,23 @@ export function WorkerPanel() {
                     </ToolMessage>
                   )
                 } else if (type === 'result') {
-                  return (
-                    <ResultMessage key={index} content={content} stats={stats} />
-                  )
+                  return <ResultMessage key={index} content={content} stats={stats} />
                 } else if (type === 'system') {
-                  return (
-                    <SystemMessage key={index} content={content} />
-                  )
+                  return <SystemMessage key={index} content={content} />
                 }
-                
+
                 return null
               })
             )}
             <div ref={bottomRef} />
           </div>
         </ScrollArea>
-        
+
         <div className="flex gap-2 pb-6">
           <Input
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => {
+            onChange={e => setInput(e.target.value)}
+            onKeyPress={e => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault()
                 handleSendInput()
@@ -211,11 +196,7 @@ export function WorkerPanel() {
             disabled={!isRunning}
             className="flex-1"
           />
-          <Button
-            onClick={handleSendInput}
-            disabled={!isRunning || !input.trim()}
-            size="icon"
-          >
+          <Button onClick={handleSendInput} disabled={!isRunning || !input.trim()} size="icon">
             <Send className="h-4 w-4" />
           </Button>
         </div>
@@ -225,15 +206,15 @@ export function WorkerPanel() {
 }
 
 // Message components
-function MessageBubble({ 
-  children, 
-  type 
-}: { 
+function MessageBubble({
+  children,
+  type
+}: {
   children: React.ReactNode
-  type: 'user' | 'assistant' 
+  type: 'user' | 'assistant'
 }) {
   const isUser = type === 'user'
-  
+
   return (
     <div className={cn('flex gap-3', isUser && 'justify-end')}>
       {!isUser && (
@@ -244,9 +225,7 @@ function MessageBubble({
       <div
         className={cn(
           'px-4 py-3 rounded-lg max-w-[80%]',
-          isUser 
-            ? 'bg-primary text-primary-foreground' 
-            : 'bg-muted'
+          isUser ? 'bg-primary text-primary-foreground' : 'bg-muted'
         )}
       >
         {children}
@@ -260,14 +239,14 @@ function MessageBubble({
   )
 }
 
-function ToolMessage({ 
-  icon, 
-  title, 
-  children 
-}: { 
+function ToolMessage({
+  icon,
+  title,
+  children
+}: {
   icon: React.ReactNode
   title: string
-  children?: React.ReactNode 
+  children?: React.ReactNode
 }) {
   return (
     <div className="flex gap-3">
@@ -282,13 +261,7 @@ function ToolMessage({
   )
 }
 
-function ResultMessage({ 
-  content, 
-  stats 
-}: { 
-  content: string
-  stats?: any 
-}) {
+function ResultMessage({ content, stats }: { content: string; stats?: any }) {
   return (
     <div className="flex gap-3">
       <div className="h-8 w-8 rounded-full bg-accent flex items-center justify-center flex-shrink-0">

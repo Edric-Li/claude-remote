@@ -1,10 +1,10 @@
-import { 
-  Entity, 
-  PrimaryGeneratedColumn, 
-  Column, 
-  CreateDateColumn, 
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
   UpdateDateColumn,
-  Index 
+  Index
 } from 'typeorm'
 
 @Entity('agents')
@@ -60,7 +60,7 @@ export class Agent {
   @Column({ type: 'simple-json', nullable: true })
   allowedTools: string[]
 
-  @Column('datetime', { nullable: true })
+  @Column('timestamp', { nullable: true })
   lastSeenAt: Date
 
   @Column('varchar', { length: 50 })

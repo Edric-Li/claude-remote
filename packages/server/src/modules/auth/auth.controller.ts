@@ -1,9 +1,9 @@
-import { 
-  Controller, 
-  Post, 
-  Get, 
-  Body, 
-  UseGuards, 
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  UseGuards,
   Request,
   HttpCode,
   HttpStatus,
@@ -35,11 +35,11 @@ export class AuthController {
     if (!registerDto.username || registerDto.username.length < 3) {
       throw new BadRequestException('用户名至少3个字符')
     }
-    
+
     if (!registerDto.email || !this.isValidEmail(registerDto.email)) {
       throw new BadRequestException('请输入有效的邮箱地址')
     }
-    
+
     if (!registerDto.password || registerDto.password.length < 6) {
       throw new BadRequestException('密码至少6个字符')
     }
@@ -105,10 +105,7 @@ export class AuthController {
    */
   @UseGuards(JwtAuthGuard)
   @Put('profile')
-  async updateProfile(
-    @CurrentUser() user,
-    @Body() updateDto: UpdateUserDto
-  ) {
+  async updateProfile(@CurrentUser() user, @Body() updateDto: UpdateUserDto) {
     return this.userService.updateUser(user.id, updateDto)
   }
 
@@ -126,12 +123,8 @@ export class AuthController {
       throw new BadRequestException('新密码至少6个字符')
     }
 
-    await this.authService.changePassword(
-      user.id,
-      body.oldPassword,
-      body.newPassword
-    )
-    
+    await this.authService.changePassword(user.id, body.oldPassword, body.newPassword)
+
     return { message: '密码修改成功' }
   }
 
@@ -140,10 +133,7 @@ export class AuthController {
    */
   @UseGuards(JwtAuthGuard)
   @Put('api-keys')
-  async updateApiKeys(
-    @CurrentUser() user,
-    @Body() apiKeys: any
-  ) {
+  async updateApiKeys(@CurrentUser() user, @Body() apiKeys: any) {
     // TODO: 重定向到新的AI配置API
     return { message: 'API密钥功能已迁移到AI配置系统，请使用新的API端点' }
   }

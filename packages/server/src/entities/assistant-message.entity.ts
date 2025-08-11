@@ -1,7 +1,7 @@
-import { 
-  Entity, 
-  PrimaryGeneratedColumn, 
-  Column, 
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
@@ -45,7 +45,9 @@ export class AssistantMessage {
   createdAt: Date
 
   // 关联关系
-  @ManyToOne(() => AssistantConversation, conversation => conversation.messages, { onDelete: 'CASCADE' })
+  @ManyToOne(() => AssistantConversation, conversation => conversation.messages, {
+    onDelete: 'CASCADE'
+  })
   @JoinColumn({ name: 'conversation_id' })
   conversation: AssistantConversation
 }

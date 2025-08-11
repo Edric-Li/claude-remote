@@ -1,20 +1,20 @@
-import { 
-  Entity, 
-  PrimaryGeneratedColumn, 
-  Column, 
-  CreateDateColumn, 
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
-  Index 
+  Index
 } from 'typeorm'
 import { Agent } from './agent.entity'
-import { Worker } from './worker.entity'
+// import { Worker } from './worker.entity' // 已移除
 
 @Entity('tasks')
 @Index(['status'])
 @Index(['agentId'])
-@Index(['workerId'])
+// @Index(['workerId']) // Worker已移除
 @Index(['priority', 'createdAt'])
 export class Task {
   @PrimaryGeneratedColumn('uuid')
@@ -49,23 +49,23 @@ export class Task {
   @JoinColumn({ name: 'agentId' })
   agent: Agent
 
-  @Column('uuid', { nullable: true })
-  workerId: string
+  // @Column('uuid', { nullable: true })
+  // workerId: string // Worker已移除
 
-  @ManyToOne(() => Worker, { nullable: true })
-  @JoinColumn({ name: 'workerId' })
-  worker: Worker
+  // @ManyToOne(() => Worker, { nullable: true })
+  // @JoinColumn({ name: 'workerId' })
+  // worker: Worker // Worker已移除
 
   @Column('varchar', { length: 50 })
   createdBy: string
 
-  @Column('datetime', { nullable: true })
+  @Column('timestamp', { nullable: true })
   assignedAt: Date
 
-  @Column('datetime', { nullable: true })
+  @Column('timestamp', { nullable: true })
   startedAt: Date
 
-  @Column('datetime', { nullable: true })
+  @Column('timestamp', { nullable: true })
   completedAt: Date
 
   @Column('integer', { nullable: true })
@@ -88,10 +88,10 @@ export class Task {
     tags?: string[]
   }
 
-  @Column('datetime', { nullable: true })
+  @Column('timestamp', { nullable: true })
   scheduledFor: Date
 
-  @Column('datetime', { nullable: true })
+  @Column('timestamp', { nullable: true })
   expiresAt: Date
 
   @CreateDateColumn()

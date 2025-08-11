@@ -32,7 +32,8 @@ export class OperationLogService {
     operationType?: string,
     resourceType?: string
   ): Promise<{ logs: OperationLog[]; total: number }> {
-    const query = this.operationLogRepository.createQueryBuilder('log')
+    const query = this.operationLogRepository
+      .createQueryBuilder('log')
       .leftJoinAndSelect('log.user', 'user')
       .orderBy('log.createdAt', 'DESC')
 

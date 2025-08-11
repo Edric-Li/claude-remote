@@ -1,12 +1,12 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Put, 
-  Delete, 
-  Body, 
-  Param, 
-  Query, 
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
   ParseIntPipe,
   ParseUUIDPipe,
   UseGuards,
@@ -19,7 +19,12 @@ import { JwtAuthGuard } from '../modules/auth/guards/jwt-auth.guard'
 import { CurrentUser } from '../modules/auth/decorators/current-user.decorator'
 import { Public } from '../modules/auth/decorators/public.decorator'
 import { UserService } from '../services/user.service'
-import { CreateUserDto, UpdateUserDto, ChangePasswordDto, UpdateUserStatusDto } from '../dto/user.dto'
+import {
+  CreateUserDto,
+  UpdateUserDto,
+  ChangePasswordDto,
+  UpdateUserStatusDto
+} from '../dto/user.dto'
 import { User } from '../entities/user.entity'
 
 @Controller('users')

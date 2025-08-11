@@ -1,11 +1,21 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException, Logger } from '@nestjs/common'
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+  Logger
+} from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository, In } from 'typeorm'
 import { UserAssistant } from '../entities/user-assistant.entity'
 import { AssistantRepository } from '../entities/assistant-repository.entity'
 import { UserRepository } from '../entities/user-repository.entity'
 import { UserAiConfig } from '../entities/user-ai-config.entity'
-import { CreateAssistantDto, UpdateAssistantDto, AssistantRepositoryDto } from '../dto/user-assistant.dto'
+import {
+  CreateAssistantDto,
+  UpdateAssistantDto,
+  AssistantRepositoryDto
+} from '../dto/user-assistant.dto'
 import { OperationLogService } from './operation-log.service'
 
 @Injectable()
@@ -67,7 +77,11 @@ export class UserAssistantService {
 
     // 创建助手与仓库的关联
     if (createAssistantDto.repositoryIds?.length > 0) {
-      await this.addRepositoriesToAssistant(savedAssistant.id, createAssistantDto.repositoryIds, userId)
+      await this.addRepositoriesToAssistant(
+        savedAssistant.id,
+        createAssistantDto.repositoryIds,
+        userId
+      )
     }
 
     // 更新状态为active
@@ -80,14 +94,16 @@ export class UserAssistantService {
       operationType: 'assistant_create',
       resourceType: 'assistant',
       resourceId: savedAssistant.id,
-      operationData: { 
-        name: savedAssistant.name, 
+      operationData: {
+        name: savedAssistant.name,
         aiConfigId: savedAssistant.aiConfigId,
         repositoryCount: createAssistantDto.repositoryIds?.length || 0
       }
     })
 
-    this.logger.log(`Assistant created: ${savedAssistant.name} (${savedAssistant.id}) for user ${userId}`)
+    this.logger.log(
+      `Assistant created: ${savedAssistant.name} (${savedAssistant.id}) for user ${userId}`
+    )
     return savedAssistant
   }
 
@@ -107,18 +123,13 @@ export class UserAssistantService {
   async findById(id: string, userId: string): Promise<UserAssistant> {
     const assistant = await this.assistantRepository.findOne({
       where: { id, userId },
-      relations: [
-        'aiConfig', 
-        'repositories', 
-        'repositories.repository',
-        'conversations'
-      ]
+      relations: ['aiConfig', 'repositories', 'repositories.repository', 'conversations']
     })
-    
+
     if (!assistant) {
       throw new NotFoundException('助手不存在')
     }
-    
+
     return assistant
   }
 
@@ -170,7 +181,7 @@ export class UserAssistantService {
     repoDto: AssistantRepositoryDto
   ): Promise<AssistantRepository> {
     const assistant = await this.findById(assistantId, userId)
-    
+
     // 验证仓库是否属于用户
     const userRepo = await this.userRepoRepository.findOne({
       where: { id: repoDto.repositoryId, userId }
@@ -216,12 +227,12 @@ export class UserAssistantService {
     userId: string
   ): Promise<void> {
     const assistant = await this.findById(assistantId, userId)
-    
+
     const assistantRepo = await this.assistantRepoRepository.findOne({
       where: { assistantId, repositoryId },
       relations: ['repository']
     })
-    
+
     if (!assistantRepo) {
       throw new NotFoundException('仓库关联不存在')
     }
@@ -234,9 +245,9 @@ export class UserAssistantService {
       operationType: 'assistant_remove_repository',
       resourceType: 'assistant',
       resourceId: assistantId,
-      operationData: { 
-        repositoryId, 
-        repositoryName: assistantRepo.repository?.name 
+      operationData: {
+        repositoryId,
+        repositoryName: assistantRepo.repository?.name
       }
     })
 
@@ -249,12 +260,12 @@ export class UserAssistantService {
     userId: string
   ): Promise<{ success: boolean; message: string }> {
     const assistant = await this.findById(assistantId, userId)
-    
+
     const assistantRepo = await this.assistantRepoRepository.findOne({
       where: { assistantId, repositoryId },
       relations: ['repository']
     })
-    
+
     if (!assistantRepo) {
       throw new NotFoundException('仓库关联不存在')
     }
@@ -283,7 +294,6 @@ export class UserAssistantService {
       })
 
       return { success: true, message: '同步成功' }
-      
     } catch (error) {
       assistantRepo.syncStatus = 'failed'
       assistantRepo.syncError = error.message
@@ -304,7 +314,7 @@ export class UserAssistantService {
 
   async deleteAssistant(id: string, userId: string): Promise<void> {
     const assistant = await this.findById(id, userId)
-    
+
     await this.assistantRepository.remove(assistant)
 
     // 记录操作日志
@@ -348,13 +358,22 @@ export class UserAssistantService {
     })
 
     const total = assistants.length
-    const byStatus = assistants.reduce((acc, assistant) => {
-      acc[assistant.status] = (acc[assistant.status] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
+    const byStatus = assistants.reduce(
+      (acc, assistant) => {
+        acc[assistant.status] = (acc[assistant.status] || 0) + 1
+        return acc
+      },
+      {} as Record<string, number>
+    )
 
-    const totalRepositories = assistants.reduce((sum, assistant) => sum + assistant.repositories.length, 0)
-    const totalConversations = assistants.reduce((sum, assistant) => sum + assistant.conversations.length, 0)
+    const totalRepositories = assistants.reduce(
+      (sum, assistant) => sum + assistant.repositories.length,
+      0
+    )
+    const totalConversations = assistants.reduce(
+      (sum, assistant) => sum + assistant.conversations.length,
+      0
+    )
 
     return { total, byStatus, totalRepositories, totalConversations }
   }

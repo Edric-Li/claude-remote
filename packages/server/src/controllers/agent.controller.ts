@@ -1,11 +1,11 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Put, 
-  Delete, 
-  Body, 
-  Param, 
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
   Query,
   HttpCode,
   HttpStatus
@@ -15,9 +15,7 @@ import { Agent } from '../entities/agent.entity'
 
 @Controller('api/agents')
 export class AgentController {
-  constructor(
-    private readonly agentService: AgentService
-  ) {}
+  constructor(private readonly agentService: AgentService) {}
 
   /**
    * 创建新 Agent
@@ -56,10 +54,7 @@ export class AgentController {
    * 更新 Agent
    */
   @Put(':id')
-  async update(
-    @Param('id') id: string,
-    @Body() updateAgentDto: UpdateAgentDto
-  ): Promise<Agent> {
+  async update(@Param('id') id: string, @Body() updateAgentDto: UpdateAgentDto): Promise<Agent> {
     return this.agentService.updateAgent(id, updateAgentDto)
   }
 

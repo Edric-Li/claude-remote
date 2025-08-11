@@ -1,8 +1,8 @@
-import { 
-  Entity, 
-  PrimaryGeneratedColumn, 
-  Column, 
-  CreateDateColumn, 
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
   UpdateDateColumn,
   Index,
   BeforeInsert,
@@ -48,7 +48,7 @@ export class User {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date
 
-  @Column({ type: 'datetime', nullable: true, name: 'last_login_at' })
+  @Column({ type: 'timestamp', nullable: true, name: 'last_login_at' })
   lastLoginAt?: Date
 
   // 关联关系

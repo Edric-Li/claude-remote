@@ -25,10 +25,10 @@ describe('UserAiConfigController', () => {
             updateConfig: jest.fn(),
             setAsDefault: jest.fn(),
             testConnection: jest.fn(),
-            deleteConfig: jest.fn(),
-          },
-        },
-      ],
+            deleteConfig: jest.fn()
+          }
+        }
+      ]
     }).compile()
 
     controller = module.get<UserAiConfigController>(UserAiConfigController)
@@ -43,8 +43,8 @@ describe('UserAiConfigController', () => {
         configData: {
           provider: 'anthropic',
           model: 'claude-3-sonnet',
-          api_key: 'test_key',
-        },
+          api_key: 'test_key'
+        }
       }
       aiConfigService.createConfig.mockResolvedValue(mockAiConfig as UserAiConfig)
 
@@ -118,7 +118,11 @@ describe('UserAiConfigController', () => {
 
       const result = await controller.updateConfig(mockUser as User, 'config-1', updateConfigDto)
 
-      expect(aiConfigService.updateConfig).toHaveBeenCalledWith('config-1', mockUser.id, updateConfigDto)
+      expect(aiConfigService.updateConfig).toHaveBeenCalledWith(
+        'config-1',
+        mockUser.id,
+        updateConfigDto
+      )
       expect(result).toEqual(updatedConfig)
     })
   })

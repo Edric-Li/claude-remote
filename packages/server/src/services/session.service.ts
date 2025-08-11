@@ -23,17 +23,20 @@ export class SessionService {
   /**
    * 创建新会话
    */
-  async create(userId: string, data: {
-    name: string
-    repositoryId: string
-    aiTool: string
-    metadata?: any
-  }) {
+  async create(
+    userId: string,
+    data: {
+      name: string
+      repositoryId: string
+      aiTool: string
+      metadata?: any
+    }
+  ) {
     // 验证仓库是否存在
     const repository = await this.repositoryEntityRepository.findOne({
       where: { id: data.repositoryId }
     })
-    
+
     if (!repository) {
       throw new NotFoundException(`Repository ${data.repositoryId} not found`)
     }
@@ -91,7 +94,7 @@ export class SessionService {
 
     // 加载每个会话的最新消息
     const sessionsWithMessages = await Promise.all(
-      sessions.map(async (session) => {
+      sessions.map(async session => {
         const messages = await this.messageRepository.find({
           where: { sessionId: session.id },
           order: { createdAt: 'DESC' },
@@ -179,11 +182,15 @@ export class SessionService {
   /**
    * 添加消息到会话
    */
-  async addMessage(sessionId: string, userId: string, data: {
-    from: 'user' | 'assistant' | 'system'
-    content: string
-    metadata?: any
-  }) {
+  async addMessage(
+    sessionId: string,
+    userId: string,
+    data: {
+      from: 'user' | 'assistant' | 'system'
+      content: string
+      metadata?: any
+    }
+  ) {
     // 验证会话是否存在且属于用户
     const session = await this.sessionRepository.findOne({
       where: { id: sessionId, userId }
@@ -211,8 +218,8 @@ export class SessionService {
 
     // 如果有token使用信息，更新统计
     if (data.metadata?.usage) {
-      session.totalTokens += (data.metadata.usage.input_tokens || 0) + 
-                             (data.metadata.usage.output_tokens || 0)
+      session.totalTokens +=
+        (data.metadata.usage.input_tokens || 0) + (data.metadata.usage.output_tokens || 0)
     }
 
     await this.sessionRepository.save(session)

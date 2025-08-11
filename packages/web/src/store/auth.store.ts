@@ -16,7 +16,7 @@ interface AuthState {
   isAuthenticated: boolean
   isLoading: boolean
   error: string | null
-  
+
   // Actions
   login: (username: string, password: string) => Promise<void>
   logout: () => void
@@ -38,7 +38,7 @@ export const useAuthStore = create<AuthState>()(
 
       login: async (username: string, password: string) => {
         set({ isLoading: true, error: null })
-        
+
         try {
           const response = await fetch('/api/auth/login', {
             method: 'POST',
@@ -54,7 +54,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const data = await response.json()
-          
+
           set({
             user: data.user,
             accessToken: data.accessToken,
@@ -83,7 +83,7 @@ export const useAuthStore = create<AuthState>()(
             }
           }).catch(console.error)
         }
-        
+
         // 清除本地状态
         set({
           user: null,
@@ -110,7 +110,7 @@ export const useAuthStore = create<AuthState>()(
 
       refreshAccessToken: async () => {
         const refreshToken = get().refreshToken
-        
+
         if (!refreshToken) {
           get().logout()
           throw new Error('No refresh token')
@@ -129,7 +129,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const data = await response.json()
-          
+
           set({
             accessToken: data.accessToken,
             refreshToken: data.refreshToken || refreshToken
@@ -142,7 +142,7 @@ export const useAuthStore = create<AuthState>()(
 
       updateProfile: async (data: Partial<User>) => {
         const token = get().accessToken
-        
+
         if (!token) {
           throw new Error('Not authenticated')
         }
@@ -162,7 +162,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const updatedUser = await response.json()
-          
+
           set({
             user: updatedUser
           })
@@ -174,7 +174,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      partialize: (state) => ({
+      partialize: state => ({
         user: state.user,
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
@@ -192,21 +192,21 @@ export const setupAxiosInterceptors = () => {
 // Fetch 包装器
 export const authFetch = async (url: string, options: RequestInit = {}) => {
   const token = useAuthStore.getState().accessToken
-  
+
   if (token) {
     options.headers = {
       ...options.headers,
       Authorization: `Bearer ${token}`
     }
   }
-  
+
   const response = await fetch(url, options)
-  
+
   // 如果 token 过期，尝试刷新
   if (response.status === 401) {
     try {
       await useAuthStore.getState().refreshAccessToken()
-      
+
       // 重试请求
       const newToken = useAuthStore.getState().accessToken
       if (newToken) {
@@ -221,6 +221,6 @@ export const authFetch = async (url: string, options: RequestInit = {}) => {
       window.location.href = '/login'
     }
   }
-  
+
   return response
 }

@@ -1,8 +1,18 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException, Logger } from '@nestjs/common'
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+  Logger
+} from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { UserRepository } from '../entities/user-repository.entity'
-import { CreateRepositoryDto, UpdateRepositoryDto, SyncRepositoryDto } from '../dto/user-repository.dto'
+import {
+  CreateRepositoryDto,
+  UpdateRepositoryDto,
+  SyncRepositoryDto
+} from '../dto/user-repository.dto'
 import { OperationLogService } from './operation-log.service'
 
 @Injectable()
@@ -44,10 +54,16 @@ export class UserRepositoryService {
       operationType: 'repository_create',
       resourceType: 'repository',
       resourceId: savedRepository.id,
-      operationData: { name: savedRepository.name, type: savedRepository.type, url: savedRepository.url }
+      operationData: {
+        name: savedRepository.name,
+        type: savedRepository.type,
+        url: savedRepository.url
+      }
     })
 
-    this.logger.log(`Repository created: ${savedRepository.name} (${savedRepository.id}) for user ${userId}`)
+    this.logger.log(
+      `Repository created: ${savedRepository.name} (${savedRepository.id}) for user ${userId}`
+    )
     return savedRepository
   }
 
@@ -68,11 +84,11 @@ export class UserRepositoryService {
       where: { id, userId },
       relations: ['assistantRepositories', 'assistantRepositories.assistant']
     })
-    
+
     if (!repository) {
       throw new NotFoundException('仓库不存在')
     }
-    
+
     return repository
   }
 
@@ -125,7 +141,7 @@ export class UserRepositoryService {
       repository.lastSyncAt = new Date()
       repository.syncError = null
       repository.status = 'active'
-      
+
       if (syncDto.branch) {
         repository.branch = syncDto.branch
       }
@@ -147,7 +163,6 @@ export class UserRepositoryService {
 
       this.logger.log(`Repository synced: ${repository.name} (${id}) for user ${userId}`)
       return { success: true, message: '同步成功' }
-      
     } catch (error) {
       // 更新错误状态
       repository.syncError = error.message
@@ -167,10 +182,7 @@ export class UserRepositoryService {
     }
   }
 
-  async testConnection(
-    id: string,
-    userId: string
-  ): Promise<{ success: boolean; message: string }> {
+  async testConnection(id: string, userId: string): Promise<{ success: boolean; message: string }> {
     const repository = await this.findById(id, userId)
 
     try {
@@ -188,7 +200,6 @@ export class UserRepositoryService {
       })
 
       return { success: true, message: '连接测试成功' }
-      
     } catch (error) {
       // 记录操作日志
       await this.operationLogService.createLog({
@@ -205,7 +216,7 @@ export class UserRepositoryService {
 
   async deleteRepository(id: string, userId: string): Promise<void> {
     const repository = await this.findById(id, userId)
-    
+
     // 检查是否有助手正在使用此仓库
     if (repository.assistantRepositories && repository.assistantRepositories.length > 0) {
       throw new BadRequestException('仓库正在被助手使用，无法删除')
@@ -228,7 +239,7 @@ export class UserRepositoryService {
   private async validateRepositoryUrl(url: string, type: 'git' | 'local'): Promise<void> {
     if (type === 'git') {
       // Git URL格式验证
-      const gitUrlRegex = /^(https?:\/\/|git@)[\w\-\.]+[\/:][\w\-\.\/]+\.git$/
+      const gitUrlRegex = /^(https?:\/\/|git@)[\w\-.]+[/:][\w\-./]+\.git$/
       if (!gitUrlRegex.test(url)) {
         throw new BadRequestException('Git仓库URL格式不正确')
       }
@@ -251,15 +262,21 @@ export class UserRepositoryService {
     })
 
     const total = repositories.length
-    const byStatus = repositories.reduce((acc, repo) => {
-      acc[repo.status] = (acc[repo.status] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
+    const byStatus = repositories.reduce(
+      (acc, repo) => {
+        acc[repo.status] = (acc[repo.status] || 0) + 1
+        return acc
+      },
+      {} as Record<string, number>
+    )
 
-    const byType = repositories.reduce((acc, repo) => {
-      acc[repo.type] = (acc[repo.type] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
+    const byType = repositories.reduce(
+      (acc, repo) => {
+        acc[repo.type] = (acc[repo.type] || 0) + 1
+        return acc
+      },
+      {} as Record<string, number>
+    )
 
     return { total, byStatus, byType }
   }

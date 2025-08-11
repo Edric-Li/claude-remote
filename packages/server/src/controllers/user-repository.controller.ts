@@ -15,7 +15,11 @@ import {
 import { JwtAuthGuard } from '../modules/auth/guards/jwt-auth.guard'
 import { CurrentUser } from '../modules/auth/decorators/current-user.decorator'
 import { UserRepositoryService } from '../services/user-repository.service'
-import { CreateRepositoryDto, UpdateRepositoryDto, SyncRepositoryDto } from '../dto/user-repository.dto'
+import {
+  CreateRepositoryDto,
+  UpdateRepositoryDto,
+  SyncRepositoryDto
+} from '../dto/user-repository.dto'
 import { UserRepository } from '../entities/user-repository.entity'
 import { User } from '../entities/user.entity'
 
@@ -41,9 +45,7 @@ export class UserRepositoryController {
   }
 
   @Get('stats')
-  async getUserRepositoryStats(
-    @CurrentUser() user: User
-  ): Promise<{
+  async getUserRepositoryStats(@CurrentUser() user: User): Promise<{
     total: number
     byStatus: Record<string, number>
     byType: Record<string, number>

@@ -3,7 +3,7 @@ import { useSessionStoreBase } from '../store/session.store'
 
 // 导出到全局window对象，方便控制台调试
 if (typeof window !== 'undefined') {
-  (window as any).sessionDebug = {
+  ;(window as any).sessionDebug = {
     // 获取当前Store状态
     getState: () => {
       const state = useSessionStoreBase.getState()
@@ -16,24 +16,24 @@ if (typeof window !== 'undefined') {
       console.log('error:', state.error)
       return { ...state, currentSession }
     },
-    
+
     // 手动选择会话
     selectSession: (id: string) => {
       console.log(`Selecting session: ${id}`)
       useSessionStoreBase.getState().selectSession(id)
     },
-    
+
     // 获取所有会话
     getSessions: () => {
       return useSessionStoreBase.getState().sessions
     },
-    
+
     // 获取当前会话
     getCurrentSession: () => {
       const state = useSessionStoreBase.getState()
       return state.sessions.find(s => s.id === state.currentSessionId) || null
     },
-    
+
     // 加载会话列表
     loadSessions: async () => {
       console.log('Loading sessions from server...')
@@ -41,7 +41,7 @@ if (typeof window !== 'undefined') {
       console.log('Sessions loaded:', useSessionStoreBase.getState().sessions)
     }
   }
-  
+
   console.log('%c Session Debug Tools Loaded', 'background: #4a5568; color: #fbbf24')
   console.log('Available commands:')
   console.log('- sessionDebug.getState() - 查看Store状态')

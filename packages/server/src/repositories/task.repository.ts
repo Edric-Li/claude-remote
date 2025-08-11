@@ -6,12 +6,11 @@ import { DataSource, FindOptionsWhere, LessThan, IsNull, Not } from 'typeorm'
 @Injectable()
 export class TaskRepository extends BaseRepository<Task> {
   private dataSource: DataSource
-  
+
   constructor(dataSource: DataSource) {
     super(dataSource.getRepository(Task))
     this.dataSource = dataSource
   }
-  
 
   /**
    * 查找待处理的任务
@@ -36,11 +35,11 @@ export class TaskRepository extends BaseRepository<Task> {
    */
   async findByAgentId(agentId: string, status?: Task['status']): Promise<Task[]> {
     const where: FindOptionsWhere<Task> = { agentId }
-    
+
     if (status) {
       where.status = status
     }
-    
+
     return this.repository.find({
       where,
       order: { createdAt: 'DESC' },
@@ -50,27 +49,29 @@ export class TaskRepository extends BaseRepository<Task> {
 
   /**
    * 查找 Worker 的任务
+   * Worker已移除 - 该方法暂时禁用
    */
-  async findByWorkerId(workerId: string, status?: Task['status']): Promise<Task[]> {
-    const where: FindOptionsWhere<Task> = { workerId }
-    
-    if (status) {
-      where.status = status
-    }
-    
-    return this.repository.find({
-      where,
-      order: { createdAt: 'DESC' },
-      relations: ['agent', 'worker']
-    })
-  }
+  // async findByWorkerId(workerId: string, status?: Task['status']): Promise<Task[]> {
+  //   const where: FindOptionsWhere<Task> = { workerId }
+
+  //   if (status) {
+  //     where.status = status
+  //   }
+
+  //   return this.repository.find({
+  //     where,
+  //     order: { createdAt: 'DESC' },
+  //     relations: ['agent', 'worker']
+  //   })
+  // }
 
   /**
    * 分配任务给 Worker
+   * Worker已移除 - 该方法暂时禁用
    */
   async assignToWorker(taskId: string, workerId: string, agentId: string): Promise<void> {
     await this.repository.update(taskId, {
-      workerId,
+      // workerId, // Worker已移除
       agentId,
       status: 'assigned',
       assignedAt: new Date()
@@ -90,12 +91,12 @@ export class TaskRepository extends BaseRepository<Task> {
     }
   ): Promise<void> {
     const updateData: any = { status }
-    
+
     if (status === 'running') {
       updateData.startedAt = new Date()
     } else if (status === 'completed' || status === 'failed') {
       updateData.completedAt = new Date()
-      
+
       if (additionalData) {
         if (additionalData.result !== undefined) {
           updateData.result = additionalData.result
@@ -108,7 +109,7 @@ export class TaskRepository extends BaseRepository<Task> {
         }
       }
     }
-    
+
     await this.repository.update(id, updateData)
   }
 
@@ -164,11 +165,11 @@ export class TaskRepository extends BaseRepository<Task> {
     avgExecutionTime: number
   }> {
     let query = this.repository.createQueryBuilder('task')
-    
+
     if (agentId) {
       query = query.where('task.agentId = :agentId', { agentId })
     }
-    
+
     const stats = await query
       .select('COUNT(*)', 'total')
       .addSelect('SUM(CASE WHEN task.status = "pending" THEN 1 ELSE 0 END)', 'pending')
@@ -177,7 +178,7 @@ export class TaskRepository extends BaseRepository<Task> {
       .addSelect('SUM(CASE WHEN task.status = "failed" THEN 1 ELSE 0 END)', 'failed')
       .addSelect('AVG(task.executionTime)', 'avgExecutionTime')
       .getRawOne()
-    
+
     return {
       total: parseInt(stats.total) || 0,
       pending: parseInt(stats.pending) || 0,
@@ -194,12 +195,12 @@ export class TaskRepository extends BaseRepository<Task> {
   async cleanupOldTasks(daysToKeep: number = 30): Promise<number> {
     const cutoffDate = new Date()
     cutoffDate.setDate(cutoffDate.getDate() - daysToKeep)
-    
+
     const result = await this.repository.delete({
       status: 'completed' as any,
       completedAt: LessThan(cutoffDate)
     })
-    
+
     return result.affected || 0
   }
 
@@ -227,7 +228,7 @@ export class TaskRepository extends BaseRepository<Task> {
         completedAt: new Date()
       }
     )
-    
+
     return result.affected || 0
   }
 }

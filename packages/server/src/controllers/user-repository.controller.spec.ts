@@ -2,7 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing'
 import { UserRepositoryController } from './user-repository.controller'
 import { UserRepositoryService } from '../services/user-repository.service'
 import { mockRepository, mockUser } from '../test/test-utils'
-import { CreateRepositoryDto, UpdateRepositoryDto, SyncRepositoryDto } from '../dto/user-repository.dto'
+import {
+  CreateRepositoryDto,
+  UpdateRepositoryDto,
+  SyncRepositoryDto
+} from '../dto/user-repository.dto'
 import { UserRepository } from '../entities/user-repository.entity'
 import { User } from '../entities/user.entity'
 
@@ -24,10 +28,10 @@ describe('UserRepositoryController', () => {
             updateRepository: jest.fn(),
             syncRepository: jest.fn(),
             testConnection: jest.fn(),
-            deleteRepository: jest.fn(),
-          },
-        },
-      ],
+            deleteRepository: jest.fn()
+          }
+        }
+      ]
     }).compile()
 
     controller = module.get<UserRepositoryController>(UserRepositoryController)
@@ -39,7 +43,7 @@ describe('UserRepositoryController', () => {
       const createRepoDto: CreateRepositoryDto = {
         name: 'Test Repository',
         type: 'git',
-        url: 'https://github.com/test/repo.git',
+        url: 'https://github.com/test/repo.git'
       }
       repositoryService.createRepository.mockResolvedValue(mockRepository as UserRepository)
 
@@ -106,7 +110,11 @@ describe('UserRepositoryController', () => {
 
       const result = await controller.updateRepository(mockUser as User, 'repo-1', updateRepoDto)
 
-      expect(repositoryService.updateRepository).toHaveBeenCalledWith('repo-1', mockUser.id, updateRepoDto)
+      expect(repositoryService.updateRepository).toHaveBeenCalledWith(
+        'repo-1',
+        mockUser.id,
+        updateRepoDto
+      )
       expect(result).toEqual(updatedRepository)
     })
   })

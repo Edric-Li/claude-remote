@@ -2,7 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing'
 import { UserAssistantController } from './user-assistant.controller'
 import { UserAssistantService } from '../services/user-assistant.service'
 import { mockAssistant, mockUser } from '../test/test-utils'
-import { CreateAssistantDto, UpdateAssistantDto, AssistantRepositoryDto } from '../dto/user-assistant.dto'
+import {
+  CreateAssistantDto,
+  UpdateAssistantDto,
+  AssistantRepositoryDto
+} from '../dto/user-assistant.dto'
 import { UserAssistant } from '../entities/user-assistant.entity'
 import { AssistantRepository } from '../entities/assistant-repository.entity'
 import { User } from '../entities/user.entity'
@@ -26,10 +30,10 @@ describe('UserAssistantController', () => {
             addRepositoryToAssistant: jest.fn(),
             removeRepositoryFromAssistant: jest.fn(),
             syncAssistantRepository: jest.fn(),
-            deleteAssistant: jest.fn(),
-          },
-        },
-      ],
+            deleteAssistant: jest.fn()
+          }
+        }
+      ]
     }).compile()
 
     controller = module.get<UserAssistantController>(UserAssistantController)
@@ -41,7 +45,7 @@ describe('UserAssistantController', () => {
       const createAssistantDto: CreateAssistantDto = {
         name: 'Test Assistant',
         aiConfigId: 'config-1',
-        repositoryIds: ['repo-1'],
+        repositoryIds: ['repo-1']
       }
       assistantService.createAssistant.mockResolvedValue(mockAssistant as UserAssistant)
 
@@ -79,7 +83,7 @@ describe('UserAssistantController', () => {
         total: 5,
         byStatus: { active: 3, inactive: 2 },
         totalRepositories: 10,
-        totalConversations: 20,
+        totalConversations: 20
       }
       assistantService.getUserAssistantStats.mockResolvedValue(mockStats)
 
@@ -107,9 +111,17 @@ describe('UserAssistantController', () => {
       const updatedAssistant = { ...mockAssistant, name: 'Updated Assistant' }
       assistantService.updateAssistant.mockResolvedValue(updatedAssistant as UserAssistant)
 
-      const result = await controller.updateAssistant(mockUser as User, 'assistant-1', updateAssistantDto)
+      const result = await controller.updateAssistant(
+        mockUser as User,
+        'assistant-1',
+        updateAssistantDto
+      )
 
-      expect(assistantService.updateAssistant).toHaveBeenCalledWith('assistant-1', mockUser.id, updateAssistantDto)
+      expect(assistantService.updateAssistant).toHaveBeenCalledWith(
+        'assistant-1',
+        mockUser.id,
+        updateAssistantDto
+      )
       expect(result).toEqual(updatedAssistant)
     })
   })
@@ -118,14 +130,24 @@ describe('UserAssistantController', () => {
     it('should add repository to assistant', async () => {
       const repoDto: AssistantRepositoryDto = {
         repositoryId: 'repo-1',
-        syncBranch: 'develop',
+        syncBranch: 'develop'
       }
       const mockAssistantRepo = { id: 'assistant-repo-1' }
-      assistantService.addRepositoryToAssistant.mockResolvedValue(mockAssistantRepo as AssistantRepository)
+      assistantService.addRepositoryToAssistant.mockResolvedValue(
+        mockAssistantRepo as AssistantRepository
+      )
 
-      const result = await controller.addRepositoryToAssistant(mockUser as User, 'assistant-1', repoDto)
+      const result = await controller.addRepositoryToAssistant(
+        mockUser as User,
+        'assistant-1',
+        repoDto
+      )
 
-      expect(assistantService.addRepositoryToAssistant).toHaveBeenCalledWith('assistant-1', mockUser.id, repoDto)
+      expect(assistantService.addRepositoryToAssistant).toHaveBeenCalledWith(
+        'assistant-1',
+        mockUser.id,
+        repoDto
+      )
       expect(result).toEqual(mockAssistantRepo)
     })
   })
@@ -136,7 +158,11 @@ describe('UserAssistantController', () => {
 
       await controller.removeRepositoryFromAssistant(mockUser as User, 'assistant-1', 'repo-1')
 
-      expect(assistantService.removeRepositoryFromAssistant).toHaveBeenCalledWith('assistant-1', 'repo-1', mockUser.id)
+      expect(assistantService.removeRepositoryFromAssistant).toHaveBeenCalledWith(
+        'assistant-1',
+        'repo-1',
+        mockUser.id
+      )
     })
   })
 
@@ -145,9 +171,17 @@ describe('UserAssistantController', () => {
       const mockResult = { success: true, message: '同步成功' }
       assistantService.syncAssistantRepository.mockResolvedValue(mockResult)
 
-      const result = await controller.syncAssistantRepository(mockUser as User, 'assistant-1', 'repo-1')
+      const result = await controller.syncAssistantRepository(
+        mockUser as User,
+        'assistant-1',
+        'repo-1'
+      )
 
-      expect(assistantService.syncAssistantRepository).toHaveBeenCalledWith('assistant-1', 'repo-1', mockUser.id)
+      expect(assistantService.syncAssistantRepository).toHaveBeenCalledWith(
+        'assistant-1',
+        'repo-1',
+        mockUser.id
+      )
       expect(result).toEqual(mockResult)
     })
 
@@ -155,7 +189,11 @@ describe('UserAssistantController', () => {
       const mockResult = { success: false, message: 'Sync failed' }
       assistantService.syncAssistantRepository.mockResolvedValue(mockResult)
 
-      const result = await controller.syncAssistantRepository(mockUser as User, 'assistant-1', 'repo-1')
+      const result = await controller.syncAssistantRepository(
+        mockUser as User,
+        'assistant-1',
+        'repo-1'
+      )
 
       expect(result).toEqual(mockResult)
     })

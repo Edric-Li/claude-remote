@@ -25,10 +25,10 @@ describe('AssistantConversationController', () => {
             updateConversation: jest.fn(),
             createMessage: jest.fn(),
             getConversationMessages: jest.fn(),
-            deleteConversation: jest.fn(),
-          },
-        },
-      ],
+            deleteConversation: jest.fn()
+          }
+        }
+      ]
     }).compile()
 
     controller = module.get<AssistantConversationController>(AssistantConversationController)
@@ -39,13 +39,18 @@ describe('AssistantConversationController', () => {
     it('should create conversation', async () => {
       const createConversationDto: CreateConversationDto = {
         title: 'Test Conversation',
-        assistantId: 'assistant-1',
+        assistantId: 'assistant-1'
       }
-      conversationService.createConversation.mockResolvedValue(mockConversation as AssistantConversation)
+      conversationService.createConversation.mockResolvedValue(
+        mockConversation as AssistantConversation
+      )
 
       const result = await controller.createConversation(mockUser as User, createConversationDto)
 
-      expect(conversationService.createConversation).toHaveBeenCalledWith(mockUser.id, createConversationDto)
+      expect(conversationService.createConversation).toHaveBeenCalledWith(
+        mockUser.id,
+        createConversationDto
+      )
       expect(result).toEqual(mockConversation)
     })
   })
@@ -67,7 +72,10 @@ describe('AssistantConversationController', () => {
 
       await controller.findUserConversations(mockUser as User, 'assistant-1')
 
-      expect(conversationService.findUserConversations).toHaveBeenCalledWith(mockUser.id, 'assistant-1')
+      expect(conversationService.findUserConversations).toHaveBeenCalledWith(
+        mockUser.id,
+        'assistant-1'
+      )
     })
   })
 
@@ -76,7 +84,7 @@ describe('AssistantConversationController', () => {
       const mockStats = {
         total: 5,
         totalMessages: 20,
-        byAssistant: { 'assistant-1': 3, 'assistant-2': 2 },
+        byAssistant: { 'assistant-1': 3, 'assistant-2': 2 }
       }
       conversationService.getUserConversationStats.mockResolvedValue(mockStats)
 
@@ -102,11 +110,21 @@ describe('AssistantConversationController', () => {
     it('should update conversation', async () => {
       const updateDto = { title: 'Updated Conversation' }
       const updatedConversation = { ...mockConversation, title: 'Updated Conversation' }
-      conversationService.updateConversation.mockResolvedValue(updatedConversation as AssistantConversation)
+      conversationService.updateConversation.mockResolvedValue(
+        updatedConversation as AssistantConversation
+      )
 
-      const result = await controller.updateConversation(mockUser as User, 'conversation-1', updateDto)
+      const result = await controller.updateConversation(
+        mockUser as User,
+        'conversation-1',
+        updateDto
+      )
 
-      expect(conversationService.updateConversation).toHaveBeenCalledWith('conversation-1', mockUser.id, updateDto)
+      expect(conversationService.updateConversation).toHaveBeenCalledWith(
+        'conversation-1',
+        mockUser.id,
+        updateDto
+      )
       expect(result).toEqual(updatedConversation)
     })
   })
@@ -115,13 +133,21 @@ describe('AssistantConversationController', () => {
     it('should create message', async () => {
       const createMessageDto: CreateMessageDto = {
         role: 'user',
-        content: 'Hello, assistant!',
+        content: 'Hello, assistant!'
       }
       conversationService.createMessage.mockResolvedValue(mockMessage as AssistantMessage)
 
-      const result = await controller.createMessage(mockUser as User, 'conversation-1', createMessageDto)
+      const result = await controller.createMessage(
+        mockUser as User,
+        'conversation-1',
+        createMessageDto
+      )
 
-      expect(conversationService.createMessage).toHaveBeenCalledWith('conversation-1', mockUser.id, createMessageDto)
+      expect(conversationService.createMessage).toHaveBeenCalledWith(
+        'conversation-1',
+        mockUser.id,
+        createMessageDto
+      )
       expect(result).toEqual(mockMessage)
     })
   })
@@ -133,7 +159,12 @@ describe('AssistantConversationController', () => {
 
       const result = await controller.getConversationMessages(mockUser as User, 'conversation-1')
 
-      expect(conversationService.getConversationMessages).toHaveBeenCalledWith('conversation-1', mockUser.id, undefined, undefined)
+      expect(conversationService.getConversationMessages).toHaveBeenCalledWith(
+        'conversation-1',
+        mockUser.id,
+        undefined,
+        undefined
+      )
       expect(result).toEqual(messages)
     })
 
@@ -143,7 +174,12 @@ describe('AssistantConversationController', () => {
 
       await controller.getConversationMessages(mockUser as User, 'conversation-1', 10, 0)
 
-      expect(conversationService.getConversationMessages).toHaveBeenCalledWith('conversation-1', mockUser.id, 10, 0)
+      expect(conversationService.getConversationMessages).toHaveBeenCalledWith(
+        'conversation-1',
+        mockUser.id,
+        10,
+        0
+      )
     })
   })
 
@@ -153,7 +189,10 @@ describe('AssistantConversationController', () => {
 
       await controller.deleteConversation(mockUser as User, 'conversation-1')
 
-      expect(conversationService.deleteConversation).toHaveBeenCalledWith('conversation-1', mockUser.id)
+      expect(conversationService.deleteConversation).toHaveBeenCalledWith(
+        'conversation-1',
+        mockUser.id
+      )
     })
   })
 })

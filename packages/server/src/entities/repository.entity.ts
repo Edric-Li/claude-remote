@@ -31,8 +31,8 @@ export class RepositoryEntity {
 
   @Column({ type: 'simple-json', nullable: true })
   settings: {
-    autoUpdate?: boolean        // 是否在任务开始前自动拉取最新代码
-    cachePath?: string          // Agent端缓存路径（可选，默认使用系统路径）
+    autoUpdate?: boolean // 是否在任务开始前自动拉取最新代码
+    cachePath?: string // Agent端缓存路径（可选，默认使用系统路径）
   }
 
   @CreateDateColumn()

@@ -26,7 +26,7 @@ export function LoginPage() {
     if (!formData.password) {
       newErrors.password = '请输入密码'
     }
-    
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
       return
@@ -52,7 +52,10 @@ export function LoginPage() {
       {/* 背景装饰 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
-        <div className="absolute top-3/4 right-1/4 w-96 h-96 bg-secondary-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse" style={{ animationDelay: '2s' }}></div>
+        <div
+          className="absolute top-3/4 right-1/4 w-96 h-96 bg-secondary-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"
+          style={{ animationDelay: '2s' }}
+        ></div>
       </div>
 
       {/* 主要内容 */}
@@ -62,16 +65,16 @@ export function LoginPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-2xl mb-6">
             <Sparkles className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold modern-text-gradient mb-2">
-            AI Orchestra
-          </h1>
-          <p className="text-gray-600 text-base">
-            智能Agent编排平台
-          </p>
+          <h1 className="text-3xl font-bold modern-text-gradient mb-2">AI Orchestra</h1>
+          <p className="text-gray-600 text-base">智能Agent编排平台</p>
         </div>
 
         {/* 登录表单 */}
-        <form onSubmit={handleSubmit} className="modern-card p-8 animate-fade-in" style={{ animationDelay: '0.2s' }}>
+        <form
+          onSubmit={handleSubmit}
+          className="modern-card p-8 animate-fade-in"
+          style={{ animationDelay: '0.2s' }}
+        >
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-2">欢迎回来</h2>
             <p className="text-sm text-gray-600">登录到您的AI Orchestra账户</p>
@@ -93,14 +96,12 @@ export function LoginPage() {
                 id="username"
                 type="text"
                 value={formData.username}
-                onChange={(e) => handleInputChange('username', e.target.value)}
+                onChange={e => handleInputChange('username', e.target.value)}
                 className={`modern-input ${errors.username ? 'border-error-500 focus:border-error-500' : ''}`}
                 placeholder="输入您的用户名或邮箱"
                 disabled={isLoading}
               />
-              {errors.username && (
-                <p className="mt-2 text-sm text-error-600">{errors.username}</p>
-              )}
+              {errors.username && <p className="mt-2 text-sm text-error-600">{errors.username}</p>}
             </div>
 
             {/* 密码输入 */}
@@ -113,7 +114,7 @@ export function LoginPage() {
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   value={formData.password}
-                  onChange={(e) => handleInputChange('password', e.target.value)}
+                  onChange={e => handleInputChange('password', e.target.value)}
                   className={`modern-input pr-12 ${errors.password ? 'border-error-500 focus:border-error-500' : ''}`}
                   placeholder="输入您的密码"
                   disabled={isLoading}
@@ -127,9 +128,7 @@ export function LoginPage() {
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
-              {errors.password && (
-                <p className="mt-2 text-sm text-error-600">{errors.password}</p>
-              )}
+              {errors.password && <p className="mt-2 text-sm text-error-600">{errors.password}</p>}
             </div>
 
             {/* 记住我选项 */}
@@ -168,7 +167,10 @@ export function LoginPage() {
         </form>
 
         {/* 功能亮点 */}
-        <div className="mt-8 grid grid-cols-1 gap-4 animate-fade-in" style={{ animationDelay: '0.4s' }}>
+        <div
+          className="mt-8 grid grid-cols-1 gap-4 animate-fade-in"
+          style={{ animationDelay: '0.4s' }}
+        >
           <div className="modern-card p-6">
             <div className="flex items-start space-x-4">
               <div className="flex-shrink-0">
@@ -208,9 +210,7 @@ export function LoginPage() {
 
         {/* 版本信息 */}
         <div className="mt-6 text-center">
-          <p className="text-xs text-gray-400">
-            AI Orchestra v2.0 - 现代化AI Agent编排平台
-          </p>
+          <p className="text-xs text-gray-400">AI Orchestra v2.0 - 现代化AI Agent编排平台</p>
         </div>
       </div>
     </div>

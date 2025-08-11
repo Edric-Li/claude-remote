@@ -15,11 +15,17 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       context.getHandler(),
       context.getClass()
     ])
-    
-    if (isPublic) {
+
+    // 检查是否跳过认证（用于SSE等特殊端点）
+    const skipAuth = this.reflector.getAllAndOverride<boolean>('skipAuth', [
+      context.getHandler(),
+      context.getClass()
+    ])
+
+    if (isPublic || skipAuth) {
       return true
     }
-    
+
     return super.canActivate(context)
   }
 }

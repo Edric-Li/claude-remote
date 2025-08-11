@@ -6,7 +6,11 @@ import { UserRepositoryService } from './user-repository.service'
 import { OperationLogService } from './operation-log.service'
 import { UserRepository } from '../entities/user-repository.entity'
 import { mockRepository, createMockRepository } from '../test/test-utils'
-import { CreateRepositoryDto, UpdateRepositoryDto, SyncRepositoryDto } from '../dto/user-repository.dto'
+import {
+  CreateRepositoryDto,
+  UpdateRepositoryDto,
+  SyncRepositoryDto
+} from '../dto/user-repository.dto'
 
 describe('UserRepositoryService', () => {
   let service: UserRepositoryService
@@ -19,15 +23,15 @@ describe('UserRepositoryService', () => {
         UserRepositoryService,
         {
           provide: getRepositoryToken(UserRepository),
-          useValue: createMockRepository(),
+          useValue: createMockRepository()
         },
         {
           provide: OperationLogService,
           useValue: {
-            createLog: jest.fn().mockResolvedValue({}),
-          },
-        },
-      ],
+            createLog: jest.fn().mockResolvedValue({})
+          }
+        }
+      ]
     }).compile()
 
     service = module.get<UserRepositoryService>(UserRepositoryService)
@@ -41,7 +45,7 @@ describe('UserRepositoryService', () => {
       type: 'git',
       url: 'https://github.com/test/repo.git',
       branch: 'main',
-      description: 'A test repository',
+      description: 'A test repository'
     }
 
     it('should create repository successfully', async () => {
@@ -57,7 +61,7 @@ describe('UserRepositoryService', () => {
       expect(repositoryRepository.create).toHaveBeenCalledWith({
         userId: 'user-1',
         ...createRepoDto,
-        status: 'inactive',
+        status: 'inactive'
       })
       expect(repositoryRepository.save).toHaveBeenCalledWith(mockRepository)
       expect(operationLogService.createLog).toHaveBeenCalled()
@@ -67,24 +71,27 @@ describe('UserRepositoryService', () => {
     it('should throw ConflictException if repository name exists', async () => {
       repositoryRepository.findOne.mockResolvedValue(mockRepository as UserRepository)
 
-      await expect(service.createRepository('user-1', createRepoDto))
-        .rejects.toThrow(ConflictException)
+      await expect(service.createRepository('user-1', createRepoDto)).rejects.toThrow(
+        ConflictException
+      )
     })
 
     it('should validate Git URL format', async () => {
       const invalidGitDto = { ...createRepoDto, url: 'invalid-git-url' }
       repositoryRepository.findOne.mockResolvedValue(null)
 
-      await expect(service.createRepository('user-1', invalidGitDto))
-        .rejects.toThrow(BadRequestException)
+      await expect(service.createRepository('user-1', invalidGitDto)).rejects.toThrow(
+        BadRequestException
+      )
     })
 
     it('should validate local path', async () => {
       const emptyLocalDto = { ...createRepoDto, type: 'local' as const, url: '' }
       repositoryRepository.findOne.mockResolvedValue(null)
 
-      await expect(service.createRepository('user-1', emptyLocalDto))
-        .rejects.toThrow(BadRequestException)
+      await expect(service.createRepository('user-1', emptyLocalDto)).rejects.toThrow(
+        BadRequestException
+      )
     })
 
     it('should accept valid local path', async () => {
@@ -142,15 +149,14 @@ describe('UserRepositoryService', () => {
     it('should throw NotFoundException if repository not found', async () => {
       repositoryRepository.findOne.mockResolvedValue(null)
 
-      await expect(service.findById('repo-1', 'user-1'))
-        .rejects.toThrow(NotFoundException)
+      await expect(service.findById('repo-1', 'user-1')).rejects.toThrow(NotFoundException)
     })
   })
 
   describe('updateRepository', () => {
     const updateRepoDto: UpdateRepositoryDto = {
       name: 'Updated Repository',
-      url: 'https://github.com/test/updated-repo.git',
+      url: 'https://github.com/test/updated-repo.git'
     }
 
     it('should update repository successfully', async () => {
@@ -176,16 +182,18 @@ describe('UserRepositoryService', () => {
         .mockResolvedValueOnce(mockRepository as UserRepository) // findById call
         .mockResolvedValueOnce(anotherRepo as UserRepository) // name check
 
-      await expect(service.updateRepository('repo-1', 'user-1', updateRepoDto))
-        .rejects.toThrow(ConflictException)
+      await expect(service.updateRepository('repo-1', 'user-1', updateRepoDto)).rejects.toThrow(
+        ConflictException
+      )
     })
 
     it('should validate URL when changed', async () => {
       const invalidUrlDto = { ...updateRepoDto, url: 'invalid-url' }
       repositoryRepository.findOne.mockResolvedValue(mockRepository as UserRepository)
 
-      await expect(service.updateRepository('repo-1', 'user-1', invalidUrlDto))
-        .rejects.toThrow(BadRequestException)
+      await expect(service.updateRepository('repo-1', 'user-1', invalidUrlDto)).rejects.toThrow(
+        BadRequestException
+      )
     })
   })
 
@@ -298,8 +306,9 @@ describe('UserRepositoryService', () => {
       }
       repositoryRepository.findOne.mockResolvedValue(repoWithAssistants as any)
 
-      await expect(service.deleteRepository('repo-1', 'user-1'))
-        .rejects.toThrow(BadRequestException)
+      await expect(service.deleteRepository('repo-1', 'user-1')).rejects.toThrow(
+        BadRequestException
+      )
     })
   })
 
@@ -308,7 +317,7 @@ describe('UserRepositoryService', () => {
       const repositories = [
         { status: 'active', type: 'git' },
         { status: 'inactive', type: 'local' },
-        { status: 'active', type: 'git' },
+        { status: 'active', type: 'git' }
       ]
       repositoryRepository.find.mockResolvedValue(repositories as UserRepository[])
 

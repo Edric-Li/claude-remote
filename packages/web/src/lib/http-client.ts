@@ -38,21 +38,21 @@ const POLLING_INTERVAL = 2000
  */
 async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const { accessToken } = useAuthStore.getState()
-  
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string> || {}),
+    ...((options.headers as Record<string, string>) || {})
   }
-  
+
   if (accessToken) {
     headers['Authorization'] = `Bearer ${accessToken}`
   }
-  
+
   const response = await fetch(`${BASE_URL}${url}`, {
     ...options,
     headers
   })
-  
+
   // 处理认证过期
   if (response.status === 401) {
     const { refreshAccessToken, logout } = useAuthStore.getState()
@@ -73,7 +73,7 @@ async function authFetch(url: string, options: RequestInit = {}): Promise<Respon
       throw new Error('认证失败，请重新登录')
     }
   }
-  
+
   return response
 }
 
@@ -121,17 +121,17 @@ export class HttpCommunicationClient {
 
     const { accessToken } = useAuthStore.getState()
     const sseUrl = `${BASE_URL}/api/events/stream?token=${encodeURIComponent(accessToken || '')}`
-    
+
     this.eventSource = new EventSource(sseUrl)
-    
+
     this.eventSource.onopen = () => {
       console.log('✅ SSE连接已建立')
       this.connected = true
       this.reconnectAttempts = 0
       this.emit('connect')
     }
-    
-    this.eventSource.onmessage = (event) => {
+
+    this.eventSource.onmessage = event => {
       try {
         const data = JSON.parse(event.data)
         this.handleServerMessage(data)
@@ -139,46 +139,49 @@ export class HttpCommunicationClient {
         console.error('SSE消息解析失败:', error)
       }
     }
-    
-    this.eventSource.onerror = (error) => {
+
+    this.eventSource.onerror = error => {
       console.error('SSE连接错误:', error)
       this.connected = false
       this.emit('disconnect')
-      
+
       // 自动重连
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
-        setTimeout(() => {
-          this.reconnectAttempts++
-          console.log(`🔄 SSE重连尝试 ${this.reconnectAttempts}/${this.maxReconnectAttempts}`)
-          this.connectSSE()
-        }, SSE_RECONNECT_INTERVAL * Math.pow(2, this.reconnectAttempts))
+        setTimeout(
+          () => {
+            this.reconnectAttempts++
+            console.log(`🔄 SSE重连尝试 ${this.reconnectAttempts}/${this.maxReconnectAttempts}`)
+            this.connectSSE()
+          },
+          SSE_RECONNECT_INTERVAL * Math.pow(2, this.reconnectAttempts)
+        )
       } else {
         console.warn('SSE重连失败，切换到长轮询')
         this.startPolling()
       }
     }
-    
+
     // 监听特定事件类型
     this.eventSource.addEventListener('agent:connected', (event: any) => {
       const data = JSON.parse(event.data)
       this.emit('agent:connected', data)
     })
-    
+
     this.eventSource.addEventListener('agent:disconnected', (event: any) => {
       const data = JSON.parse(event.data)
       this.emit('agent:disconnected', data)
     })
-    
+
     this.eventSource.addEventListener('chat:reply', (event: any) => {
       const data = JSON.parse(event.data)
       this.emit('chat:reply', data)
     })
-    
+
     this.eventSource.addEventListener('worker:message', (event: any) => {
       const data = JSON.parse(event.data)
       this.emit('worker:message', data)
     })
-    
+
     this.eventSource.addEventListener('worker:status', (event: any) => {
       const data = JSON.parse(event.data)
       this.emit('worker:status', data)
@@ -190,7 +193,7 @@ export class HttpCommunicationClient {
    */
   private startPolling(): void {
     this.stopPolling()
-    
+
     const poll = async () => {
       try {
         const response = await authFetch('/api/events/poll')
@@ -199,7 +202,7 @@ export class HttpCommunicationClient {
           events.forEach((event: any) => {
             this.handleServerMessage(event)
           })
-          
+
           if (!this.connected) {
             this.connected = true
             this.emit('connect')
@@ -216,7 +219,7 @@ export class HttpCommunicationClient {
         this.pollingInterval = window.setTimeout(poll, POLLING_INTERVAL)
       }
     }
-    
+
     poll()
   }
 
@@ -286,7 +289,7 @@ export class HttpCommunicationClient {
    */
   off(event: string, callback?: Function): void {
     if (!this.listeners.has(event)) return
-    
+
     if (callback) {
       this.listeners.get(event)!.delete(callback)
     } else {
@@ -323,12 +326,12 @@ export class HttpCommunicationClient {
    * 获取Agent列表
    */
   async getAgentList(): Promise<AgentInfo[]> {
-    const response = await authFetch('/api/agents/list')
+    const response = await authFetch('/api/agents')
     if (!response.ok) {
       throw new Error('获取Agent列表失败')
     }
     const data = await response.json()
-    return data.agents.map((agent: any) => ({
+    return data.map((agent: any) => ({
       ...agent,
       connectedAt: new Date(agent.connectedAt)
     }))
@@ -345,7 +348,7 @@ export class HttpCommunicationClient {
         content
       })
     })
-    
+
     if (!response.ok) {
       throw new Error('发送消息失败')
     }
@@ -354,11 +357,15 @@ export class HttpCommunicationClient {
   /**
    * 启动Worker
    */
-  async startWorker(agentId: string, taskId: string, options?: {
-    workingDirectory?: string
-    initialPrompt?: string
-    tool?: 'claude' | 'qwcoder'
-  }): Promise<void> {
+  async startWorker(
+    agentId: string,
+    taskId: string,
+    options?: {
+      workingDirectory?: string
+      initialPrompt?: string
+      tool?: 'claude' | 'qwcoder'
+    }
+  ): Promise<void> {
     const response = await authFetch('/api/workers/start', {
       method: 'POST',
       body: JSON.stringify({
@@ -367,7 +374,7 @@ export class HttpCommunicationClient {
         ...options
       })
     })
-    
+
     if (!response.ok) {
       throw new Error('启动Worker失败')
     }
@@ -376,7 +383,11 @@ export class HttpCommunicationClient {
   /**
    * 发送Worker消息
    */
-  async sendWorkerMessage(agentId: string, tool: 'claude' | 'qwcoder', content: string): Promise<void> {
+  async sendWorkerMessage(
+    agentId: string,
+    tool: 'claude' | 'qwcoder',
+    content: string
+  ): Promise<void> {
     const response = await authFetch('/api/workers/message', {
       method: 'POST',
       body: JSON.stringify({
@@ -385,7 +396,7 @@ export class HttpCommunicationClient {
         content
       })
     })
-    
+
     if (!response.ok) {
       throw new Error('发送Worker消息失败')
     }
@@ -403,7 +414,7 @@ export class HttpCommunicationClient {
         input
       })
     })
-    
+
     if (!response.ok) {
       throw new Error('发送Worker输入失败')
     }
@@ -420,7 +431,7 @@ export class HttpCommunicationClient {
         taskId
       })
     })
-    
+
     if (!response.ok) {
       throw new Error('停止Worker失败')
     }

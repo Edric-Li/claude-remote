@@ -15,7 +15,11 @@ import {
 import { JwtAuthGuard } from '../modules/auth/guards/jwt-auth.guard'
 import { CurrentUser } from '../modules/auth/decorators/current-user.decorator'
 import { UserAssistantService } from '../services/user-assistant.service'
-import { CreateAssistantDto, UpdateAssistantDto, AssistantRepositoryDto } from '../dto/user-assistant.dto'
+import {
+  CreateAssistantDto,
+  UpdateAssistantDto,
+  AssistantRepositoryDto
+} from '../dto/user-assistant.dto'
 import { UserAssistant } from '../entities/user-assistant.entity'
 import { AssistantRepository } from '../entities/assistant-repository.entity'
 import { User } from '../entities/user.entity'
@@ -42,9 +46,7 @@ export class UserAssistantController {
   }
 
   @Get('stats')
-  async getUserAssistantStats(
-    @CurrentUser() user: User
-  ): Promise<{
+  async getUserAssistantStats(@CurrentUser() user: User): Promise<{
     total: number
     byStatus: Record<string, number>
     totalRepositories: number

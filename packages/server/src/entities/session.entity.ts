@@ -1,8 +1,8 @@
-import { 
-  Entity, 
-  PrimaryGeneratedColumn, 
-  Column, 
-  CreateDateColumn, 
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
   OneToMany,
@@ -28,7 +28,7 @@ export class Session {
   @Column('varchar', { length: 50 })
   aiTool: string // claude, qwen, cursor等
 
-  @Column('varchar', { 
+  @Column('varchar', {
     length: 20,
     default: 'active'
   })

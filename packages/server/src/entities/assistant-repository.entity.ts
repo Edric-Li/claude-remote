@@ -1,8 +1,8 @@
-import { 
-  Entity, 
-  PrimaryGeneratedColumn, 
-  Column, 
-  CreateDateColumn, 
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
@@ -34,7 +34,7 @@ export class AssistantRepository {
   @Column({ type: 'boolean', default: true, name: 'auto_sync', comment: '是否自动同步' })
   autoSync: boolean
 
-  @Column({ type: 'datetime', nullable: true, name: 'last_sync_at', comment: '最后同步时间' })
+  @Column({ type: 'timestamp', nullable: true, name: 'last_sync_at', comment: '最后同步时间' })
   lastSyncAt?: Date
 
   @Column({
@@ -59,7 +59,9 @@ export class AssistantRepository {
   @JoinColumn({ name: 'assistant_id' })
   assistant: UserAssistant
 
-  @ManyToOne(() => UserRepository, repository => repository.assistantRepositories, { onDelete: 'CASCADE' })
+  @ManyToOne(() => UserRepository, repository => repository.assistantRepositories, {
+    onDelete: 'CASCADE'
+  })
   @JoinColumn({ name: 'repository_id' })
   repository: UserRepository
 }

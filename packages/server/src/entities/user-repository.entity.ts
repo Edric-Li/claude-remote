@@ -1,8 +1,8 @@
-import { 
-  Entity, 
-  PrimaryGeneratedColumn, 
-  Column, 
-  CreateDateColumn, 
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
@@ -49,7 +49,7 @@ export class UserRepository {
   @Column({ length: 20, default: 'active', comment: '状态: active, inactive, error' })
   status: 'active' | 'inactive' | 'error'
 
-  @Column({ type: 'datetime', nullable: true, name: 'last_sync_at', comment: '最后同步时间' })
+  @Column({ type: 'timestamp', nullable: true, name: 'last_sync_at', comment: '最后同步时间' })
   lastSyncAt?: Date
 
   @Column({ type: 'text', nullable: true, name: 'sync_error', comment: '同步错误信息' })

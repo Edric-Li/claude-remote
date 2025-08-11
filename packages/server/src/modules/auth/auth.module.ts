@@ -15,18 +15,13 @@ import { LocalStrategy } from './strategies/local.strategy'
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'ai-orchestra-secret-key-change-in-production',
-      signOptions: { 
-        expiresIn: process.env.JWT_EXPIRES_IN || '7d' 
+      signOptions: {
+        expiresIn: process.env.JWT_EXPIRES_IN || '7d'
       }
     })
   ],
   controllers: [AuthController],
-  providers: [
-    AuthService,
-    UserService,
-    JwtStrategy,
-    LocalStrategy
-  ],
+  providers: [AuthService, UserService, JwtStrategy, LocalStrategy],
   exports: [AuthService, UserService]
 })
 export class AuthModule {}

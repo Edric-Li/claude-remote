@@ -1,11 +1,11 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Put, 
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
   Delete,
-  Body, 
-  Param, 
+  Body,
+  Param,
   Query,
   UseGuards,
   Request
@@ -22,12 +22,16 @@ export class SessionController {
    * 创建新会话
    */
   @Post()
-  async create(@Request() req, @Body() body: {
-    name: string
-    repositoryId: string
-    aiTool: string
-    metadata?: any
-  }) {
+  async create(
+    @Request() req,
+    @Body()
+    body: {
+      name: string
+      repositoryId: string
+      aiTool: string
+      metadata?: any
+    }
+  ) {
     return await this.sessionService.create(req.user.id, body)
   }
 
@@ -51,11 +55,7 @@ export class SessionController {
    * 更新会话
    */
   @Put(':id')
-  async update(
-    @Request() req,
-    @Param('id') id: string,
-    @Body() body: any
-  ) {
+  async update(@Request() req, @Param('id') id: string, @Body() body: any) {
     return await this.sessionService.update(id, req.user.id, body)
   }
 
@@ -68,12 +68,7 @@ export class SessionController {
     @Param('id') id: string,
     @Body() body: { workerId: string; agentId: string }
   ) {
-    return await this.sessionService.assignWorker(
-      id, 
-      req.user.id, 
-      body.workerId, 
-      body.agentId
-    )
+    return await this.sessionService.assignWorker(id, req.user.id, body.workerId, body.agentId)
   }
 
   /**
@@ -83,7 +78,8 @@ export class SessionController {
   async addMessage(
     @Request() req,
     @Param('id') id: string,
-    @Body() body: {
+    @Body()
+    body: {
       from: 'user' | 'assistant' | 'system'
       content: string
       metadata?: any
@@ -102,12 +98,7 @@ export class SessionController {
     @Query('limit') limit?: number,
     @Query('offset') offset?: number
   ) {
-    return await this.sessionService.getMessages(
-      id, 
-      req.user.id, 
-      limit || 100, 
-      offset || 0
-    )
+    return await this.sessionService.getMessages(id, req.user.id, limit || 100, offset || 0)
   }
 
   /**

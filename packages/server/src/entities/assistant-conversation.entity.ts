@@ -1,8 +1,8 @@
-import { 
-  Entity, 
-  PrimaryGeneratedColumn, 
-  Column, 
-  CreateDateColumn, 
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
@@ -32,7 +32,12 @@ export class AssistantConversation {
   @Column({ length: 200, nullable: true, comment: '会话标题' })
   title?: string
 
-  @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP', name: 'last_message_at', comment: '最后消息时间' })
+  @Column({
+    type: 'timestamp',
+    default: () => 'CURRENT_TIMESTAMP',
+    name: 'last_message_at',
+    comment: '最后消息时间'
+  })
   lastMessageAt: Date
 
   @Column({ type: 'int', default: 0, name: 'message_count', comment: '消息数量' })

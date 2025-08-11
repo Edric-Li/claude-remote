@@ -13,7 +13,7 @@ export function App() {
   React.useEffect(() => {
     document.documentElement.classList.add('dark')
   }, [])
-  
+
   return (
     <BrowserRouter>
       <Routes>
@@ -25,7 +25,7 @@ export function App() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/admin" element={<AdminPage />} />
         </Route>
-        
+
         {/* 兼容性路由 */}
         <Route path="/next/login" element={<LoginPage />} />
         <Route element={<PrivateRoute />}>

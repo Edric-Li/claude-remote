@@ -5,6 +5,7 @@
 ## 1. TypeScript 规范
 
 ### 类型定义
+
 - 优先使用 `interface` 而非 `type`（除非需要联合类型）
 - 禁止使用 `any`，必要时使用 `unknown`
 - 所有函数必须声明返回类型
@@ -24,11 +25,12 @@ function getUser(id: string): Promise<User> {
 // ❌ 避免
 type UserProps = {
   name: string
-  age: any  // 避免 any
+  age: any // 避免 any
 }
 ```
 
 ### 枚举和常量
+
 - 使用 `const enum` 或对象常量代替普通枚举
 - 常量使用 UPPER_SNAKE_CASE
 
@@ -48,6 +50,7 @@ export const API_ENDPOINTS = {
 ## 2. React 规范
 
 ### 组件规范
+
 - 只使用函数组件和 Hooks
 - 组件文件名使用 PascalCase
 - Props 接口命名为 `ComponentNameProps`
@@ -66,6 +69,7 @@ export function TaskList({ tasks, onSelect }: TaskListProps) {
 ```
 
 ### 性能优化
+
 - 避免内联函数和对象
 - 使用 `React.memo`、`useMemo`、`useCallback` 优化重渲染
 - 大型列表使用虚拟滚动
@@ -73,6 +77,7 @@ export function TaskList({ tasks, onSelect }: TaskListProps) {
 ## 3. 文件和目录规范
 
 ### 命名规则
+
 ```
 components/
   TaskList.tsx          # 组件文件 - PascalCase
@@ -88,6 +93,7 @@ types/
 ```
 
 ### 文件组织
+
 - 每个文件单一职责
 - 相关文件就近放置
 - 公共组件放 `shared/components/`
@@ -96,16 +102,19 @@ types/
 ## 4. 代码行数限制
 
 ### 文件长度
+
 - 单个文件不超过 **300 行**
 - React 组件文件不超过 **200 行**
 - 超限时拆分成多个模块
 
 ### 函数长度
+
 - 普通函数不超过 **50 行**
 - 复杂函数不超过 **80 行**（需详细注释）
 - React 组件不超过 **150 行**（含 JSX）
 
 ### 其他限制
+
 - 最大行宽：**100 字符**
 - 单个类不超过 **300 行**
 - 接口属性不超过 **50 个**
@@ -129,7 +138,8 @@ async function fetchUser(id: string): Promise<User> {
 
 // ❌ 避免嵌套 Promise
 function fetchUser(id: string) {
-  return api.get(`/users/${id}`)
+  return api
+    .get(`/users/${id}`)
     .then(response => {
       return response.data
     })
@@ -142,6 +152,7 @@ function fetchUser(id: string) {
 ## 6. 状态管理规范
 
 ### Zustand Store
+
 ```typescript
 // stores/taskStore.ts
 interface TaskStore {
@@ -151,21 +162,24 @@ interface TaskStore {
   removeTask: (id: string) => void
 }
 
-export const useTaskStore = create<TaskStore>((set) => ({
+export const useTaskStore = create<TaskStore>(set => ({
   tasks: [],
   loading: false,
-  addTask: (task) => set((state) => ({ 
-    tasks: [...state.tasks, task] 
-  })),
-  removeTask: (id) => set((state) => ({
-    tasks: state.tasks.filter(t => t.id !== id)
-  }))
+  addTask: task =>
+    set(state => ({
+      tasks: [...state.tasks, task]
+    })),
+  removeTask: id =>
+    set(state => ({
+      tasks: state.tasks.filter(t => t.id !== id)
+    }))
 }))
 ```
 
 ## 7. API 和通信规范
 
 ### RESTful API
+
 - GET: 获取资源
 - POST: 创建资源
 - PUT: 完整更新
@@ -173,6 +187,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
 - DELETE: 删除资源
 
 ### WebSocket 事件命名
+
 ```typescript
 // 使用冒号分隔的命名空间
 socket.on('task:created', handleTaskCreated)
@@ -189,13 +204,9 @@ socket.on('agent:connected', handleAgentConnected)
  * @param options - 查询选项
  * @returns 任务列表
  */
-export async function getProjectTasks(
-  projectId: string,
-  options?: QueryOptions
-): Promise<Task[]> {
+export async function getProjectTasks(projectId: string, options?: QueryOptions): Promise<Task[]> {
   // 复杂逻辑的解释注释
   // TODO(username): 添加分页支持 - 2024-01-15
-  
   // ...
 }
 ```
@@ -203,6 +214,7 @@ export async function getProjectTasks(
 ## 9. Git 提交规范
 
 ### Commit 消息格式
+
 ```
 type(scope): subject
 
@@ -212,6 +224,7 @@ footer (optional)
 ```
 
 ### Type 类型
+
 - `feat`: 新功能
 - `fix`: 修复 bug
 - `docs`: 文档更新
@@ -221,6 +234,7 @@ footer (optional)
 - `chore`: 构建/工具
 
 ### 示例
+
 ```bash
 feat(agent): add file watcher support
 
@@ -232,6 +246,7 @@ Closes #123
 ```
 
 ### 分支命名
+
 - `feature/task-scheduling`
 - `fix/websocket-reconnect`
 - `docs/api-guide`
@@ -250,7 +265,7 @@ describe('TaskList', () => {
   it('should handle task selection', async () => {
     const onSelect = vi.fn()
     render(<TaskList tasks={mockTasks} onSelect={onSelect} />)
-    
+
     await userEvent.click(screen.getByText('Task 1'))
     expect(onSelect).toHaveBeenCalledWith('task-1')
   })
@@ -347,40 +362,49 @@ import styles from './TaskList.module.css'
 ## 16. 仓库管理功能
 
 ### 支持的仓库类型
+
 1. **Git仓库** - 支持 GitHub、GitLab、Bitbucket 等
 2. **本地目录** - 本地文件系统路径
 3. **SVN仓库** - 计划支持
 
 ### 认证方式
+
 #### HTTPS认证
+
 - **GitHub**: Personal Access Token (PAT)
   - 格式：直接填入 token，如 `ghp_xxxxxxxxxxxx`
 - **GitLab**: Personal/Project Access Token
   - 格式：直接填入 token
 - **Bitbucket**: App Password
   - 格式：`username:app_password`
-- **通用Git**: 
+- **通用Git**:
   - 格式：`username:password`
 
 #### SSH认证（计划支持）
+
 - 需要配置 SSH Key
 - URL格式：`git@github.com:user/repo.git`
 
 ### 仓库验证
+
 创建或更新仓库时，系统会自动：
+
 - 验证 URL 格式的正确性
 - 测试认证信息是否有效
 - 检查仓库是否可访问
 - 获取分支列表和默认分支
 
 ### 错误处理
+
 系统能识别以下错误类型：
+
 - **认证失败** - 用户名密码或Token不正确
 - **主机无法解析** - URL格式错误或网络问题
 - **仓库不存在** - 仓库不存在或无访问权限
 - **连接超时** - 网络问题或需要配置代理
 
 ### 工作区管理
+
 - **缓存机制**: Agent端缓存仓库，避免重复克隆
 - **隔离环境**: 每个任务在独立的工作区执行
 - **自动清理**: 根据配置自动清理过期工作区
@@ -389,6 +413,7 @@ import styles from './TaskList.module.css'
 ## 总结
 
 遵循这些规范将帮助我们：
+
 - 保持代码一致性和可读性
 - 提高代码质量和可维护性
 - 减少 bug 和安全问题

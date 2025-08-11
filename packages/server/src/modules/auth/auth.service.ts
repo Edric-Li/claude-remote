@@ -4,7 +4,7 @@ import { UserService } from './user.service'
 import { User } from '../../entities/user.entity'
 
 export interface LoginDto {
-  username: string  // 可以是用户名或邮箱
+  username: string // 可以是用户名或邮箱
   password: string
 }
 
@@ -16,7 +16,7 @@ export interface RegisterDto {
 }
 
 export interface JwtPayload {
-  sub: string      // user id
+  sub: string // user id
   username: string
   email: string
 }
@@ -38,10 +38,7 @@ export class AuthService {
    * 用户登录
    */
   async login(loginDto: LoginDto, ip?: string): Promise<AuthResponse> {
-    const user = await this.userService.validateUser(
-      loginDto.username,
-      loginDto.password
-    )
+    const user = await this.userService.validateUser(loginDto.username, loginDto.password)
 
     if (!user) {
       throw new UnauthorizedException('用户名或密码错误')
@@ -157,7 +154,7 @@ export class AuthService {
    */
   async getCurrentUser(userId: string): Promise<Partial<User>> {
     const user = await this.userService.findById(userId)
-    
+
     if (!user) {
       throw new UnauthorizedException('用户不存在')
     }
@@ -168,20 +165,16 @@ export class AuthService {
   /**
    * 修改密码
    */
-  async changePassword(
-    userId: string,
-    oldPassword: string,
-    newPassword: string
-  ): Promise<void> {
+  async changePassword(userId: string, oldPassword: string, newPassword: string): Promise<void> {
     const user = await this.userService.findById(userId)
-    
+
     if (!user) {
       throw new UnauthorizedException('用户不存在')
     }
 
     // 验证旧密码
     const isValid = await user.validatePassword(oldPassword)
-    
+
     if (!isValid) {
       throw new UnauthorizedException('原密码错误')
     }

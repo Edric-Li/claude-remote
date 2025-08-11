@@ -45,25 +45,25 @@ interface HttpCommunicationState {
   connecting: boolean
   connectionInitialized: boolean
   error: string | null
-  
+
   // Agent管理
   agents: Agent[]
   selectedAgentId: string | null
-  
+
   // 消息管理
   messages: Message[]
-  
+
   // Worker管理
   workerOutput: (string | WorkerOutputItem)[]
   currentTaskId: string | null
   workers: Worker[]
   selectedWorkerId: string | null
   selectedTool: 'claude' | 'qwcoder' | null
-  
+
   // 网络状态
   isOnline: boolean
   lastSyncTime: Date | null
-  
+
   // Actions
   connect: () => Promise<void>
   disconnect: () => void
@@ -108,13 +108,13 @@ export const useHttpCommunicationStore = create<HttpCommunicationState>((set, ge
       // 设置事件监听器
       httpClient.on('connect', () => {
         console.log('✅ HTTP客户端已连接')
-        set({ 
-          connected: true, 
-          connecting: false, 
+        set({
+          connected: true,
+          connecting: false,
           error: null,
           lastSyncTime: new Date()
         })
-        
+
         // 连接成功后获取Agent列表
         get().refreshAgentList()
       })
@@ -126,19 +126,22 @@ export const useHttpCommunicationStore = create<HttpCommunicationState>((set, ge
 
       httpClient.on('agent:connected', (data: any) => {
         console.log('📱 Agent已连接:', data)
-        set((state) => ({
-          agents: [...state.agents.filter(a => a.id !== data.agentId), {
-            id: data.agentId,
-            name: data.name,
-            connectedAt: new Date(data.connectedAt),
-            status: 'online' as const
-          }]
+        set(state => ({
+          agents: [
+            ...state.agents.filter(a => a.id !== data.agentId),
+            {
+              id: data.agentId,
+              name: data.name,
+              connectedAt: new Date(data.connectedAt),
+              status: 'online' as const
+            }
+          ]
         }))
       })
 
       httpClient.on('agent:disconnected', (data: any) => {
         console.log('📱 Agent已断开:', data)
-        set((state) => ({
+        set(state => ({
           agents: state.agents.filter(a => a.id !== data.agentId),
           selectedAgentId: state.selectedAgentId === data.agentId ? null : state.selectedAgentId
         }))
@@ -146,14 +149,17 @@ export const useHttpCommunicationStore = create<HttpCommunicationState>((set, ge
 
       httpClient.on('chat:reply', (data: any) => {
         console.log('💬 收到聊天回复:', data)
-        set((state) => ({
-          messages: [...state.messages, {
-            id: Date.now().toString(),
-            from: 'agent',
-            agentId: data.agentId,
-            content: data.content,
-            timestamp: new Date(data.timestamp)
-          }]
+        set(state => ({
+          messages: [
+            ...state.messages,
+            {
+              id: Date.now().toString(),
+              from: 'agent',
+              agentId: data.agentId,
+              content: data.content,
+              timestamp: new Date(data.timestamp)
+            }
+          ]
         }))
       })
 
@@ -166,7 +172,11 @@ export const useHttpCommunicationStore = create<HttpCommunicationState>((set, ge
         console.log('🔧 Worker状态更新:', data)
         if (data.status === 'started') {
           set({ currentTaskId: data.taskId })
-        } else if (data.status === 'stopped' || data.status === 'completed' || data.status === 'error') {
+        } else if (
+          data.status === 'stopped' ||
+          data.status === 'completed' ||
+          data.status === 'error'
+        ) {
           set({ currentTaskId: null })
         }
       })
@@ -189,11 +199,10 @@ export const useHttpCommunicationStore = create<HttpCommunicationState>((set, ge
 
       // 建立连接
       await httpClient.connect()
-
     } catch (error: any) {
       console.error('HTTP客户端连接失败:', error)
-      set({ 
-        connecting: false, 
+      set({
+        connecting: false,
         connected: false,
         error: error.message || '连接失败'
       })
@@ -203,33 +212,33 @@ export const useHttpCommunicationStore = create<HttpCommunicationState>((set, ge
   // 断开连接
   disconnect: () => {
     httpClient.disconnect()
-    set({ 
-      connected: false, 
+    set({
+      connected: false,
       connecting: false,
       connectionInitialized: false,
-      agents: [], 
+      agents: [],
       messages: [],
       error: null
     })
   },
 
   // 选择Agent
-  selectAgent: (agentId) => {
+  selectAgent: agentId => {
     set({ selectedAgentId: agentId })
   },
 
   // 发送消息
   sendMessage: async (content, tool) => {
     const { selectedAgentId, selectedWorkerId, selectedTool, workers } = get()
-    
+
     if (!content.trim()) {
       return
     }
 
     const currentTool = tool || selectedTool
-    const targetAgentId = selectedWorkerId ? 
-      workers.find(w => w.id === selectedWorkerId)?.agentId : 
-      selectedAgentId
+    const targetAgentId = selectedWorkerId
+      ? workers.find(w => w.id === selectedWorkerId)?.agentId
+      : selectedAgentId
 
     if (!targetAgentId) {
       throw new Error('请先选择Agent')
@@ -244,7 +253,7 @@ export const useHttpCommunicationStore = create<HttpCommunicationState>((set, ge
     }
 
     // 先添加到本地消息列表
-    set((state) => ({
+    set(state => ({
       messages: [...state.messages, message]
     }))
 
@@ -299,18 +308,18 @@ export const useHttpCommunicationStore = create<HttpCommunicationState>((set, ge
   },
 
   // 选择随机Worker
-  selectRandomWorker: (tool) => {
+  selectRandomWorker: tool => {
     const { agents } = get()
-    
+
     if (agents.filter(a => a.status === 'online').length === 0) {
       return null
     }
-    
+
     // 随机选择一个在线的 agent
     const onlineAgents = agents.filter(a => a.status === 'online')
     const randomIndex = Math.floor(Math.random() * onlineAgents.length)
     const selectedAgent = onlineAgents[randomIndex]
-    
+
     // 创建一个新的 worker
     const workerId = `worker-${Date.now()}`
     const newWorker: Worker = {
@@ -319,19 +328,19 @@ export const useHttpCommunicationStore = create<HttpCommunicationState>((set, ge
       status: 'idle',
       tool
     }
-    
-    set((state) => ({
+
+    set(state => ({
       workers: [...state.workers, newWorker],
       selectedWorkerId: workerId,
       selectedAgentId: selectedAgent.id,
       selectedTool: tool
     }))
-    
+
     return workerId
   },
 
   // 设置选中的工具
-  setSelectedTool: (tool) => {
+  setSelectedTool: tool => {
     set({ selectedTool: tool })
   },
 
@@ -339,7 +348,7 @@ export const useHttpCommunicationStore = create<HttpCommunicationState>((set, ge
   refreshAgentList: async () => {
     try {
       const agentList = await httpClient.getAgentList()
-      set({ 
+      set({
         agents: agentList,
         lastSyncTime: new Date(),
         error: null
@@ -364,15 +373,15 @@ export function initializeHttpCommunication() {
   autoConnectCalled = true
 
   const store = useHttpCommunicationStore.getState()
-  
+
   // 页面加载时自动连接
   store.connect()
-  
+
   // 页面卸载时断开连接
   window.addEventListener('beforeunload', () => {
     store.disconnect()
   })
-  
+
   // 定期检查连接状态
   setInterval(() => {
     const currentState = useHttpCommunicationStore.getState()

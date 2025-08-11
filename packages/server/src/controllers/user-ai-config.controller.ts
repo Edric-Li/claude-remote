@@ -41,9 +41,7 @@ export class UserAiConfigController {
   }
 
   @Get('stats')
-  async getUserConfigStats(
-    @CurrentUser() user: User
-  ): Promise<{
+  async getUserConfigStats(@CurrentUser() user: User): Promise<{
     total: number
     byToolType: Record<string, number>
   }> {

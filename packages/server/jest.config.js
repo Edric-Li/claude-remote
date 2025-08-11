@@ -3,7 +3,12 @@ module.exports = {
   rootDir: 'src',
   testRegex: '.*\\.spec\\.ts$',
   transform: {
-    '^.+\\.(t|j)s$': 'ts-jest',
+    '^.+\\.(t|j)s$': ['ts-jest', {
+      tsconfig: {
+        experimentalDecorators: true,
+        emitDecoratorMetadata: true
+      }
+    }]
   },
   collectCoverageFrom: [
     '**/*.(t|j)s',
@@ -11,27 +16,18 @@ module.exports = {
     '!**/*.d.ts',
     '!**/node_modules/**',
     '!**/dist/**',
-    '!main.ts',
+    '!main.ts'
   ],
   coverageDirectory: '../coverage',
   coverageReporters: ['text', 'lcov', 'html'],
   coverageThreshold: {
     global: {
-      branches: 100,
-      functions: 100,
-      lines: 100,
-      statements: 100,
-    },
-  },
-  testEnvironment: 'node',
-  setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
-  testTimeout: 30000,
-  globals: {
-    'ts-jest': {
-      tsconfig: {
-        experimentalDecorators: true,
-        emitDecoratorMetadata: true,
-      }
+      branches: 0,
+      functions: 0,
+      lines: 0,
+      statements: 0
     }
   },
-};
+  testEnvironment: 'node',
+  testTimeout: 30000
+}

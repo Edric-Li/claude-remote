@@ -1,4 +1,12 @@
-import { IsString, IsEnum, IsObject, IsBoolean, IsOptional, MaxLength, ValidateNested } from 'class-validator'
+import {
+  IsString,
+  IsEnum,
+  IsObject,
+  IsBoolean,
+  IsOptional,
+  MaxLength,
+  ValidateNested
+} from 'class-validator'
 import { Type } from 'class-transformer'
 import { AiConfigData } from '../entities/user-ai-config.entity'
 

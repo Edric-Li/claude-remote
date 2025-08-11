@@ -1,8 +1,19 @@
-import { Injectable, ConflictException, NotFoundException, BadRequestException, Logger } from '@nestjs/common'
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+  BadRequestException,
+  Logger
+} from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { User } from '../entities/user.entity'
-import { CreateUserDto, UpdateUserDto, ChangePasswordDto, UpdateUserStatusDto } from '../dto/user.dto'
+import {
+  CreateUserDto,
+  UpdateUserDto,
+  ChangePasswordDto,
+  UpdateUserStatusDto
+} from '../dto/user.dto'
 import { OperationLogService } from './operation-log.service'
 
 @Injectable()
@@ -44,7 +55,7 @@ export class UserService {
     })
 
     const savedUser = await this.userRepository.save(user)
-    
+
     // 记录操作日志
     await this.operationLogService.createLog({
       userId: operatorId,
@@ -69,28 +80,39 @@ export class UserService {
   }
 
   async findById(id: string): Promise<User> {
-    const user = await this.userRepository.findOne({ 
+    const user = await this.userRepository.findOne({
       where: { id },
       relations: ['aiConfigs', 'repositories', 'assistants']
     })
-    
+
     if (!user) {
       throw new NotFoundException('用户不存在')
     }
-    
+
     return user
   }
 
   async findByUsername(username: string): Promise<User> {
     const user = await this.userRepository.findOne({
       where: { username },
-      select: ['id', 'username', 'email', 'passwordHash', 'displayName', 'avatarUrl', 'status', 'createdAt', 'updatedAt', 'lastLoginAt']
+      select: [
+        'id',
+        'username',
+        'email',
+        'passwordHash',
+        'displayName',
+        'avatarUrl',
+        'status',
+        'createdAt',
+        'updatedAt',
+        'lastLoginAt'
+      ]
     })
-    
+
     if (!user) {
       throw new NotFoundException('用户不存在')
     }
-    
+
     return user
   }
 
@@ -122,12 +144,16 @@ export class UserService {
     return updatedUser
   }
 
-  async changePassword(id: string, changePasswordDto: ChangePasswordDto, operatorId?: string): Promise<void> {
+  async changePassword(
+    id: string,
+    changePasswordDto: ChangePasswordDto,
+    operatorId?: string
+  ): Promise<void> {
     const user = await this.userRepository.findOne({
       where: { id },
       select: ['id', 'passwordHash']
     })
-    
+
     if (!user) {
       throw new NotFoundException('用户不存在')
     }
@@ -152,9 +178,13 @@ export class UserService {
     this.logger.log(`Password changed for user: ${id}`)
   }
 
-  async updateStatus(id: string, updateStatusDto: UpdateUserStatusDto, operatorId?: string): Promise<User> {
+  async updateStatus(
+    id: string,
+    updateStatusDto: UpdateUserStatusDto,
+    operatorId?: string
+  ): Promise<User> {
     const user = await this.findById(id)
-    
+
     user.status = updateStatusDto.status
     const updatedUser = await this.userRepository.save(user)
 
@@ -179,7 +209,7 @@ export class UserService {
 
   async deleteUser(id: string, operatorId?: string): Promise<void> {
     const user = await this.findById(id)
-    
+
     await this.userRepository.remove(user)
 
     // 记录操作日志

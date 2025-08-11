@@ -7,8 +7,17 @@ import { OperationLogService } from './operation-log.service'
 import { AssistantConversation } from '../entities/assistant-conversation.entity'
 import { AssistantMessage } from '../entities/assistant-message.entity'
 import { UserAssistant } from '../entities/user-assistant.entity'
-import { mockConversation, mockMessage, mockAssistant, createMockRepository } from '../test/test-utils'
-import { CreateConversationDto, CreateMessageDto, UpdateConversationDto } from '../dto/assistant-conversation.dto'
+import {
+  mockConversation,
+  mockMessage,
+  mockAssistant,
+  createMockRepository
+} from '../test/test-utils'
+import {
+  CreateConversationDto,
+  CreateMessageDto,
+  UpdateConversationDto
+} from '../dto/assistant-conversation.dto'
 
 describe('AssistantConversationService', () => {
   let service: AssistantConversationService
@@ -23,23 +32,23 @@ describe('AssistantConversationService', () => {
         AssistantConversationService,
         {
           provide: getRepositoryToken(AssistantConversation),
-          useValue: createMockRepository(),
+          useValue: createMockRepository()
         },
         {
           provide: getRepositoryToken(AssistantMessage),
-          useValue: createMockRepository(),
+          useValue: createMockRepository()
         },
         {
           provide: getRepositoryToken(UserAssistant),
-          useValue: createMockRepository(),
+          useValue: createMockRepository()
         },
         {
           provide: OperationLogService,
           useValue: {
-            createLog: jest.fn().mockResolvedValue({}),
-          },
-        },
-      ],
+            createLog: jest.fn().mockResolvedValue({})
+          }
+        }
+      ]
     }).compile()
 
     service = module.get<AssistantConversationService>(AssistantConversationService)
@@ -52,7 +61,7 @@ describe('AssistantConversationService', () => {
   describe('createConversation', () => {
     const createConversationDto: CreateConversationDto = {
       title: 'Test Conversation',
-      assistantId: 'assistant-1',
+      assistantId: 'assistant-1'
     }
 
     it('should create conversation successfully', async () => {
@@ -68,7 +77,7 @@ describe('AssistantConversationService', () => {
       expect(conversationRepository.create).toHaveBeenCalledWith({
         userId: 'user-1',
         assistantId: createConversationDto.assistantId,
-        title: createConversationDto.title,
+        title: createConversationDto.title
       })
       expect(operationLogService.createLog).toHaveBeenCalled()
       expect(result).toEqual(mockConversation)
@@ -77,8 +86,9 @@ describe('AssistantConversationService', () => {
     it('should throw BadRequestException if assistant not found', async () => {
       assistantRepository.findOne.mockResolvedValue(null)
 
-      await expect(service.createConversation('user-1', createConversationDto))
-        .rejects.toThrow(BadRequestException)
+      await expect(service.createConversation('user-1', createConversationDto)).rejects.toThrow(
+        BadRequestException
+      )
     })
 
     it('should generate title if not provided', async () => {
@@ -92,7 +102,7 @@ describe('AssistantConversationService', () => {
       expect(conversationRepository.create).toHaveBeenCalledWith({
         userId: 'user-1',
         assistantId: dtoWithoutTitle.assistantId,
-        title: expect.stringMatching(/^新对话 \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/),
+        title: expect.stringMatching(/^新对话 \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/)
       })
     })
   })
@@ -142,14 +152,13 @@ describe('AssistantConversationService', () => {
     it('should throw NotFoundException if conversation not found', async () => {
       conversationRepository.findOne.mockResolvedValue(null)
 
-      await expect(service.findById('conversation-1', 'user-1'))
-        .rejects.toThrow(NotFoundException)
+      await expect(service.findById('conversation-1', 'user-1')).rejects.toThrow(NotFoundException)
     })
   })
 
   describe('updateConversation', () => {
     const updateDto: UpdateConversationDto = {
-      title: 'Updated Conversation',
+      title: 'Updated Conversation'
     }
 
     it('should update conversation successfully', async () => {
@@ -171,7 +180,7 @@ describe('AssistantConversationService', () => {
   describe('createMessage', () => {
     const createMessageDto: CreateMessageDto = {
       role: 'user',
-      content: 'Hello, assistant!',
+      content: 'Hello, assistant!'
     }
 
     it('should create message successfully', async () => {
@@ -186,7 +195,7 @@ describe('AssistantConversationService', () => {
         conversationId: 'conversation-1',
         role: createMessageDto.role,
         content: createMessageDto.content,
-        metadata: createMessageDto.metadata || {},
+        metadata: createMessageDto.metadata || {}
       })
       expect(conversationRepository.save).toHaveBeenCalledWith({
         ...mockConversation,
@@ -211,7 +220,7 @@ describe('AssistantConversationService', () => {
         conversationId: 'conversation-1',
         role: dtoWithMetadata.role,
         content: dtoWithMetadata.content,
-        metadata: dtoWithMetadata.metadata,
+        metadata: dtoWithMetadata.metadata
       })
     })
   })
@@ -264,7 +273,7 @@ describe('AssistantConversationService', () => {
       const conversations = [
         { assistantId: 'assistant-1', messages: [{}, {}] },
         { assistantId: 'assistant-2', messages: [{}] },
-        { assistantId: 'assistant-1', messages: [{}, {}, {}] },
+        { assistantId: 'assistant-1', messages: [{}, {}, {}] }
       ]
       conversationRepository.find.mockResolvedValue(conversations as AssistantConversation[])
 
@@ -279,8 +288,8 @@ describe('AssistantConversationService', () => {
         totalMessages: 6,
         byAssistant: {
           'assistant-1': 2,
-          'assistant-2': 1,
-        },
+          'assistant-2': 1
+        }
       })
     })
   })

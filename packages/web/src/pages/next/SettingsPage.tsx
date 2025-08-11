@@ -1,8 +1,19 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { 
-  ArrowLeft, User, Database, Bot, Shield, Bell, 
-  Palette, Globe, HardDrive, Key, Trash2, Save, Sparkles
+import {
+  ArrowLeft,
+  User,
+  Database,
+  Bot,
+  Shield,
+  Bell,
+  Palette,
+  Globe,
+  HardDrive,
+  Key,
+  Trash2,
+  Save,
+  Sparkles
 } from 'lucide-react'
 import { useAuthStore } from '../../store/auth.store'
 import { RepositorySettings } from '../../components/settings/RepositorySettings'
@@ -45,8 +56,8 @@ function SettingsNavItem({ icon, label, isActive, onClick }: SettingsNavItemProp
     <button
       onClick={onClick}
       className={`w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors ${
-        isActive 
-          ? 'bg-gray-100 text-gray-900 font-medium' 
+        isActive
+          ? 'bg-gray-100 text-gray-900 font-medium'
           : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
       }`}
     >
@@ -68,7 +79,7 @@ export function SettingsPage() {
     { id: 'assistants', label: '助手管理', icon: <Sparkles className="w-4 h-4" /> },
     { id: 'security', label: '安全设置', icon: <Shield className="w-4 h-4" /> },
     { id: 'notifications', label: '通知设置', icon: <Bell className="w-4 h-4" /> },
-    { id: 'appearance', label: '外观设置', icon: <Palette className="w-4 h-4" /> },
+    { id: 'appearance', label: '外观设置', icon: <Palette className="w-4 h-4" /> }
   ]
 
   const renderProfileSettings = () => (
@@ -195,14 +206,14 @@ export function SettingsPage() {
             返回主页
           </button>
         </div>
-        
+
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-1">设置</h2>
           <p className="text-sm text-gray-600">管理您的账户和系统配置</p>
         </div>
 
         <nav className="space-y-1">
-          {sections.map((section) => (
+          {sections.map(section => (
             <SettingsNavItem
               key={section.id}
               icon={section.icon}
@@ -222,7 +233,7 @@ export function SettingsPage() {
               {sections.find(s => s.id === activeSection)?.label}
             </h1>
           </div>
-          
+
           {renderContent()}
         </div>
       </div>

@@ -20,12 +20,14 @@ export class UsersApi extends CrudApi<User, CreateUserDto, UpdateUserDto, UserSt
   /**
    * 获取分页用户列表
    */
-  async findAllPaginated(params?: PaginationParams & {
-    search?: string
-    status?: string
-    sortBy?: string
-    sortOrder?: 'ASC' | 'DESC'
-  }): Promise<PaginatedResponse<User>> {
+  async findAllPaginated(
+    params?: PaginationParams & {
+      search?: string
+      status?: string
+      sortBy?: string
+      sortOrder?: 'ASC' | 'DESC'
+    }
+  ): Promise<PaginatedResponse<User>> {
     return this.get<PaginatedResponse<User>>('', params)
   }
 
@@ -76,7 +78,7 @@ export class UsersApi extends CrudApi<User, CreateUserDto, UpdateUserDto, UserSt
     const response = await fetch(`${this.basePath}/export?${new URLSearchParams(params || {})}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${this.getAuthToken()}`
+        Authorization: `Bearer ${this.getAuthToken()}`
       }
     })
 
@@ -86,7 +88,6 @@ export class UsersApi extends CrudApi<User, CreateUserDto, UpdateUserDto, UserSt
 
     return response.blob()
   }
-
 }
 
 // 导出单例实例

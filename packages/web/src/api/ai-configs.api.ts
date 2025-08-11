@@ -11,7 +11,12 @@ import type {
 /**
  * AI配置API服务
  */
-export class AiConfigsApi extends CrudApi<UserAiConfig, CreateAiConfigDto, UpdateAiConfigDto, AiConfigStats> {
+export class AiConfigsApi extends CrudApi<
+  UserAiConfig,
+  CreateAiConfigDto,
+  UpdateAiConfigDto,
+  AiConfigStats
+> {
   constructor() {
     super('/api/ai-configs')
   }
@@ -91,7 +96,10 @@ export class AiConfigsApi extends CrudApi<UserAiConfig, CreateAiConfigDto, Updat
   /**
    * 验证配置数据
    */
-  async validateConfig(toolType: ToolType, configData: Record<string, any>): Promise<{
+  async validateConfig(
+    toolType: ToolType,
+    configData: Record<string, any>
+  ): Promise<{
     valid: boolean
     errors?: string[]
   }> {

@@ -37,7 +37,7 @@ export function AgentManagement() {
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({})
   const [isCreating, setIsCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  
+
   // 表单状态
   const [formData, setFormData] = useState({
     name: '',
@@ -53,7 +53,7 @@ export function AgentManagement() {
     try {
       const response = await fetch(`${API_BASE_URL}/api/agents`, {
         headers: {
-          'Authorization': `Bearer ${accessToken}`
+          Authorization: `Bearer ${accessToken}`
         }
       })
       if (response.ok) {
@@ -77,7 +77,7 @@ export function AgentManagement() {
       const response = await fetch(`${API_BASE_URL}/api/agents`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -85,7 +85,7 @@ export function AgentManagement() {
           createdBy: 'admin'
         })
       })
-      
+
       if (response.ok) {
         const newAgent = await response.json()
         setAgents([newAgent, ...agents])
@@ -103,15 +103,15 @@ export function AgentManagement() {
       const response = await fetch(`${API_BASE_URL}/api/agents/${id}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(formData)
       })
-      
+
       if (response.ok) {
         const updatedAgent = await response.json()
-        setAgents(agents.map(a => a.id === id ? updatedAgent : a))
+        setAgents(agents.map(a => (a.id === id ? updatedAgent : a)))
         setEditingId(null)
         resetForm()
       }
@@ -123,15 +123,15 @@ export function AgentManagement() {
   // 删除 Agent
   const handleDelete = async (id: string) => {
     if (!confirm('确定要删除这个 Agent 吗？')) return
-    
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/agents/${id}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${accessToken}`
+          Authorization: `Bearer ${accessToken}`
         }
       })
-      
+
       if (response.ok) {
         setAgents(agents.filter(a => a.id !== id))
       }
@@ -143,20 +143,18 @@ export function AgentManagement() {
   // 重置密钥
   const handleResetKey = async (id: string) => {
     if (!confirm('确定要重置密钥吗？旧密钥将无法使用。')) return
-    
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/agents/${id}/reset-key`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${accessToken}`
+          Authorization: `Bearer ${accessToken}`
         }
       })
-      
+
       if (response.ok) {
         const { secretKey } = await response.json()
-        setAgents(agents.map(a => 
-          a.id === id ? { ...a, secretKey } : a
-        ))
+        setAgents(agents.map(a => (a.id === id ? { ...a, secretKey } : a)))
         // 自动显示新密钥
         setShowKeys({ ...showKeys, [id]: true })
       }
@@ -245,20 +243,20 @@ export function AgentManagement() {
                 <label className="text-sm font-medium">名称</label>
                 <Input
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={e => setFormData({ ...formData, name: e.target.value })}
                   placeholder="例如：北京-GPU服务器"
                 />
               </div>
-              
+
               <div>
                 <label className="text-sm font-medium">描述</label>
                 <Input
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={e => setFormData({ ...formData, description: e.target.value })}
                   placeholder="可选的描述信息"
                 />
               </div>
-              
+
               <div>
                 <label className="text-sm font-medium">最大 Worker 数</label>
                 <Input
@@ -266,10 +264,10 @@ export function AgentManagement() {
                   min={1}
                   max={32}
                   value={formData.maxWorkers}
-                  onChange={(e) => setFormData({ ...formData, maxWorkers: parseInt(e.target.value) })}
+                  onChange={e => setFormData({ ...formData, maxWorkers: parseInt(e.target.value) })}
                 />
               </div>
-              
+
               <div className="flex gap-2">
                 <Button
                   onClick={() => {
@@ -327,7 +325,7 @@ export function AgentManagement() {
                     </td>
                   </tr>
                 ) : (
-                  agents.map((agent) => (
+                  agents.map(agent => (
                     <tr key={agent.id} className="border-b hover:bg-muted/50">
                       <td className="p-4">
                         <div>
@@ -349,16 +347,18 @@ export function AgentManagement() {
                       <td className="p-4">
                         <div className="flex items-center gap-2">
                           <code className="text-xs bg-muted px-2 py-1 rounded">
-                            {showKeys[agent.id] 
-                              ? agent.secretKey 
-                              : '••••••••••••••••'}
+                            {showKeys[agent.id] ? agent.secretKey : '••••••••••••••••'}
                           </code>
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={() => toggleKeyVisibility(agent.id)}
                           >
-                            {showKeys[agent.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            {showKeys[agent.id] ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
                           </Button>
                           <Button
                             size="sm"
@@ -378,7 +378,8 @@ export function AgentManagement() {
                             </div>
                             {agent.resources && (
                               <div className="text-muted-foreground">
-                                {agent.resources.cpuCores} CPUs • {Math.round(agent.resources.memory / 1024)}GB RAM
+                                {agent.resources.cpuCores} CPUs •{' '}
+                                {Math.round(agent.resources.memory / 1024)}GB RAM
                               </div>
                             )}
                           </div>
@@ -439,9 +440,11 @@ export function AgentManagement() {
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">选择一个 Agent 并复制其密钥，然后在目标机器上运行：</p>
+            <p className="text-sm text-muted-foreground">
+              选择一个 Agent 并复制其密钥，然后在目标机器上运行：
+            </p>
             <pre className="bg-muted p-4 rounded text-sm">
-{`# 安装 Agent
+              {`# 安装 Agent
 npm install -g @ai-orchestra/agent
 
 # 使用密钥启动 Agent  

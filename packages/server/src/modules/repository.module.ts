@@ -5,9 +5,7 @@ import { RepositoryService } from '../services/repository.service'
 import { RepositoryController } from '../controllers/repository.controller'
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([RepositoryEntity])
-  ],
+  imports: [TypeOrmModule.forFeature([RepositoryEntity])],
   controllers: [RepositoryController],
   providers: [RepositoryService],
   exports: [RepositoryService]

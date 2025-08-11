@@ -42,7 +42,7 @@ export class DatabaseService {
   async getDatabaseInfo(): Promise<DatabaseInfo> {
     try {
       const isConnected = this.dataSource.isInitialized
-      
+
       if (!isConnected) {
         return {
           type: 'sqlite',
@@ -56,7 +56,7 @@ export class DatabaseService {
       // 获取数据库文件大小
       const dbPath = path.join(process.cwd(), 'data', 'ai-orchestra.db')
       let dbSize = '0 KB'
-      
+
       try {
         const stats = await fs.stat(dbPath)
         dbSize = this.formatFileSize(stats.size)
@@ -105,15 +105,15 @@ export class DatabaseService {
       )
 
       const tables: TableInfo[] = []
-      
+
       for (const table of tablesResult) {
         const tableName = table.name
-        
+
         // 获取每个表的行数
         const countResult = await this.dataSource.query(
           `SELECT COUNT(*) as count FROM ${tableName}`
         )
-        
+
         tables.push({
           name: tableName,
           rowCount: countResult[0]?.count || 0
@@ -194,10 +194,10 @@ export class DatabaseService {
   async getBackupList(): Promise<Array<{ filename: string; size: string; createdAt: string }>> {
     try {
       const backupDir = path.join(process.cwd(), 'backups')
-      
+
       // 确保备份目录存在
       await fs.mkdir(backupDir, { recursive: true })
-      
+
       const files = await fs.readdir(backupDir)
       const backups = []
 
@@ -205,7 +205,7 @@ export class DatabaseService {
         if (file.endsWith('.db')) {
           const filePath = path.join(backupDir, file)
           const stats = await fs.stat(filePath)
-          
+
           backups.push({
             filename: file,
             size: this.formatFileSize(stats.size),
@@ -215,9 +215,7 @@ export class DatabaseService {
       }
 
       // 按创建时间降序排序
-      backups.sort((a, b) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      )
+      backups.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
       return backups
     } catch (error) {
@@ -278,25 +276,28 @@ export class DatabaseService {
   /**
    * 清除所有对话内容
    */
-  async clearAllConversations(): Promise<{ success: boolean; deletedSessions?: number; deletedMessages?: number; error?: string }> {
+  async clearAllConversations(): Promise<{
+    success: boolean
+    deletedSessions?: number
+    deletedMessages?: number
+    error?: string
+  }> {
     try {
       // 获取删除前的统计
-      const sessionsCount = await this.dataSource.query(
-        'SELECT COUNT(*) as count FROM sessions'
-      )
+      const sessionsCount = await this.dataSource.query('SELECT COUNT(*) as count FROM sessions')
       const messagesCount = await this.dataSource.query(
         'SELECT COUNT(*) as count FROM session_messages'
       )
-      
+
       const deletedSessions = sessionsCount[0]?.count || 0
       const deletedMessages = messagesCount[0]?.count || 0
-      
+
       // 删除所有会话消息（由于外键约束，先删除消息）
       await this.dataSource.query('DELETE FROM session_messages')
-      
+
       // 删除所有会话
       await this.dataSource.query('DELETE FROM sessions')
-      
+
       return {
         success: true,
         deletedSessions,
@@ -314,14 +315,20 @@ export class DatabaseService {
   /**
    * 清除指定用户的对话内容
    */
-  async clearUserConversations(userId: string): Promise<{ success: boolean; deletedSessions?: number; deletedMessages?: number; error?: string }> {
+  async clearUserConversations(
+    userId: string
+  ): Promise<{
+    success: boolean
+    deletedSessions?: number
+    deletedMessages?: number
+    error?: string
+  }> {
     try {
       // 获取该用户的会话ID列表
-      const userSessions = await this.dataSource.query(
-        'SELECT id FROM sessions WHERE userId = ?',
-        [userId]
-      )
-      
+      const userSessions = await this.dataSource.query('SELECT id FROM sessions WHERE userId = ?', [
+        userId
+      ])
+
       if (userSessions.length === 0) {
         return {
           success: true,
@@ -329,30 +336,27 @@ export class DatabaseService {
           deletedMessages: 0
         }
       }
-      
+
       const sessionIds = userSessions.map(s => s.id)
       const placeholders = sessionIds.map(() => '?').join(',')
-      
+
       // 获取删除前的消息统计
       const messagesCount = await this.dataSource.query(
         `SELECT COUNT(*) as count FROM session_messages WHERE sessionId IN (${placeholders})`,
         sessionIds
       )
-      
+
       const deletedMessages = messagesCount[0]?.count || 0
-      
+
       // 删除消息（由于CASCADE设置，删除会话时消息会自动删除，但为了安全起见先删除消息）
       await this.dataSource.query(
         `DELETE FROM session_messages WHERE sessionId IN (${placeholders})`,
         sessionIds
       )
-      
+
       // 删除会话
-      await this.dataSource.query(
-        'DELETE FROM sessions WHERE userId = ?',
-        [userId]
-      )
-      
+      await this.dataSource.query('DELETE FROM sessions WHERE userId = ?', [userId])
+
       return {
         success: true,
         deletedSessions: sessionIds.length,
@@ -370,26 +374,25 @@ export class DatabaseService {
   /**
    * 清除指定会话的消息
    */
-  async clearSessionMessages(sessionId: string): Promise<{ success: boolean; deletedMessages?: number; error?: string }> {
+  async clearSessionMessages(
+    sessionId: string
+  ): Promise<{ success: boolean; deletedMessages?: number; error?: string }> {
     try {
       const messagesCount = await this.dataSource.query(
         'SELECT COUNT(*) as count FROM session_messages WHERE sessionId = ?',
         [sessionId]
       )
-      
+
       const deletedMessages = messagesCount[0]?.count || 0
-      
-      await this.dataSource.query(
-        'DELETE FROM session_messages WHERE sessionId = ?',
-        [sessionId]
-      )
-      
+
+      await this.dataSource.query('DELETE FROM session_messages WHERE sessionId = ?', [sessionId])
+
       // 重置会话的统计信息
       await this.dataSource.query(
         'UPDATE sessions SET messageCount = 0, totalTokens = 0, totalCost = 0 WHERE id = ?',
         [sessionId]
       )
-      
+
       return {
         success: true,
         deletedMessages
@@ -408,11 +411,11 @@ export class DatabaseService {
    */
   private formatFileSize(bytes: number): string {
     if (bytes === 0) return '0 Bytes'
-    
+
     const k = 1024
     const sizes = ['Bytes', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
-    
+
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 }

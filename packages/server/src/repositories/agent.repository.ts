@@ -51,13 +51,14 @@ export class AgentRepository extends BaseRepository<Agent> {
   }
 
   async isSecretKeyUnique(secretKey: string, excludeId?: string): Promise<boolean> {
-    const query = this.repository.createQueryBuilder('agent')
+    const query = this.repository
+      .createQueryBuilder('agent')
       .where('agent.secretKey = :secretKey', { secretKey })
-    
+
     if (excludeId) {
       query.andWhere('agent.id != :excludeId', { excludeId })
     }
-    
+
     const count = await query.getCount()
     return count === 0
   }

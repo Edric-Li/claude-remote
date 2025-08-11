@@ -1,10 +1,24 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { 
-  Sparkles, Plus, Bot, BarChart3, Settings, 
-  MessageSquare, Activity, Users, Zap,
-  ChevronRight, Clock, TrendingUp, Shield,
-  Command, Search, Bell, User, LogOut
+import {
+  Sparkles,
+  Plus,
+  Bot,
+  BarChart3,
+  Settings,
+  MessageSquare,
+  Activity,
+  Users,
+  Zap,
+  ChevronRight,
+  Clock,
+  TrendingUp,
+  Shield,
+  Command,
+  Search,
+  Bell,
+  User,
+  LogOut
 } from 'lucide-react'
 import { useAuthStore } from '../../store/auth.store'
 import { useStore } from '../../store'
@@ -19,13 +33,23 @@ interface QuickActionCardProps {
   badge?: string
 }
 
-function QuickActionCard({ icon, title, description, onClick, variant, badge }: QuickActionCardProps) {
+function QuickActionCard({
+  icon,
+  title,
+  description,
+  onClick,
+  variant,
+  badge
+}: QuickActionCardProps) {
   const variantStyles = {
-    primary: 'border-primary-200 bg-gradient-to-br from-primary-50 to-primary-100 hover:from-primary-100 hover:to-primary-200',
-    secondary: 'border-secondary-200 bg-gradient-to-br from-secondary-50 to-secondary-100 hover:from-secondary-100 hover:to-secondary-200',
-    accent: 'border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-100 hover:from-emerald-100 hover:to-emerald-200'
+    primary:
+      'border-primary-200 bg-gradient-to-br from-primary-50 to-primary-100 hover:from-primary-100 hover:to-primary-200',
+    secondary:
+      'border-secondary-200 bg-gradient-to-br from-secondary-50 to-secondary-100 hover:from-secondary-100 hover:to-secondary-200',
+    accent:
+      'border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-100 hover:from-emerald-100 hover:to-emerald-200'
   }
-  
+
   return (
     <div
       className={`group cursor-pointer rounded-2xl border-2 p-6 transition-all duration-300 hover:shadow-lg hover:shadow-current/10 hover:scale-[1.02] ${variantStyles[variant]} animate-fade-in`}
@@ -37,11 +61,15 @@ function QuickActionCard({ icon, title, description, onClick, variant, badge }: 
             {badge}
           </div>
         )}
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 ${
-          variant === 'primary' ? 'bg-primary-500 text-white' :
-          variant === 'secondary' ? 'bg-secondary-500 text-white' :
-          'bg-emerald-500 text-white'
-        }`}>
+        <div
+          className={`w-12 h-12 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 ${
+            variant === 'primary'
+              ? 'bg-primary-500 text-white'
+              : variant === 'secondary'
+                ? 'bg-secondary-500 text-white'
+                : 'bg-emerald-500 text-white'
+          }`}
+        >
           {icon}
         </div>
         <div>
@@ -63,14 +91,21 @@ interface SessionCardProps {
   onClick: () => void
 }
 
-function SessionCard({ title, lastMessage, timestamp, agentCount, messageCount, onClick }: SessionCardProps) {
+function SessionCard({
+  title,
+  lastMessage,
+  timestamp,
+  agentCount,
+  messageCount,
+  onClick
+}: SessionCardProps) {
   const formatTime = (date: Date) => {
     const now = new Date()
     const diff = now.getTime() - date.getTime()
     const minutes = Math.floor(diff / (1000 * 60))
     const hours = Math.floor(diff / (1000 * 60 * 60))
     const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-    
+
     if (minutes < 1) return '刚刚'
     if (minutes < 60) return `${minutes}分钟前`
     if (hours < 24) return `${hours}小时前`
@@ -78,7 +113,7 @@ function SessionCard({ title, lastMessage, timestamp, agentCount, messageCount, 
   }
 
   return (
-    <div 
+    <div
       className="modern-card p-6 cursor-pointer hover:scale-[1.01] transition-all duration-200 animate-slide-in"
       onClick={onClick}
     >
@@ -86,9 +121,9 @@ function SessionCard({ title, lastMessage, timestamp, agentCount, messageCount, 
         <h3 className="font-semibold text-gray-900 truncate flex-1 mr-4">{title}</h3>
         <span className="text-xs text-gray-500 whitespace-nowrap">{formatTime(timestamp)}</span>
       </div>
-      
+
       <p className="text-sm text-gray-600 mb-4 line-clamp-2">{lastMessage}</p>
-      
+
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-4 text-xs text-gray-500">
           <div className="flex items-center">
@@ -113,28 +148,30 @@ interface SystemStatusCardProps {
 function SystemStatusCard({ agents }: SystemStatusCardProps) {
   const onlineAgents = agents.filter(a => a.status === 'online').length
   const totalAgents = agents.length
-  
+
   return (
     <div className="modern-card p-6 animate-fade-in">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-gray-900">系统状态</h3>
         <Activity className="w-5 h-5 text-green-500" />
       </div>
-      
+
       <div className="space-y-4">
         <div>
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm text-gray-600">Agent 状态</span>
-            <span className="text-sm font-medium text-gray-900">{onlineAgents}/{totalAgents}</span>
+            <span className="text-sm font-medium text-gray-900">
+              {onlineAgents}/{totalAgents}
+            </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
+            <div
               className="bg-green-500 h-2 rounded-full transition-all duration-500"
               style={{ width: `${totalAgents > 0 ? (onlineAgents / totalAgents) * 100 : 0}%` }}
             ></div>
           </div>
         </div>
-        
+
         <div className="grid grid-cols-2 gap-4">
           <div className="text-center p-3 bg-green-50 rounded-lg">
             <div className="text-lg font-bold text-green-700">{onlineAgents}</div>
@@ -145,7 +182,7 @@ function SystemStatusCard({ agents }: SystemStatusCardProps) {
             <div className="text-xs text-gray-600">离线</div>
           </div>
         </div>
-        
+
         <div className="pt-2 border-t border-gray-100">
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-600">系统负载</span>
@@ -163,14 +200,14 @@ function UsageStatsCard() {
     monthlyUsage: 2840,
     growthRate: 23.5
   }
-  
+
   return (
     <div className="modern-card p-6 animate-fade-in" style={{ animationDelay: '0.1s' }}>
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-gray-900">使用统计</h3>
         <BarChart3 className="w-5 h-5 text-primary-500" />
       </div>
-      
+
       <div className="space-y-4">
         <div className="grid grid-cols-1 gap-4">
           <div className="bg-primary-50 p-4 rounded-lg">
@@ -182,7 +219,7 @@ function UsageStatsCard() {
               <TrendingUp className="w-8 h-8 text-primary-500" />
             </div>
           </div>
-          
+
           <div className="grid grid-cols-2 gap-2">
             <div className="text-center p-3 bg-gray-50 rounded-lg">
               <div className="text-lg font-bold text-gray-700">{stats.monthlyUsage}</div>
@@ -194,7 +231,7 @@ function UsageStatsCard() {
             </div>
           </div>
         </div>
-        
+
         <button className="w-full text-sm text-primary-600 hover:text-primary-700 font-medium">
           查看详细报告 →
         </button>
@@ -205,7 +242,7 @@ function UsageStatsCard() {
 
 function UserProfileDropdown({ user, onLogout }: { user: any; onLogout: () => void }) {
   const [isOpen, setIsOpen] = useState(false)
-  
+
   return (
     <div className="relative">
       <button
@@ -216,11 +253,13 @@ function UserProfileDropdown({ user, onLogout }: { user: any; onLogout: () => vo
           {user?.nickname?.[0] || user?.username?.[0] || 'U'}
         </div>
         <div className="hidden md:block text-left">
-          <div className="text-sm font-medium text-gray-900">{user?.nickname || user?.username}</div>
+          <div className="text-sm font-medium text-gray-900">
+            {user?.nickname || user?.username}
+          </div>
           <div className="text-xs text-gray-500">{user?.email}</div>
         </div>
       </button>
-      
+
       {isOpen && (
         <div className="absolute right-0 mt-2 w-48 modern-card p-2 z-50">
           <button className="w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">
@@ -232,7 +271,7 @@ function UserProfileDropdown({ user, onLogout }: { user: any; onLogout: () => vo
             设置
           </button>
           <hr className="my-2" />
-          <button 
+          <button
             onClick={onLogout}
             className="w-full flex items-center px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg"
           >
@@ -249,7 +288,7 @@ export function UserHomePage() {
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
   const { agents, connect, connected } = useStore()
-  
+
   // 模拟会话数据
   const [sessions] = useState([
     {
@@ -261,7 +300,7 @@ export function UserHomePage() {
       messageCount: 15
     },
     {
-      id: '2', 
+      id: '2',
       title: '系统架构讨论',
       lastMessage: '关于微服务架构的最佳实践讨论...',
       timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
@@ -277,7 +316,7 @@ export function UserHomePage() {
       messageCount: 42
     }
   ])
-  
+
   useEffect(() => {
     if (!connected) {
       connect()
@@ -304,11 +343,9 @@ export function UserHomePage() {
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center">
                   <Sparkles className="w-4 h-4 text-white" />
                 </div>
-                <h1 className="text-xl font-bold modern-text-gradient">
-                  AI Orchestra
-                </h1>
+                <h1 className="text-xl font-bold modern-text-gradient">AI Orchestra</h1>
               </div>
-              
+
               {/* 搜索栏 */}
               <div className="hidden md:block relative ml-8">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -328,15 +365,15 @@ export function UserHomePage() {
                 <Bell className="w-5 h-5" />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               </button>
-              
-              <button 
+
+              <button
                 onClick={() => navigate('/next/settings')}
                 className="modern-btn modern-btn-ghost flex items-center"
               >
                 <Settings className="w-4 h-4 mr-2" />
                 设置
               </button>
-              
+
               <UserProfileDropdown user={user} onLogout={handleLogout} />
             </div>
           </div>
@@ -349,9 +386,7 @@ export function UserHomePage() {
           <h2 className="text-3xl font-bold text-gray-900 mb-2">
             欢迎回来，{user?.nickname || user?.username} 👋
           </h2>
-          <p className="text-gray-600">
-            开始新的AI对话，或继续之前的会话
-          </p>
+          <p className="text-gray-600">开始新的AI对话，或继续之前的会话</p>
         </div>
 
         {/* 快速操作 */}
@@ -363,7 +398,7 @@ export function UserHomePage() {
             onClick={handleCreateSession}
             variant="primary"
           />
-          
+
           <QuickActionCard
             icon={<Bot className="w-6 h-6" />}
             title="Agent管理"
@@ -371,7 +406,7 @@ export function UserHomePage() {
             onClick={() => navigate('/next/agents')}
             variant="secondary"
           />
-          
+
           <QuickActionCard
             icon={<BarChart3 className="w-6 h-6" />}
             title="使用分析"
@@ -393,27 +428,21 @@ export function UserHomePage() {
                 <ChevronRight className="w-4 h-4 ml-1" />
               </button>
             </div>
-            
+
             <div className="space-y-4">
               {sessions.map((session, index) => (
                 <div key={session.id} style={{ animationDelay: `${index * 0.1}s` }}>
-                  <SessionCard
-                    {...session}
-                    onClick={() => navigate(`/next/chat/${session.id}`)}
-                  />
+                  <SessionCard {...session} onClick={() => navigate(`/next/chat/${session.id}`)} />
                 </div>
               ))}
             </div>
-            
+
             {sessions.length === 0 && (
               <div className="modern-card p-12 text-center">
                 <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">还没有会话</h3>
                 <p className="text-gray-600 mb-6">创建您的第一个AI对话会话</p>
-                <button 
-                  onClick={handleCreateSession}
-                  className="modern-btn modern-btn-primary"
-                >
+                <button onClick={handleCreateSession} className="modern-btn modern-btn-primary">
                   <Plus className="w-4 h-4 mr-2" />
                   新建会话
                 </button>
@@ -425,7 +454,7 @@ export function UserHomePage() {
           <div className="space-y-6">
             <SystemStatusCard agents={agents} />
             <UsageStatsCard />
-            
+
             {/* 快捷操作 */}
             <div className="modern-card p-6 animate-fade-in" style={{ animationDelay: '0.2s' }}>
               <h3 className="font-semibold text-gray-900 mb-4">快捷操作</h3>
@@ -437,15 +466,15 @@ export function UserHomePage() {
                   </div>
                   <kbd className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">⌘K</kbd>
                 </button>
-                
-                <button 
+
+                <button
                   onClick={() => navigate('/next/settings')}
                   className="w-full flex items-center p-3 text-left hover:bg-gray-50 rounded-lg transition-colors"
                 >
                   <Settings className="w-4 h-4 text-gray-400 mr-3" />
                   <span className="text-sm text-gray-700">系统设置</span>
                 </button>
-                
+
                 <button className="w-full flex items-center p-3 text-left hover:bg-gray-50 rounded-lg transition-colors">
                   <Shield className="w-4 h-4 text-gray-400 mr-3" />
                   <span className="text-sm text-gray-700">安全中心</span>

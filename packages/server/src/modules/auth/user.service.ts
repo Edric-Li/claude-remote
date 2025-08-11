@@ -31,7 +31,7 @@ export class UserService {
     const existingUsername = await this.userRepository.findOne({
       where: { username: data.username }
     })
-    
+
     if (existingUsername) {
       throw new ConflictException('用户名已存在')
     }
@@ -41,7 +41,7 @@ export class UserService {
       const existingEmail = await this.userRepository.findOne({
         where: { email: data.email }
       })
-      
+
       if (existingEmail) {
         throw new ConflictException('邮箱已被注册')
       }
@@ -94,13 +94,13 @@ export class UserService {
    */
   async updateUser(id: string, data: UpdateUserDto): Promise<User> {
     const user = await this.findById(id)
-    
+
     if (!user) {
       throw new NotFoundException('用户不存在')
     }
 
     await this.userRepository.update(id, data)
-    
+
     return this.findById(id)
   }
 
@@ -125,11 +125,11 @@ export class UserService {
    */
   async validateUser(username: string, password: string): Promise<User | null> {
     const user = await this.findByUsername(username)
-    
+
     if (!user) {
       // 也尝试用邮箱登录
       const userByEmail = await this.findByEmail(username)
-      if (userByEmail && await userByEmail.validatePassword(password)) {
+      if (userByEmail && (await userByEmail.validatePassword(password))) {
         return userByEmail
       }
       return null
@@ -146,11 +146,8 @@ export class UserService {
    * 生成头像
    */
   private generateAvatar(email: string): string {
-    const hash = crypto
-      .createHash('md5')
-      .update(email.toLowerCase())
-      .digest('hex')
-    
+    const hash = crypto.createHash('md5').update(email.toLowerCase()).digest('hex')
+
     // 使用 Gravatar 或默认头像服务
     return `https://www.gravatar.com/avatar/${hash}?d=identicon`
   }
@@ -169,7 +166,7 @@ export class UserService {
    */
   async toggleUserStatus(id: string): Promise<User> {
     const user = await this.findById(id)
-    
+
     if (!user) {
       throw new NotFoundException('用户不存在')
     }
@@ -178,7 +175,7 @@ export class UserService {
     await this.userRepository.update(id, {
       status: newStatus
     })
-    
+
     return this.findById(id)
   }
 
@@ -187,7 +184,7 @@ export class UserService {
    */
   async deleteUser(id: string): Promise<void> {
     const user = await this.findById(id)
-    
+
     if (!user) {
       throw new NotFoundException('用户不存在')
     }

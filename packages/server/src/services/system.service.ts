@@ -50,7 +50,12 @@ export interface SystemOverview {
   }
   recentActivity: Array<{
     id: string
-    type: 'agent_connected' | 'agent_disconnected' | 'task_created' | 'task_completed' | 'task_failed'
+    type:
+      | 'agent_connected'
+      | 'agent_disconnected'
+      | 'task_created'
+      | 'task_completed'
+      | 'task_failed'
     message: string
     timestamp: string
   }>
@@ -142,7 +147,7 @@ export class SystemService {
         FROM agents
         WHERE status = 'connected'
       `)
-      
+
       const totalWorkers = parseInt(workerStats[0]?.totalWorkers) || 0
 
       return {
@@ -150,7 +155,7 @@ export class SystemService {
         connectedAgents,
         totalWorkers,
         activeWorkers: 0, // TODO: 实际统计活动的 Worker
-        totalTasks: 0,    // TODO: 实际统计任务
+        totalTasks: 0, // TODO: 实际统计任务
         completedTasks: 0,
         failedTasks: 0,
         pendingTasks: 0
@@ -214,7 +219,7 @@ export class SystemService {
 
     const idle = totalIdle / cpus.length
     const total = totalTick / cpus.length
-    const usage = 100 - ~~(100 * idle / total)
+    const usage = 100 - ~~((100 * idle) / total)
 
     return usage
   }
@@ -224,11 +229,11 @@ export class SystemService {
    */
   private formatBytes(bytes: number): string {
     if (bytes === 0) return '0 Bytes'
-    
+
     const k = 1024
     const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
-    
+
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
@@ -239,12 +244,12 @@ export class SystemService {
     const days = Math.floor(seconds / 86400)
     const hours = Math.floor((seconds % 86400) / 3600)
     const minutes = Math.floor((seconds % 3600) / 60)
-    
+
     const parts = []
     if (days > 0) parts.push(`${days}天`)
     if (hours > 0) parts.push(`${hours}小时`)
     if (minutes > 0) parts.push(`${minutes}分钟`)
-    
+
     return parts.join(' ') || '刚刚启动'
   }
 }

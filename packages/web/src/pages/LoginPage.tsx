@@ -8,7 +8,7 @@ export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { login, isLoading, error, isAuthenticated } = useAuthStore()
-  
+
   const [isLogin, setIsLogin] = useState(true)
   const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState({
@@ -18,7 +18,7 @@ export function LoginPage() {
     nickname: ''
   })
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
-  
+
   // 如果已登录，自动跳转
   useEffect(() => {
     if (isAuthenticated) {
@@ -30,7 +30,7 @@ export function LoginPage() {
   // 验证表单
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {}
-    
+
     if (isLogin) {
       if (!formData.username) {
         errors.username = '请输入用户名或邮箱'
@@ -49,7 +49,7 @@ export function LoginPage() {
         errors.password = '密码至少6个字符'
       }
     }
-    
+
     setFormErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -62,7 +62,7 @@ export function LoginPage() {
   // 处理提交
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!validateForm()) {
       return
     }
@@ -92,11 +92,11 @@ export function LoginPage() {
         }
 
         const data = await response.json()
-        
+
         // 注册成功后自动登录
         useAuthStore.getState().setAuth(data.user, data.accessToken, data.refreshToken)
       }
-      
+
       // 跳转到之前的页面或主页
       const from = location.state?.from?.pathname || '/'
       navigate(from, { replace: true })
@@ -122,16 +122,12 @@ export function LoginPage() {
     <div className="min-h-screen flex items-center justify-center p-4 relative bg-background">
       {/* Radix UI 风格背景 */}
       <RadixBackground />
-      
+
       <div className="w-full max-w-sm animate-slide-down relative z-10">
         {/* Logo 和标题 */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-semibold text-foreground mb-2">
-            AI Orchestra
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            智能 CLI 工具编排平台
-          </p>
+          <h1 className="text-3xl font-semibold text-foreground mb-2">AI Orchestra</h1>
+          <p className="text-sm text-muted-foreground">智能 CLI 工具编排平台</p>
         </div>
 
         {/* 登录卡片 */}
@@ -146,7 +142,7 @@ export function LoginPage() {
                 id="username"
                 type="text"
                 value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                onChange={e => setFormData({ ...formData, username: e.target.value })}
                 className="radix-input w-full h-10 px-3 rounded-md text-sm"
                 placeholder={isLogin ? 'demo' : ''}
               />
@@ -165,7 +161,7 @@ export function LoginPage() {
                   id="email"
                   type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={e => setFormData({ ...formData, email: e.target.value })}
                   className="radix-input w-full h-10 px-3 rounded-md text-sm"
                 />
                 {formErrors.email && (
@@ -184,7 +180,7 @@ export function LoginPage() {
                   id="nickname"
                   type="text"
                   value={formData.nickname}
-                  onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
+                  onChange={e => setFormData({ ...formData, nickname: e.target.value })}
                   className="radix-input w-full h-10 px-3 rounded-md text-sm"
                 />
               </div>
@@ -200,7 +196,7 @@ export function LoginPage() {
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  onChange={e => setFormData({ ...formData, password: e.target.value })}
                   className="radix-input w-full h-10 px-3 pr-10 rounded-md text-sm"
                   placeholder={isLogin ? 'demo123' : ''}
                 />
@@ -209,11 +205,7 @@ export function LoginPage() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
               {formErrors.password && (
@@ -239,18 +231,17 @@ export function LoginPage() {
                   <span className="mr-2 h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   {isLogin ? '登录中...' : '注册中...'}
                 </span>
+              ) : isLogin ? (
+                '登录'
               ) : (
-                isLogin ? '登录' : '注册'
+                '注册'
               )}
             </button>
           </form>
 
           {/* 切换登录/注册 */}
           <div className="mt-6 text-center">
-            <button
-              onClick={toggleMode}
-              className="radix-link text-sm"
-            >
+            <button onClick={toggleMode} className="radix-link text-sm">
               {isLogin ? '还没有账号？点击注册' : '已有账号？点击登录'}
             </button>
           </div>

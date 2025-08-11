@@ -5,14 +5,14 @@ import { Task } from '../entities/task.entity'
 import { TaskRepository } from '../repositories/task.repository'
 import { TaskService } from '../services/task.service'
 import { TaskController } from '../controllers/task.controller'
-import { WorkerModule } from './worker.module'
+// import { WorkerModule } from './worker.module' // 已移除
 import { AgentModule } from './agent.module'
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Task]),
     EventEmitterModule.forRoot(),
-    WorkerModule,
+    // WorkerModule, // 已移除
     AgentModule
   ],
   controllers: [TaskController],

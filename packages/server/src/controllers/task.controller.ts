@@ -1,21 +1,17 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Put, 
-  Delete, 
-  Body, 
-  Param, 
-  Query, 
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
   HttpCode,
   HttpStatus,
   UseGuards
 } from '@nestjs/common'
-import { 
-  TaskService,
-  CreateTaskDto,
-  UpdateTaskDto
-} from '../services/task.service'
+import { TaskService, CreateTaskDto, UpdateTaskDto } from '../services/task.service'
 import { Task } from '../entities/task.entity'
 
 @Controller('api/tasks')
@@ -36,9 +32,7 @@ export class TaskController {
    */
   @Post('batch')
   @HttpCode(HttpStatus.CREATED)
-  async createBatch(
-    @Body() data: { tasks: CreateTaskDto[] }
-  ): Promise<Task[]> {
+  async createBatch(@Body() data: { tasks: CreateTaskDto[] }): Promise<Task[]> {
     return this.taskService.createTasksBatch(data.tasks)
   }
 
@@ -72,10 +66,7 @@ export class TaskController {
    * 更新任务
    */
   @Put(':id')
-  async update(
-    @Param('id') id: string,
-    @Body() data: UpdateTaskDto
-  ): Promise<Task> {
+  async update(@Param('id') id: string, @Body() data: UpdateTaskDto): Promise<Task> {
     return this.taskService.updateTask(id, data)
   }
 

@@ -6,9 +6,9 @@ Object.defineProperty(window, 'localStorage', {
     getItem: vi.fn(),
     setItem: vi.fn(),
     removeItem: vi.fn(),
-    clear: vi.fn(),
+    clear: vi.fn()
   },
-  writable: true,
+  writable: true
 })
 
 Object.defineProperty(window, 'sessionStorage', {
@@ -16,15 +16,15 @@ Object.defineProperty(window, 'sessionStorage', {
     getItem: vi.fn(),
     setItem: vi.fn(),
     removeItem: vi.fn(),
-    clear: vi.fn(),
+    clear: vi.fn()
   },
-  writable: true,
+  writable: true
 })
 
 // Mock URL for blob downloads
 global.URL = {
   createObjectURL: vi.fn(() => 'blob:mock-url'),
-  revokeObjectURL: vi.fn(),
+  revokeObjectURL: vi.fn()
 } as any
 
 // Mock document for testing file downloads
@@ -34,20 +34,20 @@ Object.defineProperty(document, 'createElement', {
       return {
         href: '',
         download: '',
-        click: vi.fn(),
+        click: vi.fn()
       }
     }
     return {}
   }),
-  writable: true,
+  writable: true
 })
 
 Object.defineProperty(document, 'body', {
   value: {
     appendChild: vi.fn(),
-    removeChild: vi.fn(),
+    removeChild: vi.fn()
   },
-  writable: true,
+  writable: true
 })
 
 // Mock fetch globally
@@ -58,7 +58,7 @@ global.console = {
   ...console,
   log: vi.fn(),
   warn: vi.fn(),
-  error: vi.fn(),
+  error: vi.fn()
 }
 
 // Setup API base URL

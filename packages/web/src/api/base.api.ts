@@ -10,7 +10,13 @@ export class ApiErrorClass extends Error {
   public readonly timestamp: string
   public readonly path: string
 
-  constructor(statusCode: number, message: string | string[], error?: string, timestamp?: string, path?: string) {
+  constructor(
+    statusCode: number,
+    message: string | string[],
+    error?: string,
+    timestamp?: string,
+    path?: string
+  ) {
     super(Array.isArray(message) ? message.join(', ') : message)
     this.name = 'ApiErrorClass'
     this.statusCode = statusCode
@@ -80,7 +86,7 @@ export abstract class BaseApi {
    */
   protected async get<T>(endpoint: string, params?: Record<string, any>): Promise<T> {
     let url = `${this.basePath}${endpoint}`
-    
+
     if (params) {
       const searchParams = new URLSearchParams()
       Object.entries(params).forEach(([key, value]) => {
@@ -121,9 +127,9 @@ export abstract class BaseApi {
     // 使用fetch直接发送PATCH请求，因为HttpClient没有暴露makeRequest
     const authToken = this.getAuthToken()
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/json'
     }
-    
+
     if (authToken) {
       headers['Authorization'] = `Bearer ${authToken}`
     }
@@ -131,9 +137,9 @@ export abstract class BaseApi {
     const response = await fetch(`${this.basePath}${endpoint}`, {
       method: 'PATCH',
       headers,
-      body: data ? JSON.stringify(data) : undefined,
+      body: data ? JSON.stringify(data) : undefined
     })
-    
+
     return this.handleResponse<T>(response)
   }
 
@@ -166,14 +172,14 @@ export abstract class BaseApi {
    */
   protected buildPaginationParams(params?: PaginationParams): Record<string, any> {
     const result: Record<string, any> = {}
-    
+
     if (params?.page !== undefined) {
       result.page = params.page
     }
     if (params?.limit !== undefined) {
       result.limit = params.limit
     }
-    
+
     return result
   }
 }
@@ -181,13 +187,7 @@ export abstract class BaseApi {
 /**
  * 通用CRUD操作的基础类
  */
-export abstract class CrudApi<
-  TEntity,
-  TCreateDto,
-  TUpdateDto,
-  TStats = any
-> extends BaseApi {
-  
+export abstract class CrudApi<TEntity, TCreateDto, TUpdateDto, TStats = any> extends BaseApi {
   /**
    * 创建资源
    */

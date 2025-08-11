@@ -1,8 +1,17 @@
 import React, { useState, useEffect } from 'react'
-import { 
-  Plus, Database, Trash2, Edit, RefreshCw, 
-  CheckCircle, XCircle, AlertCircle, Eye, EyeOff,
-  FolderOpen, TestTube
+import {
+  Plus,
+  Database,
+  Trash2,
+  Edit,
+  RefreshCw,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Eye,
+  EyeOff,
+  FolderOpen,
+  TestTube
 } from 'lucide-react'
 import { useAuthStore } from '../../store/auth.store'
 
@@ -66,10 +75,10 @@ export function RepositorySettings() {
       setLoading(true)
       const response = await fetch('/api/repositories', {
         headers: {
-          'Authorization': `Bearer ${accessToken}`
+          Authorization: `Bearer ${accessToken}`
         }
       })
-      
+
       if (response.ok) {
         const data = await response.json()
         setRepositories(data)
@@ -83,16 +92,16 @@ export function RepositorySettings() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     try {
       const method = editingRepo ? 'PUT' : 'POST'
       const url = editingRepo ? `/api/repositories/${editingRepo.id}` : '/api/repositories'
-      
+
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
+          Authorization: `Bearer ${accessToken}`
         },
         body: JSON.stringify(formData)
       })
@@ -119,7 +128,7 @@ export function RepositorySettings() {
       const response = await fetch(`/api/repositories/${id}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${accessToken}`
+          Authorization: `Bearer ${accessToken}`
         }
       })
 
@@ -137,12 +146,12 @@ export function RepositorySettings() {
       const response = await fetch(`/api/repositories/${id}/test`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${accessToken}`
+          Authorization: `Bearer ${accessToken}`
         }
       })
 
       const result = await response.json()
-      
+
       if (result.success) {
         let message = result.message || '连接成功'
         if (result.details?.branches) {
@@ -156,7 +165,7 @@ export function RepositorySettings() {
       } else {
         alert(result.message || '连接失败')
       }
-      
+
       if (result.success) {
         await loadRepositories()
       }
@@ -182,7 +191,7 @@ export function RepositorySettings() {
 
     setTestingForm(true)
     setTestResult(null)
-    
+
     try {
       const testData = {
         url: formData.url || '',
@@ -191,43 +200,43 @@ export function RepositorySettings() {
         username: formData.username || '',
         password: formData.password || ''
       }
-      
+
       const testResponse = await fetch(`/api/repositories/test-config`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(testData)
       })
-      
+
       if (!testResponse.ok) {
         const error = await testResponse.json().catch(() => ({ message: '未知错误' }))
-        setTestResult({ 
-          success: false, 
-          message: `❌ ${error.message || '测试失败'}` 
+        setTestResult({
+          success: false,
+          message: `❌ ${error.message || '测试失败'}`
         })
         return
       }
-      
+
       const result = await testResponse.json()
-      
+
       // 构建详细的结果信息
       let message = result.message
       if (result.success && result.details?.branches) {
         setAvailableBranches(result.details.branches)
-        
+
         // 如果当前没有选择分支，或选择的分支不在列表中，使用默认分支
         if (!formData.branch || !result.details.branches.includes(formData.branch)) {
           setFormData(prev => ({ ...prev, branch: result.details.defaultBranch || 'main' }))
         }
-        
+
         message = `✅ ${message}\n找到 ${result.details.branches.length} 个分支`
       } else if (!result.success) {
         message = `❌ ${message}`
         setAvailableBranches([])
       }
-      
+
       setTestResult({ success: result.success, message, details: result.details })
     } catch (error) {
       setTestResult({ success: false, message: '测试失败：网络错误' })
@@ -242,7 +251,7 @@ export function RepositorySettings() {
       const response = await fetch(`/api/repositories/${id}/workspace`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ workerId: 'test-worker' })
@@ -365,13 +374,15 @@ export function RepositorySettings() {
           </div>
         ) : (
           <div className="divide-y divide-gray-200">
-            {repositories.map((repo) => (
+            {repositories.map(repo => (
               <div key={repo.id} className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h4 className="font-medium text-gray-900">{repo.name}</h4>
-                      <span className={`px-2 py-1 text-xs rounded-full flex items-center gap-1 ${getStatusBgColor(repo.status)}`}>
+                      <span
+                        className={`px-2 py-1 text-xs rounded-full flex items-center gap-1 ${getStatusBgColor(repo.status)}`}
+                      >
                         {getStatusIcon(repo.status)}
                         {getStatusText(repo.status)}
                       </span>
@@ -385,7 +396,7 @@ export function RepositorySettings() {
                       )}
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleTestConnection(repo.id)}
@@ -431,7 +442,7 @@ export function RepositorySettings() {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 {editingRepo ? '编辑仓库' : '添加仓库'}
               </h3>
-              
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">仓库名称</label>
@@ -439,7 +450,7 @@ export function RepositorySettings() {
                     type="text"
                     required
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={e => setFormData({ ...formData, name: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
                     placeholder="输入仓库名称"
                   />
@@ -449,7 +460,9 @@ export function RepositorySettings() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">仓库类型</label>
                   <select
                     value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value as 'git' | 'local' })}
+                    onChange={e =>
+                      setFormData({ ...formData, type: e.target.value as 'git' | 'local' })
+                    }
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
                   >
                     <option value="git">Git仓库</option>
@@ -465,9 +478,13 @@ export function RepositorySettings() {
                     type="text"
                     required
                     value={formData.url}
-                    onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                    onChange={e => setFormData({ ...formData, url: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
-                    placeholder={formData.type === 'git' ? 'https://github.com/user/repo.git' : '/path/to/local/directory'}
+                    placeholder={
+                      formData.type === 'git'
+                        ? 'https://github.com/user/repo.git'
+                        : '/path/to/local/directory'
+                    }
                   />
                 </div>
 
@@ -478,18 +495,20 @@ export function RepositorySettings() {
                       {availableBranches.length > 0 ? (
                         <select
                           value={formData.branch}
-                          onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
+                          onChange={e => setFormData({ ...formData, branch: e.target.value })}
                           className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
                         >
-                          {availableBranches.map((branch) => (
-                            <option key={branch} value={branch}>{branch}</option>
+                          {availableBranches.map(branch => (
+                            <option key={branch} value={branch}>
+                              {branch}
+                            </option>
                           ))}
                         </select>
                       ) : (
                         <input
                           type="text"
                           value={formData.branch}
-                          onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
+                          onChange={e => setFormData({ ...formData, branch: e.target.value })}
                           className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
                           placeholder="main（请先测试连接以获取分支列表）"
                         />
@@ -502,23 +521,27 @@ export function RepositorySettings() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">用户名（可选）</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        用户名（可选）
+                      </label>
                       <input
                         type="text"
                         value={formData.username}
-                        onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                        onChange={e => setFormData({ ...formData, username: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
                         placeholder="Git用户名"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">密码/Token（可选）</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        密码/Token（可选）
+                      </label>
                       <div className="relative">
                         <input
                           type={showPassword ? 'text' : 'password'}
                           value={formData.password}
-                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                          onChange={e => setFormData({ ...formData, password: e.target.value })}
                           className="w-full px-3 py-2 pr-10 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
                           placeholder="密码或Personal Access Token"
                         />
@@ -527,7 +550,11 @@ export function RepositorySettings() {
                           onClick={() => setShowPassword(!showPassword)}
                           className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                         >
-                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          {showPassword ? (
+                            <EyeOff className="w-4 h-4" />
+                          ) : (
+                            <Eye className="w-4 h-4" />
+                          )}
                         </button>
                       </div>
                     </div>
@@ -535,10 +562,12 @@ export function RepositorySettings() {
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">描述（可选）</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    描述（可选）
+                  </label>
                   <textarea
                     value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    onChange={e => setFormData({ ...formData, description: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
                     rows={3}
                     placeholder="仓库描述"
@@ -547,18 +576,22 @@ export function RepositorySettings() {
 
                 {/* 测试结果显示 */}
                 {testResult && (
-                  <div className={`p-3 rounded-lg border ${
-                    testResult.success 
-                      ? 'bg-green-50 border-green-200' 
-                      : 'bg-red-50 border-red-200'
-                  }`}>
+                  <div
+                    className={`p-3 rounded-lg border ${
+                      testResult.success
+                        ? 'bg-green-50 border-green-200'
+                        : 'bg-red-50 border-red-200'
+                    }`}
+                  >
                     <div className="flex items-start gap-2">
                       {testResult.success ? (
                         <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
                       ) : (
                         <XCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
                       )}
-                      <div className={`text-sm ${testResult.success ? 'text-green-700' : 'text-red-700'}`}>
+                      <div
+                        className={`text-sm ${testResult.success ? 'text-green-700' : 'text-red-700'}`}
+                      >
                         <pre className="whitespace-pre-wrap font-sans">{testResult.message}</pre>
                       </div>
                     </div>
@@ -584,7 +617,7 @@ export function RepositorySettings() {
                       </>
                     )}
                   </button>
-                  
+
                   <div className="flex gap-3">
                     <button
                       type="button"

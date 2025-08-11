@@ -1,20 +1,9 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Delete, 
-  Body, 
-  Param,
-  HttpCode,
-  HttpStatus
-} from '@nestjs/common'
+import { Controller, Get, Post, Delete, Body, Param, HttpCode, HttpStatus } from '@nestjs/common'
 import { DatabaseService } from '../services/database.service'
 
 @Controller('api/database')
 export class DatabaseController {
-  constructor(
-    private readonly databaseService: DatabaseService
-  ) {}
+  constructor(private readonly databaseService: DatabaseService) {}
 
   /**
    * 获取数据库信息

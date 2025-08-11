@@ -1,5 +1,16 @@
 import { useState, useEffect } from 'react'
-import { Activity, AlertCircle, CheckCircle, Clock, Cpu, HardDrive, RefreshCw, Server, Square, Zap } from 'lucide-react'
+import {
+  Activity,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  Cpu,
+  HardDrive,
+  RefreshCw,
+  Server,
+  Square,
+  Zap
+} from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
@@ -93,15 +104,14 @@ export function WorkerManagement() {
   const fetchWorkers = async () => {
     setLoading(true)
     try {
-      const url = selectedAgentId === 'all' 
-        ? '/api/workers/active'
-        : `/api/workers/agent/${selectedAgentId}`
-      
+      const url =
+        selectedAgentId === 'all' ? '/api/workers/active' : `/api/workers/agent/${selectedAgentId}`
+
       const response = await fetch(url)
       if (response.ok) {
         const data = await response.json()
         setWorkers(data)
-        
+
         // 计算统计信息
         const newStats: WorkerStats = {
           total: data.length,
@@ -125,7 +135,7 @@ export function WorkerManagement() {
 
   useEffect(() => {
     fetchWorkers()
-    
+
     // 自动刷新
     if (autoRefresh) {
       const interval = setInterval(fetchWorkers, 5000)
@@ -213,16 +223,16 @@ export function WorkerManagement() {
                   ))}
                 </SelectContent>
               </Select>
-              
+
               <Button
-                variant={autoRefresh ? "default" : "outline"}
+                variant={autoRefresh ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setAutoRefresh(!autoRefresh)}
               >
-                <RefreshCw className={cn("h-4 w-4 mr-2", autoRefresh && "animate-spin")} />
+                <RefreshCw className={cn('h-4 w-4 mr-2', autoRefresh && 'animate-spin')} />
                 自动刷新
               </Button>
-              
+
               <Button onClick={fetchWorkers} variant="outline" size="sm">
                 <RefreshCw className="h-4 w-4 mr-2" />
                 刷新
@@ -245,7 +255,7 @@ export function WorkerManagement() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -257,7 +267,7 @@ export function WorkerManagement() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -269,7 +279,7 @@ export function WorkerManagement() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -281,7 +291,7 @@ export function WorkerManagement() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -324,14 +334,12 @@ export function WorkerManagement() {
                     </td>
                   </tr>
                 ) : (
-                  workers.map((worker) => (
+                  workers.map(worker => (
                     <tr key={worker.id} className="border-b hover:bg-muted/50">
                       <td className="p-4">
                         <div>
                           <div className="font-medium">{worker.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            ID: {worker.workerId}
-                          </div>
+                          <div className="text-sm text-muted-foreground">ID: {worker.workerId}</div>
                         </div>
                       </td>
                       <td className="p-4">
@@ -340,9 +348,7 @@ export function WorkerManagement() {
                           {worker.status}
                         </Badge>
                         {worker.lastError && (
-                          <div className="mt-1 text-xs text-red-600">
-                            {worker.lastError}
-                          </div>
+                          <div className="mt-1 text-xs text-red-600">{worker.lastError}</div>
                         )}
                       </td>
                       <td className="p-4">
@@ -401,9 +407,7 @@ export function WorkerManagement() {
                         )}
                       </td>
                       <td className="p-4">
-                        <div className="text-sm">
-                          {getTimeDiff(worker.lastHeartbeat)}
-                        </div>
+                        <div className="text-sm">{getTimeDiff(worker.lastHeartbeat)}</div>
                       </td>
                     </tr>
                   ))

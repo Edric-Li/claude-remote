@@ -8,7 +8,7 @@ vi.mock('../../utils/httpClient', () => ({
     post: vi.fn(),
     get: vi.fn(),
     put: vi.fn(),
-    delete: vi.fn(),
+    delete: vi.fn()
   }
 }))
 
@@ -235,9 +235,11 @@ describe('UsersApi', () => {
     it('should export users as blob', async () => {
       // Mock localStorage for auth token
       const mockLocalStorage = {
-        getItem: vi.fn().mockReturnValue(JSON.stringify({
-          state: { accessToken: 'mock-token' }
-        }))
+        getItem: vi.fn().mockReturnValue(
+          JSON.stringify({
+            state: { accessToken: 'mock-token' }
+          })
+        )
       }
       Object.defineProperty(window, 'localStorage', {
         value: mockLocalStorage,
@@ -259,7 +261,7 @@ describe('UsersApi', () => {
         expect.objectContaining({
           method: 'GET',
           headers: {
-            'Authorization': 'Bearer mock-token'
+            Authorization: 'Bearer mock-token'
           }
         })
       )

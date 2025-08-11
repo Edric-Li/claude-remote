@@ -7,7 +7,7 @@ vi.mock('../../utils/httpClient', () => ({
   HttpClient: {
     post: vi.fn(),
     get: vi.fn(),
-    put: vi.fn(),
+    put: vi.fn()
   }
 }))
 
@@ -16,7 +16,7 @@ const mockLocalStorage = {
   getItem: vi.fn(),
   setItem: vi.fn(),
   removeItem: vi.fn(),
-  clear: vi.fn(),
+  clear: vi.fn()
 }
 Object.defineProperty(window, 'localStorage', {
   value: mockLocalStorage

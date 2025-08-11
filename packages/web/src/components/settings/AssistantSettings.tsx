@@ -1,11 +1,26 @@
 import React, { useState, useEffect } from 'react'
-import { 
-  Plus, Bot, Trash2, Edit, RefreshCw, 
-  AlertCircle, X,
-  Sparkles, Brain, Code, FileText, MessageCircle,
-  Zap, Shield
+import {
+  Plus,
+  Bot,
+  Trash2,
+  Edit,
+  RefreshCw,
+  AlertCircle,
+  X,
+  Sparkles,
+  Brain,
+  Code,
+  FileText,
+  MessageCircle,
+  Zap,
+  Shield
 } from 'lucide-react'
-import { useAssistantStore, initializeAssistantStore, type Assistant } from '../../store/assistant.store'
+import {
+  useAssistantStore,
+  initializeAssistantStore,
+  type Assistant
+} from '../../store/assistant.store'
+import { CreateAssistantModal, type CreateAssistantData } from '../assistant/CreateAssistantModal'
 
 interface AssistantFormData {
   name: string
@@ -21,9 +36,9 @@ interface AssistantFormData {
 }
 
 export function AssistantSettings() {
-  const { 
-    assistants, 
-    loading, 
+  const {
+    assistants,
+    loading,
     error,
     createAssistant,
     updateAssistant,
@@ -31,7 +46,8 @@ export function AssistantSettings() {
     toggleAssistant,
     clearError
   } = useAssistantStore()
-  
+
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [editingAssistant, setEditingAssistant] = useState<Assistant | null>(null)
   const [formData, setFormData] = useState<AssistantFormData>({
@@ -72,7 +88,7 @@ export function AssistantSettings() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     try {
       if (editingAssistant) {
         // Update existing assistant
@@ -85,6 +101,33 @@ export function AssistantSettings() {
     } catch (error) {
       console.error('Failed to save assistant:', error)
       alert('保存失败，请重试')
+    }
+  }
+
+  const handleCreateAssistant = async (data: CreateAssistantData) => {
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) throw new Error('未登录')
+
+      const response = await fetch('/assistants', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(data)
+      })
+
+      if (!response.ok) {
+        throw new Error('创建助手失败')
+      }
+
+      // 重新加载助手列表
+      await useAssistantStore.getState().loadAssistants()
+      setShowCreateModal(false)
+    } catch (error) {
+      console.error('Failed to create assistant:', error)
+      throw error
     }
   }
 
@@ -151,13 +194,20 @@ export function AssistantSettings() {
   const getTypeColor = (type: string) => {
     const typeConfig = assistantTypes.find(t => t.value === type)
     switch (typeConfig?.color) {
-      case 'blue': return 'bg-blue-100 text-blue-700'
-      case 'green': return 'bg-green-100 text-green-700'
-      case 'purple': return 'bg-purple-100 text-purple-700'
-      case 'indigo': return 'bg-indigo-100 text-indigo-700'
-      case 'pink': return 'bg-pink-100 text-pink-700'
-      case 'orange': return 'bg-orange-100 text-orange-700'
-      default: return 'bg-gray-100 text-gray-700'
+      case 'blue':
+        return 'bg-blue-100 text-blue-700'
+      case 'green':
+        return 'bg-green-100 text-green-700'
+      case 'purple':
+        return 'bg-purple-100 text-purple-700'
+      case 'indigo':
+        return 'bg-indigo-100 text-indigo-700'
+      case 'pink':
+        return 'bg-pink-100 text-pink-700'
+      case 'orange':
+        return 'bg-orange-100 text-orange-700'
+      default:
+        return 'bg-gray-100 text-gray-700'
     }
   }
 
@@ -196,7 +246,7 @@ export function AssistantSettings() {
           <p className="text-sm text-gray-600">创建和管理您的AI助手</p>
         </div>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => setShowCreateModal(true)}
           className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
@@ -212,10 +262,7 @@ export function AssistantSettings() {
             <div className="flex-1">
               <p className="text-sm text-red-700">{error}</p>
             </div>
-            <button
-              onClick={clearError}
-              className="text-red-400 hover:text-red-600"
-            >
+            <button onClick={clearError} className="text-red-400 hover:text-red-600">
               <X className="w-3 h-3" />
             </button>
           </div>
@@ -238,7 +285,7 @@ export function AssistantSettings() {
           </div>
         ) : (
           <div className="divide-y divide-gray-200">
-            {assistants.map((assistant) => {
+            {assistants.map(assistant => {
               const IconComponent = getTypeIcon(assistant.type)
               return (
                 <div key={assistant.id} className="p-4">
@@ -249,7 +296,9 @@ export function AssistantSettings() {
                         <div>
                           <h4 className="font-medium text-gray-900">{assistant.name}</h4>
                           <div className="flex items-center gap-2 mt-1">
-                            <span className={`px-2 py-1 text-xs rounded-full flex items-center gap-1 ${getTypeColor(assistant.type)}`}>
+                            <span
+                              className={`px-2 py-1 text-xs rounded-full flex items-center gap-1 ${getTypeColor(assistant.type)}`}
+                            >
                               <IconComponent className="w-3 h-3" />
                               {assistantTypes.find(t => t.value === assistant.type)?.label}
                             </span>
@@ -257,14 +306,18 @@ export function AssistantSettings() {
                               {models.find(m => m.value === assistant.model)?.label}
                             </span>
                             {assistant.isActive ? (
-                              <span className="px-2 py-1 text-xs rounded bg-green-100 text-green-700">激活</span>
+                              <span className="px-2 py-1 text-xs rounded bg-green-100 text-green-700">
+                                激活
+                              </span>
                             ) : (
-                              <span className="px-2 py-1 text-xs rounded bg-gray-100 text-gray-600">未激活</span>
+                              <span className="px-2 py-1 text-xs rounded bg-gray-100 text-gray-600">
+                                未激活
+                              </span>
                             )}
                           </div>
                         </div>
                       </div>
-                      
+
                       <p className="text-sm text-gray-600 mb-3">{assistant.description}</p>
 
                       {/* 配置信息 */}
@@ -276,7 +329,8 @@ export function AssistantSettings() {
                           <span className="font-medium">最大Token:</span> {assistant.maxTokens}
                         </div>
                         <div>
-                          <span className="font-medium">可见性:</span> {assistant.isPublic ? '公开' : '私有'}
+                          <span className="font-medium">可见性:</span>{' '}
+                          {assistant.isPublic ? '公开' : '私有'}
                         </div>
                       </div>
 
@@ -285,18 +339,22 @@ export function AssistantSettings() {
                         <span>更新时间: {assistant.updatedAt.toLocaleDateString()}</span>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-2 ml-4">
                       <button
                         onClick={() => handleToggleActive(assistant.id)}
                         className={`p-2 transition-colors ${
-                          assistant.isActive 
-                            ? 'text-orange-400 hover:text-orange-600' 
+                          assistant.isActive
+                            ? 'text-orange-400 hover:text-orange-600'
                             : 'text-green-400 hover:text-green-600'
                         }`}
                         title={assistant.isActive ? '停用助手' : '激活助手'}
                       >
-                        {assistant.isActive ? <Shield className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
+                        {assistant.isActive ? (
+                          <Shield className="w-4 h-4" />
+                        ) : (
+                          <Zap className="w-4 h-4" />
+                        )}
                       </button>
                       <button
                         onClick={() => handleEdit(assistant)}
@@ -329,7 +387,7 @@ export function AssistantSettings() {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 {editingAssistant ? '编辑助手' : '添加助手'}
               </h3>
-              
+
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* 基本信息 */}
                 <div className="grid grid-cols-2 gap-4">
@@ -339,7 +397,7 @@ export function AssistantSettings() {
                       type="text"
                       required
                       value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      onChange={e => setFormData({ ...formData, name: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
                       placeholder="输入助手名称"
                     />
@@ -351,11 +409,13 @@ export function AssistantSettings() {
                       <span className="text-2xl">{formData.avatar}</span>
                       <select
                         value={formData.avatar}
-                        onChange={(e) => setFormData({ ...formData, avatar: e.target.value })}
+                        onChange={e => setFormData({ ...formData, avatar: e.target.value })}
                         className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
                       >
-                        {avatarOptions.map((avatar) => (
-                          <option key={avatar} value={avatar}>{avatar}</option>
+                        {avatarOptions.map(avatar => (
+                          <option key={avatar} value={avatar}>
+                            {avatar}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -366,7 +426,7 @@ export function AssistantSettings() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">描述</label>
                   <textarea
                     value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    onChange={e => setFormData({ ...formData, description: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
                     rows={3}
                     placeholder="简单描述助手的功能和特点"
@@ -378,7 +438,7 @@ export function AssistantSettings() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">助手类型</label>
                     <div className="space-y-2">
-                      {assistantTypes.map((type) => {
+                      {assistantTypes.map(type => {
                         const IconComponent = type.icon
                         return (
                           <label key={type.value} className="flex items-center">
@@ -387,11 +447,14 @@ export function AssistantSettings() {
                               name="type"
                               value={type.value}
                               checked={formData.type === type.value}
-                              onChange={(e) => setFormData({ 
-                                ...formData, 
-                                type: e.target.value as any,
-                                systemPrompt: formData.systemPrompt || getSystemPromptPreview(e.target.value)
-                              })}
+                              onChange={e =>
+                                setFormData({
+                                  ...formData,
+                                  type: e.target.value as any,
+                                  systemPrompt:
+                                    formData.systemPrompt || getSystemPromptPreview(e.target.value)
+                                })
+                              }
                               className="w-4 h-4 text-blue-600"
                             />
                             <IconComponent className="w-4 h-4 ml-2 mr-1" />
@@ -406,10 +469,10 @@ export function AssistantSettings() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">AI模型</label>
                     <select
                       value={formData.model}
-                      onChange={(e) => setFormData({ ...formData, model: e.target.value as any })}
+                      onChange={e => setFormData({ ...formData, model: e.target.value as any })}
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
                     >
-                      {models.map((model) => (
+                      {models.map(model => (
                         <option key={model.value} value={model.value}>
                           {model.label}
                         </option>
@@ -426,14 +489,12 @@ export function AssistantSettings() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">系统提示词</label>
                   <textarea
                     value={formData.systemPrompt}
-                    onChange={(e) => setFormData({ ...formData, systemPrompt: e.target.value })}
+                    onChange={e => setFormData({ ...formData, systemPrompt: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
                     rows={4}
                     placeholder={getSystemPromptPreview(formData.type)}
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    定义助手的角色、行为和响应风格
-                  </p>
+                  <p className="text-xs text-gray-500 mt-1">定义助手的角色、行为和响应风格</p>
                 </div>
 
                 {/* 参数设置 */}
@@ -448,7 +509,9 @@ export function AssistantSettings() {
                       max="1"
                       step="0.1"
                       value={formData.temperature}
-                      onChange={(e) => setFormData({ ...formData, temperature: parseFloat(e.target.value) })}
+                      onChange={e =>
+                        setFormData({ ...formData, temperature: parseFloat(e.target.value) })
+                      }
                       className="w-full"
                     />
                     <div className="flex justify-between text-xs text-gray-500">
@@ -458,13 +521,17 @@ export function AssistantSettings() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">最大Token数</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      最大Token数
+                    </label>
                     <input
                       type="number"
                       min="100"
                       max="8000"
                       value={formData.maxTokens}
-                      onChange={(e) => setFormData({ ...formData, maxTokens: parseInt(e.target.value) })}
+                      onChange={e =>
+                        setFormData({ ...formData, maxTokens: parseInt(e.target.value) })
+                      }
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
                     />
                   </div>
@@ -476,7 +543,7 @@ export function AssistantSettings() {
                     <input
                       type="checkbox"
                       checked={formData.isPublic}
-                      onChange={(e) => setFormData({ ...formData, isPublic: e.target.checked })}
+                      onChange={e => setFormData({ ...formData, isPublic: e.target.checked })}
                       className="w-4 h-4 text-blue-600 rounded"
                     />
                     <span className="ml-2 text-sm text-gray-700">公开助手</span>
@@ -486,7 +553,7 @@ export function AssistantSettings() {
                     <input
                       type="checkbox"
                       checked={formData.isActive}
-                      onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                      onChange={e => setFormData({ ...formData, isActive: e.target.checked })}
                       className="w-4 h-4 text-blue-600 rounded"
                     />
                     <span className="ml-2 text-sm text-gray-700">立即激活</span>
@@ -513,6 +580,13 @@ export function AssistantSettings() {
           </div>
         </div>
       )}
+
+      {/* 创建助手模态框 */}
+      <CreateAssistantModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSubmit={handleCreateAssistant}
+      />
     </div>
   )
 }

@@ -10,33 +10,33 @@ import { useAuthStore } from './auth.store'
 export interface Assistant {
   id: string
   name: string
-  description: string
+  description?: string
   avatar: string
-  type: 'general' | 'coding' | 'writing' | 'analysis' | 'creative' | 'support'
-  model: 'claude-3' | 'gpt-4' | 'gemini-pro' | 'custom'
-  systemPrompt: string
-  temperature: number
-  maxTokens: number
-  isPublic: boolean
-  isActive: boolean
+  aiConfigId: string
+  status: 'active' | 'inactive' | 'creating' | 'error'
   createdAt: Date
   updatedAt: Date
   userId: string
+  // Relations
+  repositories?: any[]
+  aiConfig?: any
 }
 
 interface AssistantState {
   assistants: Assistant[]
   loading: boolean
   error: string | null
-  
+
   // Actions
   loadAssistants: () => Promise<void>
-  createAssistant: (data: Omit<Assistant, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => Promise<Assistant>
+  createAssistant: (
+    data: Omit<Assistant, 'id' | 'createdAt' | 'updatedAt' | 'userId'>
+  ) => Promise<Assistant>
   updateAssistant: (id: string, data: Partial<Assistant>) => Promise<void>
   deleteAssistant: (id: string) => Promise<void>
   toggleAssistant: (id: string) => Promise<void>
   clearError: () => void
-  
+
   // Local helpers
   getAssistantById: (id: string) => Assistant | undefined
   getActiveAssistants: () => Assistant[]
@@ -52,13 +52,13 @@ export const useAssistantStore = create<AssistantState>()(
 
       loadAssistants: async () => {
         set({ loading: true, error: null })
-        
+
         try {
           const { accessToken } = useAuthStore.getState()
-          
-          const response = await fetch('/api/assistants', {
+
+          const response = await fetch('/assistants', {
             headers: {
-              'Authorization': `Bearer ${accessToken}`
+              Authorization: `Bearer ${accessToken}`
             }
           })
 
@@ -67,7 +67,7 @@ export const useAssistantStore = create<AssistantState>()(
           }
 
           const data = await response.json()
-          
+
           const assistants = data.map((assistant: any) => ({
             ...assistant,
             createdAt: new Date(assistant.createdAt),
@@ -75,14 +75,13 @@ export const useAssistantStore = create<AssistantState>()(
           }))
 
           set({ assistants, loading: false })
-          
         } catch (error: any) {
           console.error('Failed to load assistants:', error)
-          set({ 
-            loading: false, 
+          set({
+            loading: false,
             error: error.message || '加载助手失败'
           })
-          
+
           // 如果是网络错误或服务器未实现，使用本地示例数据
           if (error.message.includes('fetch') || error.message.includes('404')) {
             const sampleAssistants: Assistant[] = [
@@ -93,7 +92,8 @@ export const useAssistantStore = create<AssistantState>()(
                 avatar: '👨‍💻',
                 type: 'coding',
                 model: 'claude-3',
-                systemPrompt: '你是一个专业的编程助手，擅长多种编程语言和软件开发最佳实践。你能帮助用户解决编程问题、代码审查、架构设计等。',
+                systemPrompt:
+                  '你是一个专业的编程助手，擅长多种编程语言和软件开发最佳实践。你能帮助用户解决编程问题、代码审查、架构设计等。',
                 temperature: 0.3,
                 maxTokens: 2000,
                 isPublic: false,
@@ -109,7 +109,8 @@ export const useAssistantStore = create<AssistantState>()(
                 avatar: '✍️',
                 type: 'writing',
                 model: 'gpt-4',
-                systemPrompt: '你是一个优秀的写作助手，能够帮助用户创作各种类型的文本内容，包括文章、营销文案、创意故事等。',
+                systemPrompt:
+                  '你是一个优秀的写作助手，能够帮助用户创作各种类型的文本内容，包括文章、营销文案、创意故事等。',
                 temperature: 0.8,
                 maxTokens: 3000,
                 isPublic: true,
@@ -125,7 +126,8 @@ export const useAssistantStore = create<AssistantState>()(
                 avatar: '📊',
                 type: 'analysis',
                 model: 'gemini-pro',
-                systemPrompt: '你是一个数据分析专家，擅长解读数据、发现趋势和提供商业洞察。能够帮助用户进行数据分析和决策支持。',
+                systemPrompt:
+                  '你是一个数据分析专家，擅长解读数据、发现趋势和提供商业洞察。能够帮助用户进行数据分析和决策支持。',
                 temperature: 0.4,
                 maxTokens: 2500,
                 isPublic: false,
@@ -135,23 +137,23 @@ export const useAssistantStore = create<AssistantState>()(
                 userId: 'user-1'
               }
             ]
-            
+
             set({ assistants: sampleAssistants, loading: false, error: null })
           }
         }
       },
 
-      createAssistant: async (data) => {
+      createAssistant: async data => {
         set({ loading: true, error: null })
-        
+
         try {
           const { accessToken } = useAuthStore.getState()
-          
-          const response = await fetch('/api/assistants', {
+
+          const response = await fetch('/assistants', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${accessToken}`
+              Authorization: `Bearer ${accessToken}`
             },
             body: JSON.stringify(data)
           })
@@ -161,23 +163,22 @@ export const useAssistantStore = create<AssistantState>()(
           }
 
           const createdAssistant = await response.json()
-          
+
           const assistant: Assistant = {
             ...createdAssistant,
             createdAt: new Date(createdAssistant.createdAt),
             updatedAt: new Date(createdAssistant.updatedAt)
           }
 
-          set(state => ({ 
-            assistants: [...state.assistants, assistant], 
-            loading: false 
+          set(state => ({
+            assistants: [...state.assistants, assistant],
+            loading: false
           }))
-          
+
           return assistant
-          
         } catch (error: any) {
           console.error('Failed to create assistant:', error)
-          
+
           // 如果API不可用，创建本地助手
           const assistant: Assistant = {
             ...data,
@@ -186,28 +187,28 @@ export const useAssistantStore = create<AssistantState>()(
             updatedAt: new Date(),
             userId: 'user-1'
           }
-          
-          set(state => ({ 
-            assistants: [...state.assistants, assistant], 
+
+          set(state => ({
+            assistants: [...state.assistants, assistant],
             loading: false,
             error: null
           }))
-          
+
           return assistant
         }
       },
 
       updateAssistant: async (id, data) => {
         set({ loading: true, error: null })
-        
+
         try {
           const { accessToken } = useAuthStore.getState()
-          
-          const response = await fetch(`/api/assistants/${id}`, {
+
+          const response = await fetch(`/assistants/${id}`, {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${accessToken}`
+              Authorization: `Bearer ${accessToken}`
             },
             body: JSON.stringify(data)
           })
@@ -217,29 +218,26 @@ export const useAssistantStore = create<AssistantState>()(
           }
 
           const updatedAssistant = await response.json()
-          
+
           set(state => ({
             assistants: state.assistants.map(assistant =>
-              assistant.id === id 
-                ? { 
-                    ...assistant, 
-                    ...updatedAssistant, 
+              assistant.id === id
+                ? {
+                    ...assistant,
+                    ...updatedAssistant,
                     updatedAt: new Date(updatedAssistant.updatedAt || new Date())
                   }
                 : assistant
             ),
             loading: false
           }))
-          
         } catch (error: any) {
           console.error('Failed to update assistant:', error)
-          
+
           // 如果API不可用，更新本地数据
           set(state => ({
             assistants: state.assistants.map(assistant =>
-              assistant.id === id 
-                ? { ...assistant, ...data, updatedAt: new Date() }
-                : assistant
+              assistant.id === id ? { ...assistant, ...data, updatedAt: new Date() } : assistant
             ),
             loading: false,
             error: null
@@ -247,16 +245,16 @@ export const useAssistantStore = create<AssistantState>()(
         }
       },
 
-      deleteAssistant: async (id) => {
+      deleteAssistant: async id => {
         set({ loading: true, error: null })
-        
+
         try {
           const { accessToken } = useAuthStore.getState()
-          
-          const response = await fetch(`/api/assistants/${id}`, {
+
+          const response = await fetch(`/assistants/${id}`, {
             method: 'DELETE',
             headers: {
-              'Authorization': `Bearer ${accessToken}`
+              Authorization: `Bearer ${accessToken}`
             }
           })
 
@@ -268,10 +266,9 @@ export const useAssistantStore = create<AssistantState>()(
             assistants: state.assistants.filter(assistant => assistant.id !== id),
             loading: false
           }))
-          
         } catch (error: any) {
           console.error('Failed to delete assistant:', error)
-          
+
           // 如果API不可用，删除本地数据
           set(state => ({
             assistants: state.assistants.filter(assistant => assistant.id !== id),
@@ -281,7 +278,7 @@ export const useAssistantStore = create<AssistantState>()(
         }
       },
 
-      toggleAssistant: async (id) => {
+      toggleAssistant: async id => {
         const assistant = get().getAssistantById(id)
         if (!assistant) return
 
@@ -293,7 +290,7 @@ export const useAssistantStore = create<AssistantState>()(
       },
 
       // Local helpers
-      getAssistantById: (id) => {
+      getAssistantById: id => {
         return get().assistants.find(assistant => assistant.id === id)
       },
 
@@ -301,13 +298,13 @@ export const useAssistantStore = create<AssistantState>()(
         return get().assistants.filter(assistant => assistant.isActive)
       },
 
-      getAssistantsByType: (type) => {
+      getAssistantsByType: type => {
         return get().assistants.filter(assistant => assistant.type === type)
       }
     }),
     {
       name: 'assistant-storage',
-      partialize: (state) => ({
+      partialize: state => ({
         assistants: state.assistants
       })
     }
@@ -322,7 +319,7 @@ export const initializeAssistantStore = () => {
   initialized = true
 
   const store = useAssistantStore.getState()
-  
+
   // 页面加载时自动获取助手列表
   store.loadAssistants()
 }

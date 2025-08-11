@@ -59,11 +59,11 @@ const child = spawn('npx', ['tsx', agentPath], {
   cwd: __dirname
 })
 
-child.on('error', (err) => {
+child.on('error', err => {
   console.error('❌ Failed to start agent:', err.message)
   process.exit(1)
 })
 
-child.on('exit', (code) => {
+child.on('exit', code => {
   process.exit(code || 0)
 })

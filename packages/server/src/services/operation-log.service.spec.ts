@@ -19,7 +19,7 @@ describe('OperationLogService', () => {
     operationData: { loginMethod: 'password' },
     ipAddress: '127.0.0.1',
     userAgent: 'test-agent',
-    createdAt: new Date(),
+    createdAt: new Date()
   }
 
   beforeEach(async () => {
@@ -28,9 +28,9 @@ describe('OperationLogService', () => {
         OperationLogService,
         {
           provide: getRepositoryToken(OperationLog),
-          useValue: createMockRepository(),
-        },
-      ],
+          useValue: createMockRepository()
+        }
+      ]
     }).compile()
 
     service = module.get<OperationLogService>(OperationLogService)
@@ -45,7 +45,7 @@ describe('OperationLogService', () => {
       resourceId: 'user-1',
       operationData: { loginMethod: 'password' },
       ipAddress: '127.0.0.1',
-      userAgent: 'test-agent',
+      userAgent: 'test-agent'
     }
 
     it('should create operation log successfully', async () => {
@@ -64,7 +64,7 @@ describe('OperationLogService', () => {
         userId: 'user-1',
         operationType: 'user_logout',
         resourceType: 'user',
-        resourceId: 'user-1',
+        resourceId: 'user-1'
       }
       const minimalLog = { ...mockOperationLog, ...minimalLogDto }
       operationLogRepository.create.mockReturnValue(minimalLog as OperationLog)
@@ -81,8 +81,7 @@ describe('OperationLogService', () => {
       operationLogRepository.create.mockReturnValue(mockOperationLog as OperationLog)
       operationLogRepository.save.mockRejectedValue(error)
 
-      await expect(service.createLog(createLogDto))
-        .rejects.toThrow('Database error')
+      await expect(service.createLog(createLogDto)).rejects.toThrow('Database error')
     })
   })
 
@@ -96,7 +95,7 @@ describe('OperationLogService', () => {
       expect(operationLogRepository.find).toHaveBeenCalledWith({
         where: { userId: 'user-1' },
         order: { createdAt: 'DESC' },
-        take: 100,
+        take: 100
       })
       expect(result).toEqual(logs)
     })
@@ -111,7 +110,7 @@ describe('OperationLogService', () => {
         where: { userId: 'user-1' },
         order: { createdAt: 'DESC' },
         take: 50,
-        skip: 20,
+        skip: 20
       })
     })
 
@@ -124,7 +123,7 @@ describe('OperationLogService', () => {
       expect(operationLogRepository.find).toHaveBeenCalledWith({
         where: { userId: 'user-1', operationType: 'user_login' },
         order: { createdAt: 'DESC' },
-        take: 100,
+        take: 100
       })
     })
 
@@ -137,7 +136,7 @@ describe('OperationLogService', () => {
       expect(operationLogRepository.find).toHaveBeenCalledWith({
         where: { userId: 'user-1', resourceType: 'assistant' },
         order: { createdAt: 'DESC' },
-        take: 100,
+        take: 100
       })
     })
 
@@ -148,14 +147,14 @@ describe('OperationLogService', () => {
       await service.findUserLogs('user-1', 20, 10, 'assistant_create', 'assistant')
 
       expect(operationLogRepository.find).toHaveBeenCalledWith({
-        where: { 
-          userId: 'user-1', 
+        where: {
+          userId: 'user-1',
           operationType: 'assistant_create',
           resourceType: 'assistant'
         },
         order: { createdAt: 'DESC' },
         take: 20,
-        skip: 10,
+        skip: 10
       })
     })
   })
@@ -169,7 +168,7 @@ describe('OperationLogService', () => {
 
       expect(operationLogRepository.find).toHaveBeenCalledWith({
         order: { createdAt: 'DESC' },
-        take: 100,
+        take: 100
       })
       expect(result).toEqual(logs)
     })
@@ -183,7 +182,7 @@ describe('OperationLogService', () => {
       expect(operationLogRepository.find).toHaveBeenCalledWith({
         order: { createdAt: 'DESC' },
         take: 50,
-        skip: 20,
+        skip: 20
       })
     })
 
@@ -196,7 +195,7 @@ describe('OperationLogService', () => {
       expect(operationLogRepository.find).toHaveBeenCalledWith({
         where: { operationType: 'system_backup' },
         order: { createdAt: 'DESC' },
-        take: 100,
+        take: 100
       })
     })
 
@@ -209,7 +208,7 @@ describe('OperationLogService', () => {
       expect(operationLogRepository.find).toHaveBeenCalledWith({
         where: { resourceType: 'system' },
         order: { createdAt: 'DESC' },
-        take: 100,
+        take: 100
       })
     })
   })
@@ -219,7 +218,7 @@ describe('OperationLogService', () => {
       const mockStats = [
         { operationType: 'user_login', count: '5' },
         { operationType: 'assistant_create', count: '3' },
-        { operationType: 'repository_sync', count: '2' },
+        { operationType: 'repository_sync', count: '2' }
       ]
       operationLogRepository.createQueryBuilder.mockReturnValue({
         select: jest.fn().mockReturnThis(),
@@ -227,7 +226,7 @@ describe('OperationLogService', () => {
         andWhere: jest.fn().mockReturnThis(),
         groupBy: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
-        getRawMany: jest.fn().mockResolvedValue(mockStats),
+        getRawMany: jest.fn().mockResolvedValue(mockStats)
       } as any)
 
       const result = await service.getLogStats('user-1')
@@ -237,22 +236,20 @@ describe('OperationLogService', () => {
         byOperationType: {
           user_login: 5,
           assistant_create: 3,
-          repository_sync: 2,
-        },
+          repository_sync: 2
+        }
       })
     })
 
     it('should get system-wide stats when no user specified', async () => {
-      const mockStats = [
-        { operationType: 'system_backup', count: '2' },
-      ]
+      const mockStats = [{ operationType: 'system_backup', count: '2' }]
       operationLogRepository.createQueryBuilder.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         groupBy: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
-        getRawMany: jest.fn().mockResolvedValue(mockStats),
+        getRawMany: jest.fn().mockResolvedValue(mockStats)
       } as any)
 
       const result = await service.getLogStats()
@@ -260,25 +257,23 @@ describe('OperationLogService', () => {
       expect(result).toEqual({
         total: 2,
         byOperationType: {
-          system_backup: 2,
-        },
+          system_backup: 2
+        }
       })
     })
 
     it('should filter stats by date range', async () => {
-      const mockStats = [
-        { operationType: 'user_login', count: '3' },
-      ]
+      const mockStats = [{ operationType: 'user_login', count: '3' }]
       const startDate = new Date('2024-01-01')
       const endDate = new Date('2024-01-31')
-      
+
       const mockQueryBuilder = {
         select: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         groupBy: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
-        getRawMany: jest.fn().mockResolvedValue(mockStats),
+        getRawMany: jest.fn().mockResolvedValue(mockStats)
       }
       operationLogRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder as any)
 
@@ -296,7 +291,7 @@ describe('OperationLogService', () => {
     it('should delete old logs successfully', async () => {
       const cutoffDate = new Date()
       cutoffDate.setDate(cutoffDate.getDate() - 90)
-      
+
       operationLogRepository.delete.mockResolvedValue({ affected: 100, raw: {} })
 
       const result = await service.cleanupOldLogs(90)

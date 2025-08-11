@@ -8,8 +8,17 @@ import { UserAssistant } from '../entities/user-assistant.entity'
 import { AssistantRepository } from '../entities/assistant-repository.entity'
 import { UserRepository } from '../entities/user-repository.entity'
 import { UserAiConfig } from '../entities/user-ai-config.entity'
-import { mockAssistant, mockAiConfig, mockRepository, createMockRepository } from '../test/test-utils'
-import { CreateAssistantDto, UpdateAssistantDto, AssistantRepositoryDto } from '../dto/user-assistant.dto'
+import {
+  mockAssistant,
+  mockAiConfig,
+  mockRepository,
+  createMockRepository
+} from '../test/test-utils'
+import {
+  CreateAssistantDto,
+  UpdateAssistantDto,
+  AssistantRepositoryDto
+} from '../dto/user-assistant.dto'
 
 describe('UserAssistantService', () => {
   let service: UserAssistantService
@@ -25,27 +34,27 @@ describe('UserAssistantService', () => {
         UserAssistantService,
         {
           provide: getRepositoryToken(UserAssistant),
-          useValue: createMockRepository(),
+          useValue: createMockRepository()
         },
         {
           provide: getRepositoryToken(AssistantRepository),
-          useValue: createMockRepository(),
+          useValue: createMockRepository()
         },
         {
           provide: getRepositoryToken(UserRepository),
-          useValue: createMockRepository(),
+          useValue: createMockRepository()
         },
         {
           provide: getRepositoryToken(UserAiConfig),
-          useValue: createMockRepository(),
+          useValue: createMockRepository()
         },
         {
           provide: OperationLogService,
           useValue: {
-            createLog: jest.fn().mockResolvedValue({}),
-          },
-        },
-      ],
+            createLog: jest.fn().mockResolvedValue({})
+          }
+        }
+      ]
     }).compile()
 
     service = module.get<UserAssistantService>(UserAssistantService)
@@ -61,7 +70,7 @@ describe('UserAssistantService', () => {
       name: 'Test Assistant',
       description: 'A test assistant',
       aiConfigId: 'config-1',
-      repositoryIds: ['repo-1'],
+      repositoryIds: ['repo-1']
     }
 
     it('should create assistant successfully', async () => {
@@ -92,7 +101,7 @@ describe('UserAssistantService', () => {
         description: createAssistantDto.description,
         avatar: createAssistantDto.avatar,
         aiConfigId: createAssistantDto.aiConfigId,
-        status: 'creating',
+        status: 'creating'
       })
       expect(operationLogService.createLog).toHaveBeenCalled()
       expect(result.status).toBe('active')
@@ -101,16 +110,18 @@ describe('UserAssistantService', () => {
     it('should throw ConflictException if assistant name exists', async () => {
       assistantRepository.findOne.mockResolvedValue(mockAssistant as UserAssistant)
 
-      await expect(service.createAssistant('user-1', createAssistantDto))
-        .rejects.toThrow(ConflictException)
+      await expect(service.createAssistant('user-1', createAssistantDto)).rejects.toThrow(
+        ConflictException
+      )
     })
 
     it('should throw BadRequestException if AI config not found', async () => {
       assistantRepository.findOne.mockResolvedValue(null)
       aiConfigRepository.findOne.mockResolvedValue(null)
 
-      await expect(service.createAssistant('user-1', createAssistantDto))
-        .rejects.toThrow(BadRequestException)
+      await expect(service.createAssistant('user-1', createAssistantDto)).rejects.toThrow(
+        BadRequestException
+      )
     })
 
     it('should throw BadRequestException if repository not found', async () => {
@@ -118,8 +129,9 @@ describe('UserAssistantService', () => {
       aiConfigRepository.findOne.mockResolvedValue(mockAiConfig as UserAiConfig)
       userRepoRepository.find.mockResolvedValue([]) // No repositories found
 
-      await expect(service.createAssistant('user-1', createAssistantDto))
-        .rejects.toThrow(BadRequestException)
+      await expect(service.createAssistant('user-1', createAssistantDto)).rejects.toThrow(
+        BadRequestException
+      )
     })
 
     it('should create assistant without repositories', async () => {
@@ -183,15 +195,14 @@ describe('UserAssistantService', () => {
     it('should throw NotFoundException if assistant not found', async () => {
       assistantRepository.findOne.mockResolvedValue(null)
 
-      await expect(service.findById('assistant-1', 'user-1'))
-        .rejects.toThrow(NotFoundException)
+      await expect(service.findById('assistant-1', 'user-1')).rejects.toThrow(NotFoundException)
     })
   })
 
   describe('updateAssistant', () => {
     const updateAssistantDto: UpdateAssistantDto = {
       name: 'Updated Assistant',
-      aiConfigId: 'config-2',
+      aiConfigId: 'config-2'
     }
 
     it('should update assistant successfully', async () => {
@@ -221,8 +232,9 @@ describe('UserAssistantService', () => {
         .mockResolvedValueOnce(mockAssistant as UserAssistant) // findById call
         .mockResolvedValueOnce(anotherAssistant as UserAssistant) // name check
 
-      await expect(service.updateAssistant('assistant-1', 'user-1', updateAssistantDto))
-        .rejects.toThrow(ConflictException)
+      await expect(
+        service.updateAssistant('assistant-1', 'user-1', updateAssistantDto)
+      ).rejects.toThrow(ConflictException)
     })
 
     it('should throw BadRequestException if AI config not found', async () => {
@@ -231,8 +243,9 @@ describe('UserAssistantService', () => {
         .mockResolvedValueOnce(null)
       aiConfigRepository.findOne.mockResolvedValue(null)
 
-      await expect(service.updateAssistant('assistant-1', 'user-1', updateAssistantDto))
-        .rejects.toThrow(BadRequestException)
+      await expect(
+        service.updateAssistant('assistant-1', 'user-1', updateAssistantDto)
+      ).rejects.toThrow(BadRequestException)
     })
   })
 
@@ -240,7 +253,7 @@ describe('UserAssistantService', () => {
     const repoDto: AssistantRepositoryDto = {
       repositoryId: 'repo-1',
       syncBranch: 'develop',
-      autoSync: true,
+      autoSync: true
     }
 
     it('should add repository to assistant successfully', async () => {
@@ -264,7 +277,7 @@ describe('UserAssistantService', () => {
         repositoryId: repoDto.repositoryId,
         syncBranch: repoDto.syncBranch,
         autoSync: repoDto.autoSync,
-        syncStatus: 'syncing',
+        syncStatus: 'syncing'
       })
       expect(operationLogService.createLog).toHaveBeenCalled()
       expect(result).toEqual(assistantRepo)
@@ -274,8 +287,9 @@ describe('UserAssistantService', () => {
       assistantRepository.findOne.mockResolvedValue(mockAssistant as UserAssistant)
       userRepoRepository.findOne.mockResolvedValue(null)
 
-      await expect(service.addRepositoryToAssistant('assistant-1', 'user-1', repoDto))
-        .rejects.toThrow(BadRequestException)
+      await expect(
+        service.addRepositoryToAssistant('assistant-1', 'user-1', repoDto)
+      ).rejects.toThrow(BadRequestException)
     })
 
     it('should throw ConflictException if repository already associated', async () => {
@@ -283,8 +297,9 @@ describe('UserAssistantService', () => {
       userRepoRepository.findOne.mockResolvedValue(mockRepository as UserRepository)
       assistantRepoRepository.findOne.mockResolvedValue({} as AssistantRepository)
 
-      await expect(service.addRepositoryToAssistant('assistant-1', 'user-1', repoDto))
-        .rejects.toThrow(ConflictException)
+      await expect(
+        service.addRepositoryToAssistant('assistant-1', 'user-1', repoDto)
+      ).rejects.toThrow(ConflictException)
     })
   })
 
@@ -309,8 +324,9 @@ describe('UserAssistantService', () => {
       assistantRepository.findOne.mockResolvedValue(mockAssistant as UserAssistant)
       assistantRepoRepository.findOne.mockResolvedValue(null)
 
-      await expect(service.removeRepositoryFromAssistant('assistant-1', 'repo-1', 'user-1'))
-        .rejects.toThrow(NotFoundException)
+      await expect(
+        service.removeRepositoryFromAssistant('assistant-1', 'repo-1', 'user-1')
+      ).rejects.toThrow(NotFoundException)
     })
   })
 
@@ -370,7 +386,7 @@ describe('UserAssistantService', () => {
       const assistants = [
         { status: 'active', repositories: [{}, {}], conversations: [{}] },
         { status: 'inactive', repositories: [{}], conversations: [{}, {}] },
-        { status: 'active', repositories: [], conversations: [] },
+        { status: 'active', repositories: [], conversations: [] }
       ]
       assistantRepository.find.mockResolvedValue(assistants as UserAssistant[])
 
@@ -384,7 +400,7 @@ describe('UserAssistantService', () => {
         total: 3,
         byStatus: { active: 2, inactive: 1 },
         totalRepositories: 3,
-        totalConversations: 3,
+        totalConversations: 3
       })
     })
   })

@@ -14,7 +14,7 @@ program
   .description('Start the agent and connect to server')
   .option('-s, --server <url>', 'Server URL', 'http://localhost:3000')
   .option('-n, --name <name>', 'Agent name', 'Agent')
-  .action(async (options) => {
+  .action(async options => {
     await startAgent({
       serverUrl: options.server,
       name: options.name

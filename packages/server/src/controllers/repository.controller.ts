@@ -37,10 +37,7 @@ export class RepositoryController {
   }
 
   @Post(':id/workspace')
-  async createWorkspace(
-    @Param('id') id: string,
-    @Body('workerId') workerId: string
-  ) {
+  async createWorkspace(@Param('id') id: string, @Body('workerId') workerId: string) {
     const workspaceDir = await this.repositoryService.createWorkspace(id, workerId)
     return { success: true, workspaceDir }
   }

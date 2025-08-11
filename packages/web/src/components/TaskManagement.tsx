@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react'
-import { 
-  AlertTriangle, 
-  CheckCircle, 
-  Clock, 
-  FileText, 
-  Loader2, 
-  Package, 
-  Plus, 
-  RefreshCw, 
+import {
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  FileText,
+  Loader2,
+  Package,
+  Plus,
+  RefreshCw,
   RotateCcw,
   Square,
-  X 
+  X
 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card'
 import { Button } from './ui/button'
@@ -73,7 +73,7 @@ export function TaskManagement() {
   const [isCreating, setIsCreating] = useState(false)
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [autoRefresh, setAutoRefresh] = useState(true)
-  
+
   // 表单状态
   const [formData, setFormData] = useState({
     type: 'claude-chat',
@@ -95,10 +95,8 @@ export function TaskManagement() {
   const fetchTasks = async () => {
     setLoading(true)
     try {
-      const url = filterStatus === 'all' 
-        ? '/api/tasks'
-        : `/api/tasks?status=${filterStatus}`
-      
+      const url = filterStatus === 'all' ? '/api/tasks' : `/api/tasks?status=${filterStatus}`
+
       const response = await fetch(url)
       if (response.ok) {
         const data = await response.json()
@@ -127,7 +125,7 @@ export function TaskManagement() {
   useEffect(() => {
     fetchTasks()
     fetchStats()
-    
+
     // 自动刷新
     if (autoRefresh) {
       const interval = setInterval(() => {
@@ -152,7 +150,7 @@ export function TaskManagement() {
           createdBy: 'admin' // TODO: 从用户上下文获取
         })
       })
-      
+
       if (response.ok) {
         const newTask = await response.json()
         setTasks([newTask, ...tasks])
@@ -168,16 +166,14 @@ export function TaskManagement() {
   // 取消任务
   const handleCancelTask = async (id: string) => {
     if (!confirm('确定要取消这个任务吗？')) return
-    
+
     try {
       const response = await fetch(`/api/tasks/${id}/cancel`, {
         method: 'POST'
       })
-      
+
       if (response.ok) {
-        setTasks(tasks.map(t => 
-          t.id === id ? { ...t, status: 'cancelled' } : t
-        ))
+        setTasks(tasks.map(t => (t.id === id ? { ...t, status: 'cancelled' } : t)))
         fetchStats()
       }
     } catch (error) {
@@ -191,7 +187,7 @@ export function TaskManagement() {
       const response = await fetch(`/api/tasks/${id}/retry`, {
         method: 'POST'
       })
-      
+
       if (response.ok) {
         fetchTasks()
         fetchStats()
@@ -204,12 +200,12 @@ export function TaskManagement() {
   // 删除任务
   const handleDeleteTask = async (id: string) => {
     if (!confirm('确定要删除这个任务吗？')) return
-    
+
     try {
       const response = await fetch(`/api/tasks/${id}`, {
         method: 'DELETE'
       })
-      
+
       if (response.ok) {
         setTasks(tasks.filter(t => t.id !== id))
         fetchStats()
@@ -312,21 +308,28 @@ export function TaskManagement() {
                   <SelectItem value="cancelled">已取消</SelectItem>
                 </SelectContent>
               </Select>
-              
+
               <Button
-                variant={autoRefresh ? "default" : "outline"}
+                variant={autoRefresh ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setAutoRefresh(!autoRefresh)}
               >
-                <RefreshCw className={cn("h-4 w-4 mr-2", autoRefresh && "animate-spin")} />
+                <RefreshCw className={cn('h-4 w-4 mr-2', autoRefresh && 'animate-spin')} />
                 自动刷新
               </Button>
-              
-              <Button onClick={() => { fetchTasks(); fetchStats() }} variant="outline" size="sm">
+
+              <Button
+                onClick={() => {
+                  fetchTasks()
+                  fetchStats()
+                }}
+                variant="outline"
+                size="sm"
+              >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 刷新
               </Button>
-              
+
               <Button onClick={() => setIsCreating(true)} size="sm">
                 <Plus className="h-4 w-4 mr-2" />
                 创建任务
@@ -349,7 +352,7 @@ export function TaskManagement() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -361,7 +364,7 @@ export function TaskManagement() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -373,7 +376,7 @@ export function TaskManagement() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -385,7 +388,7 @@ export function TaskManagement() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -397,7 +400,7 @@ export function TaskManagement() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -422,9 +425,9 @@ export function TaskManagement() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">任务类型</label>
-                  <Select 
-                    value={formData.type} 
-                    onValueChange={(value) => setFormData({ ...formData, type: value })}
+                  <Select
+                    value={formData.type}
+                    onValueChange={value => setFormData({ ...formData, type: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -437,7 +440,7 @@ export function TaskManagement() {
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 <div>
                   <label className="text-sm font-medium">优先级</label>
                   <Input
@@ -445,28 +448,28 @@ export function TaskManagement() {
                     min={1}
                     max={10}
                     value={formData.priority}
-                    onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) })}
+                    onChange={e => setFormData({ ...formData, priority: parseInt(e.target.value) })}
                   />
                 </div>
               </div>
-              
+
               <div>
                 <label className="text-sm font-medium">提示词</label>
                 <Textarea
                   rows={4}
                   value={formData.payload.prompt}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    payload: { ...formData.payload, prompt: e.target.value }
-                  })}
+                  onChange={e =>
+                    setFormData({
+                      ...formData,
+                      payload: { ...formData.payload, prompt: e.target.value }
+                    })
+                  }
                   placeholder="输入任务提示词..."
                 />
               </div>
-              
+
               <div className="flex gap-2">
-                <Button onClick={handleCreateTask}>
-                  创建任务
-                </Button>
+                <Button onClick={handleCreateTask}>创建任务</Button>
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -512,7 +515,7 @@ export function TaskManagement() {
                     </td>
                   </tr>
                 ) : (
-                  tasks.map((task) => (
+                  tasks.map(task => (
                     <tr key={task.id} className="border-b hover:bg-muted/50">
                       <td className="p-4">
                         <div>
@@ -521,9 +524,7 @@ export function TaskManagement() {
                             {task.id.substring(0, 8)}...
                           </div>
                           {task.error && (
-                            <div className="text-xs text-red-600 mt-1">
-                              {task.error}
-                            </div>
+                            <div className="text-xs text-red-600 mt-1">{task.error}</div>
                           )}
                         </div>
                       </td>
@@ -584,7 +585,9 @@ export function TaskManagement() {
                               <RotateCcw className="h-4 w-4" />
                             </Button>
                           )}
-                          {(task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled') && (
+                          {(task.status === 'completed' ||
+                            task.status === 'failed' ||
+                            task.status === 'cancelled') && (
                             <Button
                               size="sm"
                               variant="ghost"
