@@ -141,7 +141,7 @@ export class WebSocketCommunicationClient {
    * 处理服务器消息
    */
   private handleServerMessage(data: any): void {
-    const { type, payload, timestamp } = data
+    const { type, payload } = data
 
     // 处理心跳响应
     if (type === 'heartbeat') {

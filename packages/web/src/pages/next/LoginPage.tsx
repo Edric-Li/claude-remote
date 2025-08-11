@@ -34,7 +34,7 @@ export function LoginPage() {
 
     try {
       await login(formData.username, formData.password)
-      navigate('/next/home')
+      navigate('/home')
     } catch (error: any) {
       setErrors({ submit: error.message || '登录失败，请重试' })
     }

@@ -10,10 +10,6 @@ import {
   OneToMany
 } from 'typeorm'
 import * as bcrypt from 'bcrypt'
-import { UserAiConfig } from './user-ai-config.entity'
-import { UserRepository } from './user-repository.entity'
-import { UserAssistant } from './user-assistant.entity'
-import { AssistantConversation } from './assistant-conversation.entity'
 
 @Entity('users')
 export class User {
@@ -50,18 +46,6 @@ export class User {
   @Column({ type: 'timestamp', nullable: true, name: 'last_login_at' })
   lastLoginAt?: Date
 
-  // 关联关系
-  @OneToMany(() => UserAiConfig, config => config.user)
-  aiConfigs: UserAiConfig[]
-
-  @OneToMany(() => UserRepository, repo => repo.user)
-  repositories: UserRepository[]
-
-  @OneToMany(() => UserAssistant, assistant => assistant.user)
-  assistants: UserAssistant[]
-
-  @OneToMany(() => AssistantConversation, conversation => conversation.user)
-  conversations: AssistantConversation[]
 
 
   // 密码加密

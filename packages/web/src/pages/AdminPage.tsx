@@ -31,7 +31,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 // import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { API_BASE_URL } from '../config'
-import { RadixBackground } from '../components/RadixBackground'
 
 type AdminTab = 'overview' | 'agents' | 'repositories' | 'claude' | 'database'
 
@@ -94,7 +93,6 @@ export function AdminPage() {
   return (
     <div className="min-h-screen bg-background relative">
       {/* 背景 */}
-      <RadixBackground />
 
       {/* Header */}
       <header className="relative z-10 backdrop-blur-md bg-background/60 border-b border-border/50">

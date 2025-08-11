@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand'
-import { httpClient, type AgentInfo, type Message, type WorkerStatus } from '../lib/http-client'
+import { httpClient, type Message } from '../lib/http-client'
 
 interface Agent {
   id: string

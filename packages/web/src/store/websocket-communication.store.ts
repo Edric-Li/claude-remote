@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand'
-import { webSocketClient, type AgentInfo, type Message, type WorkerStatus } from '../lib/websocket-client'
+import { webSocketClient, type Message } from '../lib/websocket-client'
 
 interface Agent {
   id: string

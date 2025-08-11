@@ -9,16 +9,13 @@ import {
   Bell,
   Palette,
   Globe,
-  HardDrive,
   Key,
-  Trash2,
   Save,
   Sparkles
 } from 'lucide-react'
 import { useAuthStore } from '../../store/auth.store'
-import { RepositorySettings } from '../../components/settings/RepositorySettings'
+import { RepositoryManager } from '../../components/repository/RepositoryManager'
 import { AgentSettings } from '../../components/settings/AgentSettings'
-import { AssistantSettings } from '../../components/settings/AssistantSettings'
 
 interface SettingsSectionProps {
   icon: React.ReactNode
@@ -164,11 +161,9 @@ export function SettingsPage() {
     </div>
   )
 
-  const renderRepositorySettings = () => <RepositorySettings />
+  const renderRepositorySettings = () => <RepositoryManager />
 
   const renderAgentSettings = () => <AgentSettings />
-
-  const renderAssistantSettings = () => <AssistantSettings />
 
   const renderContent = () => {
     switch (activeSection) {
@@ -179,7 +174,11 @@ export function SettingsPage() {
       case 'agents':
         return renderAgentSettings()
       case 'assistants':
-        return renderAssistantSettings()
+        return (
+          <div className="text-center py-12">
+            <p className="text-gray-500">助手功能正在开发中...</p>
+          </div>
+        )
       default:
         return (
           <div className="text-center py-12">
