@@ -4,7 +4,6 @@ import {
   Sparkles, 
   Bot, 
   Shield, 
-  Zap, 
   Eye, 
   EyeOff,
   ChevronRight,
