@@ -17,10 +17,7 @@ import {
   RefreshCw
 } from 'lucide-react'
 import { useAuthStore } from '../../store/auth.store'
-import {
-  useHttpCommunicationStore,
-  initializeHttpCommunication
-} from '../../store/http-communication.store'
+import { useWebSocketCommunicationStore } from '../../store/websocket-communication.store'
 
 interface Conversation {
   id: string
@@ -49,7 +46,7 @@ export function ModernHomePage() {
     lastSyncTime,
     refreshAgentList,
     clearError
-  } = useHttpCommunicationStore()
+  } = useWebSocketCommunicationStore()
 
   const [activeTab, setActiveTab] = useState<'conversations' | 'assistants'>('conversations')
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
@@ -86,9 +83,7 @@ export function ModernHomePage() {
   }))
 
   useEffect(() => {
-    // 初始化HTTP通信
-    initializeHttpCommunication()
-
+    // 初始化WebSocket通信
     if (!connected && !connecting) {
       connect()
     }
@@ -345,7 +340,7 @@ export function ModernHomePage() {
             </div>
             <div className="flex items-center gap-1">
               <button
-                onClick={() => navigate('/next/settings')}
+                onClick={() => navigate('/settings')}
                 className="p-1.5 hover:bg-gray-100 rounded text-gray-600"
               >
                 <Settings className="w-4 h-4" />

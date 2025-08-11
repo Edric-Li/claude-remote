@@ -71,8 +71,7 @@ export class UserService {
 
   async findById(id: string): Promise<User> {
     const user = await this.userRepository.findOne({
-      where: { id },
-      relations: ['aiConfigs', 'repositories', 'assistants']
+      where: { id }
     })
 
     if (!user) {
@@ -109,6 +108,16 @@ export class UserService {
   async updateUser(id: string, updateUserDto: UpdateUserDto, operatorId?: string): Promise<User> {
     const user = await this.findById(id)
 
+    // 检查用户名是否已被其他用户使用
+    if (updateUserDto.username && updateUserDto.username !== user.username) {
+      const existingUsername = await this.userRepository.findOne({
+        where: { username: updateUserDto.username }
+      })
+      if (existingUsername && existingUsername.id !== id) {
+        throw new ConflictException('用户名已被使用')
+      }
+    }
+
     // 检查邮箱是否已被其他用户使用
     if (updateUserDto.email && updateUserDto.email !== user.email) {
       const existingEmail = await this.userRepository.findOne({
@@ -133,12 +142,16 @@ export class UserService {
   ): Promise<void> {
     const user = await this.userRepository.findOne({
       where: { id },
-      select: ['id', 'passwordHash']
+      select: ['id', 'username', 'passwordHash']  // 添加 username 字段
     })
 
     if (!user) {
       throw new NotFoundException('用户不存在')
     }
+
+    // 添加调试日志
+    this.logger.log(`Changing password for user: ${user.username}`)
+    this.logger.log(`Password hash exists: ${!!user.passwordHash}`)
 
     // 验证当前密码
     const isCurrentPasswordValid = await user.validatePassword(changePasswordDto.currentPassword)

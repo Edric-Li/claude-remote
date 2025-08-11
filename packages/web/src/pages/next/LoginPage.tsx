@@ -1,6 +1,15 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Sparkles, Bot, Shield, Zap, Eye, EyeOff } from 'lucide-react'
+import { 
+  Sparkles, 
+  Bot, 
+  Shield, 
+  Zap, 
+  Eye, 
+  EyeOff,
+  ChevronRight,
+  Rocket
+} from 'lucide-react'
 import { useAuthStore } from '../../store/auth.store'
 import './design-system.css'
 
@@ -48,169 +57,190 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50 flex items-center justify-center p-4">
-      {/* 背景装饰 */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
-        <div
-          className="absolute top-3/4 right-1/4 w-96 h-96 bg-secondary-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"
-          style={{ animationDelay: '2s' }}
-        ></div>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* 左侧展示区 - PC端显示 */}
+      <div className="hidden lg:flex lg:w-1/2 bg-white border-r border-gray-200 items-center justify-center p-12">
+        <div className="max-w-lg">
+          {/* Logo和标题 */}
+          <div className="mb-12">
+            <div className="flex items-center space-x-4 mb-8">
+              <div className="w-16 h-16 bg-gray-900 rounded-xl flex items-center justify-center">
+                <Sparkles className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold text-gray-900">AI Orchestra</h1>
+                <p className="text-gray-600">下一代智能编排平台</p>
+              </div>
+            </div>
+            
+            {/* 特性介绍 */}
+            <div className="space-y-6">
+              <div className="flex items-start space-x-4">
+                <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <Bot className="w-6 h-6 text-gray-700" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-1 text-gray-900">智能Agent协作</h3>
+                  <p className="text-gray-600 text-sm">多Agent协同工作，实现复杂任务自动化处理</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start space-x-4">
+                <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <Rocket className="w-6 h-6 text-gray-700" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-1 text-gray-900">极速响应</h3>
+                  <p className="text-gray-600 text-sm">毫秒级任务调度，实时状态同步更新</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start space-x-4">
+                <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <Shield className="w-6 h-6 text-gray-700" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-1 text-gray-900">企业级安全</h3>
+                  <p className="text-gray-600 text-sm">端到端加密，完整的权限管理体系</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* 主要内容 */}
-      <div className="w-full max-w-md relative z-10">
-        {/* Logo和标题区域 */}
-        <div className="text-center mb-8 animate-fade-in">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-2xl mb-6">
-            <Sparkles className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold modern-text-gradient mb-2">AI Orchestra</h1>
-          <p className="text-gray-600 text-base">智能Agent编排平台</p>
-        </div>
-
-        {/* 登录表单 */}
-        <form
-          onSubmit={handleSubmit}
-          className="modern-card p-8 animate-fade-in"
-          style={{ animationDelay: '0.2s' }}
-        >
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">欢迎回来</h2>
-            <p className="text-sm text-gray-600">登录到您的AI Orchestra账户</p>
+      {/* 右侧登录区 */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8">
+        <div className="w-full max-w-md">
+          {/* 移动端Logo - 仅在小屏幕显示 */}
+          <div className="lg:hidden text-center mb-8">
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-gray-900 rounded-xl mb-4">
+              <Sparkles className="w-7 h-7 text-white" />
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-1">AI Orchestra</h1>
+            <p className="text-gray-600 text-sm">智能Agent编排平台</p>
           </div>
 
-          {errors.submit && (
-            <div className="mb-6 p-4 bg-error-50 border border-error-200 rounded-lg">
-              <p className="text-sm text-error-700">{errors.submit}</p>
-            </div>
-          )}
-
-          <div className="space-y-6">
-            {/* 用户名输入 */}
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
-                用户名或邮箱
-              </label>
-              <input
-                id="username"
-                type="text"
-                value={formData.username}
-                onChange={e => handleInputChange('username', e.target.value)}
-                className={`modern-input ${errors.username ? 'border-error-500 focus:border-error-500' : ''}`}
-                placeholder="输入您的用户名或邮箱"
-                disabled={isLoading}
-              />
-              {errors.username && <p className="mt-2 text-sm text-error-600">{errors.username}</p>}
+          {/* 登录表单 */}
+          <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200">
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">欢迎回来</h2>
+              <p className="text-gray-600 text-sm">登录以继续使用 AI Orchestra</p>
             </div>
 
-            {/* 密码输入 */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                密码
-              </label>
-              <div className="relative">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {errors.submit && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-600">{errors.submit}</p>
+                </div>
+              )}
+
+              {/* 用户名输入 */}
+              <div>
+                <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+                  用户名或邮箱
+                </label>
                 <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={formData.password}
-                  onChange={e => handleInputChange('password', e.target.value)}
-                  className={`modern-input pr-12 ${errors.password ? 'border-error-500 focus:border-error-500' : ''}`}
-                  placeholder="输入您的密码"
+                  id="username"
+                  type="text"
+                  value={formData.username}
+                  onChange={e => handleInputChange('username', e.target.value)}
+                  className={`w-full px-4 py-2.5 border ${
+                    errors.username ? 'border-red-300' : 'border-gray-300'
+                  } rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-all`}
+                  placeholder="输入您的用户名或邮箱"
                   disabled={isLoading}
                 />
+                {errors.username && <p className="mt-2 text-sm text-red-600">{errors.username}</p>}
+              </div>
+
+              {/* 密码输入 */}
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                  密码
+                </label>
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={formData.password}
+                    onChange={e => handleInputChange('password', e.target.value)}
+                    className={`w-full px-4 py-2.5 pr-12 border ${
+                      errors.password ? 'border-red-300' : 'border-gray-300'
+                    } rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-all`}
+                    placeholder="输入您的密码"
+                    disabled={isLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    disabled={isLoading}
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+                {errors.password && <p className="mt-2 text-sm text-red-600">{errors.password}</p>}
+              </div>
+
+              {/* 记住我和忘记密码 */}
+              <div className="flex items-center justify-between">
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 border-gray-300 rounded text-gray-900 focus:ring-gray-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-600">记住我</span>
+                </label>
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                  disabled={isLoading}
+                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  忘记密码？
                 </button>
               </div>
-              {errors.password && <p className="mt-2 text-sm text-error-600">{errors.password}</p>}
-            </div>
 
-            {/* 记住我选项 */}
-            <div className="flex items-center justify-between">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500"
-                />
-                <span className="ml-2 text-sm text-gray-600">记住我</span>
-              </label>
+              {/* 登录按钮 */}
               <button
-                type="button"
-                className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-2.5 px-4 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                忘记密码？
+                {isLoading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                    登录中...
+                  </div>
+                ) : (
+                  <span className="flex items-center justify-center">
+                    登录
+                    <ChevronRight className="w-5 h-5 ml-1" />
+                  </span>
+                )}
               </button>
-            </div>
+            </form>
 
-            {/* 登录按钮 */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="modern-btn modern-btn-primary w-full py-3 text-base font-semibold"
-            >
-              {isLoading ? (
-                <div className="flex items-center justify-center">
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                  登录中...
-                </div>
-              ) : (
-                '登录'
-              )}
-            </button>
-          </div>
-        </form>
-
-        {/* 功能亮点 */}
-        <div
-          className="mt-8 grid grid-cols-1 gap-4 animate-fade-in"
-          style={{ animationDelay: '0.4s' }}
-        >
-          <div className="modern-card p-6">
-            <div className="flex items-start space-x-4">
-              <div className="flex-shrink-0">
-                <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
-                  <Bot className="w-5 h-5 text-primary-600" />
-                </div>
-              </div>
-              <div className="flex-1">
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">智能Agent管理</h3>
-                <p className="text-xs text-gray-600">统一管理和调度多个AI Agent，提升工作效率</p>
-              </div>
+            {/* 注册提示 */}
+            <div className="mt-8 text-center">
+              <p className="text-gray-600 text-sm">
+                还没有账户？
+                <button className="text-gray-900 hover:underline font-medium ml-1 transition-colors">
+                  立即注册
+                </button>
+              </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="modern-card p-4">
-              <div className="text-center">
-                <div className="w-8 h-8 bg-success-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <Shield className="w-4 h-4 text-success-600" />
-                </div>
-                <h4 className="text-xs font-semibold text-gray-900 mb-1">安全可靠</h4>
-                <p className="text-xs text-gray-600">企业级安全保障</p>
-              </div>
-            </div>
-
-            <div className="modern-card p-4">
-              <div className="text-center">
-                <div className="w-8 h-8 bg-warning-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <Zap className="w-4 h-4 text-warning-600" />
-                </div>
-                <h4 className="text-xs font-semibold text-gray-900 mb-1">高性能</h4>
-                <p className="text-xs text-gray-600">毫秒级响应速度</p>
-              </div>
+          {/* 底部信息 */}
+          <div className="mt-8 text-center">
+            <div className="flex items-center justify-center space-x-6 text-gray-500 text-xs">
+              <span>© 2024 AI Orchestra</span>
+              <span>·</span>
+              <button className="hover:text-gray-700 transition-colors">隐私政策</button>
+              <span>·</span>
+              <button className="hover:text-gray-700 transition-colors">服务条款</button>
             </div>
           </div>
-        </div>
-
-        {/* 版本信息 */}
-        <div className="mt-6 text-center">
-          <p className="text-xs text-gray-400">AI Orchestra v2.0 - 现代化AI Agent编排平台</p>
         </div>
       </div>
     </div>

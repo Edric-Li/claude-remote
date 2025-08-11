@@ -9,37 +9,12 @@ import {
   Bell,
   Palette,
   Globe,
-  Key,
-  Save,
   Sparkles
 } from 'lucide-react'
 import { useAuthStore } from '../../store/auth.store'
 import { RepositoryManager } from '../../components/repository/RepositoryManager'
 import { AgentSettings } from '../../components/settings/AgentSettings'
-
-interface SettingsSectionProps {
-  icon: React.ReactNode
-  title: string
-  description: string
-  children: React.ReactNode
-}
-
-function SettingsSection({ icon, title, description, children }: SettingsSectionProps) {
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-gray-600">
-          {icon}
-        </div>
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-          <p className="text-sm text-gray-600">{description}</p>
-        </div>
-      </div>
-      {children}
-    </div>
-  )
-}
+import { ProfileSettings } from '../../components/settings/ProfileSettings'
 
 interface SettingsNavItemProps {
   icon: React.ReactNode
@@ -66,7 +41,6 @@ function SettingsNavItem({ icon, label, isActive, onClick }: SettingsNavItemProp
 
 export function SettingsPage() {
   const navigate = useNavigate()
-  const { user } = useAuthStore()
   const [activeSection, setActiveSection] = useState('profile')
 
   const sections = [
@@ -79,87 +53,7 @@ export function SettingsPage() {
     { id: 'appearance', label: '外观设置', icon: <Palette className="w-4 h-4" /> }
   ]
 
-  const renderProfileSettings = () => (
-    <div className="space-y-6">
-      <SettingsSection
-        icon={<User className="w-4 h-4" />}
-        title="基本信息"
-        description="管理您的个人资料和账户信息"
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">用户名</label>
-            <input
-              type="text"
-              defaultValue={user?.username}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
-              placeholder="输入用户名"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">显示名称</label>
-            <input
-              type="text"
-              defaultValue={user?.nickname}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
-              placeholder="输入显示名称"
-            />
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">邮箱</label>
-            <input
-              type="email"
-              defaultValue={user?.email}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
-              placeholder="输入邮箱地址"
-            />
-          </div>
-        </div>
-        <div className="flex justify-end pt-4">
-          <button className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-2">
-            <Save className="w-4 h-4" />
-            保存更改
-          </button>
-        </div>
-      </SettingsSection>
-
-      <SettingsSection
-        icon={<Key className="w-4 h-4" />}
-        title="密码修改"
-        description="更新您的登录密码"
-      >
-        <div className="space-y-4 max-w-md">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">当前密码</label>
-            <input
-              type="password"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
-              placeholder="输入当前密码"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">新密码</label>
-            <input
-              type="password"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
-              placeholder="输入新密码"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">确认新密码</label>
-            <input
-              type="password"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
-              placeholder="再次输入新密码"
-            />
-          </div>
-          <button className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors">
-            更新密码
-          </button>
-        </div>
-      </SettingsSection>
-    </div>
-  )
+  const renderProfileSettings = () => <ProfileSettings />
 
   const renderRepositorySettings = () => <RepositoryManager />
 

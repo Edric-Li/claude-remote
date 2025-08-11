@@ -27,7 +27,7 @@ import {
 } from '../dto/user.dto'
 import { User } from '../entities/user.entity'
 
-@Controller('users')
+@Controller('api/users')
 @UseGuards(JwtAuthGuard)
 export class UserController {
   constructor(private readonly userService: UserService) {}
