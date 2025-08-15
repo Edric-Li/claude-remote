@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { API_BASE_URL } from '../config'
 
 interface User {
   id: string
@@ -45,7 +46,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null })
 
         try {
-          const response = await fetch('/api/auth/login', {
+          const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
@@ -81,7 +82,7 @@ export const useAuthStore = create<AuthState>()(
         // 调用登出 API
         const token = get().accessToken
         if (token) {
-          fetch('/api/auth/logout', {
+          fetch(`${API_BASE_URL}/api/auth/logout`, {
             method: 'POST',
             headers: {
               Authorization: `Bearer ${token}`
@@ -122,7 +123,7 @@ export const useAuthStore = create<AuthState>()(
         }
 
         try {
-          const response = await fetch('/api/auth/refresh', {
+          const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
             method: 'POST',
             headers: {
               Authorization: `Bearer ${get().accessToken}`
@@ -153,7 +154,7 @@ export const useAuthStore = create<AuthState>()(
         }
 
         try {
-          const response = await fetch('/api/auth/profile', {
+          const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json',

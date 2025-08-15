@@ -8,10 +8,97 @@ import { LoginPage } from './pages/next/LoginPage'
 import { ModernHomePage } from './pages/next/ModernHomePage'
 import { SettingsPage } from './pages/next/SettingsPage'
 
+type Theme = 'light' | 'dark' | 'system'
+type FontSize = 'small' | 'medium' | 'large'
+type AccentColor = 'blue' | 'green' | 'purple' | 'red' | 'orange' | 'pink'
+
+interface AppearanceState {
+  theme: Theme
+  fontSize: FontSize
+  accentColor: AccentColor
+  compactMode: boolean
+}
+
 export function App() {
-  // 设置暗色主题
+  // 初始化主题设置
   React.useEffect(() => {
-    document.documentElement.classList.add('dark')
+    // 共用的主题应用函数
+    const applyAppearance = (appearance: AppearanceState) => {
+      const root = document.documentElement
+      
+      // 应用主题
+      if (appearance.theme === 'system') {
+        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        root.classList.toggle('dark', isDark)
+      } else {
+        root.classList.toggle('dark', appearance.theme === 'dark')
+      }
+
+      // 应用字体大小
+      root.classList.remove('text-sm', 'text-base', 'text-lg')
+      switch (appearance.fontSize) {
+        case 'small':
+          root.classList.add('text-sm')
+          break
+        case 'large':
+          root.classList.add('text-lg')
+          break
+        default:
+          root.classList.add('text-base')
+      }
+
+      // 应用强调色
+      const colors = ['blue', 'green', 'purple', 'red', 'orange', 'pink']
+      colors.forEach(color => root.classList.remove(`accent-${color}`))
+      root.classList.add(`accent-${appearance.accentColor}`)
+
+      // 应用紧凑模式
+      root.classList.toggle('compact-mode', appearance.compactMode)
+    }
+
+    const initializeTheme = () => {
+      const saved = localStorage.getItem('appearance-settings')
+      let appearance: AppearanceState
+      
+      if (saved) {
+        appearance = JSON.parse(saved)
+      } else {
+        appearance = {
+          theme: 'system',
+          fontSize: 'medium',
+          accentColor: 'blue',
+          compactMode: false
+        }
+        localStorage.setItem('appearance-settings', JSON.stringify(appearance))
+      }
+
+      applyAppearance(appearance)
+
+      // 监听系统主题变化
+      let mediaQueryCleanup: (() => void) | undefined
+      if (appearance.theme === 'system') {
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+        const handleSystemThemeChange = () => applyAppearance(appearance)
+        mediaQuery.addEventListener('change', handleSystemThemeChange)
+        mediaQueryCleanup = () => mediaQuery.removeEventListener('change', handleSystemThemeChange)
+      }
+      
+      return mediaQueryCleanup
+    }
+
+    const cleanup = initializeTheme()
+    
+    // 监听主题变化事件
+    const handleThemeChange = (event: CustomEvent<AppearanceState>) => {
+      applyAppearance(event.detail)
+    }
+    
+    window.addEventListener('theme-changed', handleThemeChange as EventListener)
+    
+    return () => {
+      if (cleanup) cleanup()
+      window.removeEventListener('theme-changed', handleThemeChange as EventListener)
+    }
   }, [])
 
   return (

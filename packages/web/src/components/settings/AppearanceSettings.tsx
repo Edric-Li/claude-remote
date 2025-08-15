@@ -30,79 +30,15 @@ export function AppearanceSettings() {
     }
   })
 
-  // 应用主题
-  useEffect(() => {
-    const applyTheme = (theme: Theme): void => {
-      const root = document.documentElement
-      
-      if (theme === 'system') {
-        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-        if (isDark) {
-          root.classList.add('dark')
-        } else {
-          root.classList.remove('dark')
-        }
-      } else if (theme === 'dark') {
-        root.classList.add('dark')
-      } else {
-        root.classList.remove('dark')
-      }
-    }
 
-    applyTheme(appearance.theme)
-
-    // 监听系统主题变化
-    if (appearance.theme === 'system') {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-      const handleChange = () => applyTheme('system')
-      mediaQuery.addEventListener('change', handleChange)
-      return () => mediaQuery.removeEventListener('change', handleChange)
-    }
-    return undefined
-  }, [appearance.theme])
-
-  // 应用字体大小
-  useEffect(() => {
-    const root = document.documentElement
-    root.classList.remove('text-sm', 'text-base', 'text-lg')
-    
-    switch (appearance.fontSize) {
-      case 'small':
-        root.classList.add('text-sm')
-        break
-      case 'large':
-        root.classList.add('text-lg')
-        break
-      default:
-        root.classList.add('text-base')
-    }
-  }, [appearance.fontSize])
-
-  // 应用强调色
-  useEffect(() => {
-    const root = document.documentElement
-    const colors = ['blue', 'green', 'purple', 'red', 'orange', 'pink']
-    
-    colors.forEach(color => {
-      root.classList.remove(`accent-${color}`)
-    })
-    
-    root.classList.add(`accent-${appearance.accentColor}`)
-  }, [appearance.accentColor])
-
-  // 应用紧凑模式
-  useEffect(() => {
-    const root = document.documentElement
-    if (appearance.compactMode) {
-      root.classList.add('compact-mode')
-    } else {
-      root.classList.remove('compact-mode')
-    }
-  }, [appearance.compactMode])
-
-  // 保存设置
+  // 保存设置并触发全局更新
   useEffect(() => {
     localStorage.setItem('appearance-settings', JSON.stringify(appearance))
+    
+    // 触发自定义事件来通知其他组件主题已更改
+    window.dispatchEvent(new CustomEvent('theme-changed', { 
+      detail: appearance 
+    }))
   }, [appearance])
 
   const updateAppearance = (key: keyof AppearanceState, value: any) => {

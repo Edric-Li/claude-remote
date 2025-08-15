@@ -30,6 +30,11 @@ dev.log
 .env.test.local
 .env.production.local
 
+# PM2 logs
+logs/
+.pm2/
+*.log
+
 # IDE
 .vscode/
 .idea/

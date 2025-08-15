@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   ArrowLeft,
   User,
@@ -31,8 +31,8 @@ function SettingsNavItem({ icon, label, isActive, onClick }: SettingsNavItemProp
       onClick={onClick}
       className={`w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors ${
         isActive
-          ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-medium'
-          : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700'
+          ? 'bg-accent text-accent-foreground font-medium'
+          : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
       }`}
     >
       <div className="w-4 h-4">{icon}</div>
@@ -43,8 +43,31 @@ function SettingsNavItem({ icon, label, isActive, onClick }: SettingsNavItemProp
 
 export function SettingsPage() {
   const navigate = useNavigate()
-  const [activeSection, setActiveSection] = useState('profile')
+  const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  
+  // 从URL查询参数中获取当前活动区域，默认为'profile'
+  const getActiveSectionFromURL = () => {
+    const searchParams = new URLSearchParams(location.search)
+    const section = searchParams.get('section')
+    const validSections = ['profile', 'repositories', 'agents', 'assistants', 'security', 'notifications', 'appearance']
+    return validSections.includes(section || '') ? section || 'profile' : 'profile'
+  }
+  
+  const [activeSection, setActiveSection] = useState(getActiveSectionFromURL())
+  
+  // 当URL变化时更新活动区域
+  useEffect(() => {
+    setActiveSection(getActiveSectionFromURL())
+  }, [location.search])
+  
+  // 更新URL查询参数
+  const updateActiveSection = (sectionId: string) => {
+    setActiveSection(sectionId)
+    const searchParams = new URLSearchParams(location.search)
+    searchParams.set('section', sectionId)
+    navigate(`${location.pathname}?${searchParams.toString()}`, { replace: true })
+  }
 
   const sections = [
     { id: 'profile', label: '个人资料', icon: <User className="w-4 h-4" /> },
@@ -92,20 +115,20 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-background flex flex-col lg:flex-row">
       {/* 移动端顶部导航栏 */}
-      <div className="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+      <div className="lg:hidden bg-card border-b border-border px-4 py-3">
         <div className="flex items-center justify-between">
           <button
             onClick={() => navigate('/home')}
-            className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 text-sm transition-colors"
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground text-sm transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             返回主页
           </button>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-accent/50 rounded-lg transition-colors"
           >
             {mobileMenuOpen ? (
               <X className="w-5 h-5" />
@@ -118,19 +141,19 @@ export function SettingsPage() {
 
       {/* 移动端下拉菜单 */}
       {mobileMenuOpen && (
-        <div className="lg:hidden absolute inset-x-0 top-14 z-50 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-lg">
+        <div className="lg:hidden absolute inset-x-0 top-14 z-50 bg-card border-b border-border shadow-lg">
           <nav className="p-4 space-y-1">
             {sections.map(section => (
               <button
                 key={section.id}
                 onClick={() => {
-                  setActiveSection(section.id)
+                  updateActiveSection(section.id)
                   setMobileMenuOpen(false)
                 }}
                 className={`w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors ${
                   activeSection === section.id
-                    ? 'bg-gray-100 text-gray-900 font-medium'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    ? 'bg-accent text-accent-foreground font-medium'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
                 }`}
               >
                 {section.icon}
@@ -142,11 +165,11 @@ export function SettingsPage() {
       )}
 
       {/* 桌面端左侧导航 */}
-      <div className="hidden lg:block w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 p-4 h-screen sticky top-0 overflow-y-auto">
+      <div className="hidden lg:block w-64 bg-card border-r border-border p-4 h-screen sticky top-0 overflow-y-auto">
         <div className="mb-6">
           <button
             onClick={() => navigate('/home')}
-            className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 text-sm transition-colors"
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground text-sm transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             返回主页
@@ -154,8 +177,8 @@ export function SettingsPage() {
         </div>
 
         <div className="mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">设置</h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400">管理您的账户和系统配置</p>
+          <h2 className="text-lg font-semibold text-foreground mb-1">设置</h2>
+          <p className="text-sm text-muted-foreground">管理您的账户和系统配置</p>
         </div>
 
         <nav className="space-y-1">
@@ -165,7 +188,7 @@ export function SettingsPage() {
               icon={section.icon}
               label={section.label}
               isActive={activeSection === section.id}
-              onClick={() => setActiveSection(section.id)}
+              onClick={() => updateActiveSection(section.id)}
             />
           ))}
         </nav>
@@ -175,12 +198,12 @@ export function SettingsPage() {
       <div className="flex-1 p-4 lg:p-6">
         <div className="max-w-4xl mx-auto">
           <div className="mb-6">
-            <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+            <h1 className="text-xl lg:text-2xl font-bold text-foreground mb-2">
               {sections.find(s => s.id === activeSection)?.label}
             </h1>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+          <div className="bg-card rounded-lg shadow-sm">
             {renderContent()}
           </div>
         </div>
