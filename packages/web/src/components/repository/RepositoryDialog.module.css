@@ -1,0 +1,328 @@
+/* 仓库对话框改进样式 - 解决纯黑背景问题 */
+
+/* 
+ * 半透明背景遮罩 - 替代纯黑背景
+ * 使用更自然的深色半透明效果，支持深色模式
+ */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  
+  /* 改进的背景：使用半透明深色而非纯黑 */
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  
+  /* 平滑动画 */
+  transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  
+  /* 开启状态的动画 */
+  opacity: 0;
+  animation: fadeIn 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 深色模式下的遮罩优化 */
+@media (prefers-color-scheme: dark) {
+  .overlay {
+    background: rgba(0, 0, 0, 0.7);
+  }
+}
+
+/* 对话框内容容器 */
+.content {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 50;
+  
+  width: 100%;
+  max-width: 32rem; /* 512px */
+  
+  transform: translate(-50%, -50%);
+  
+  display: grid;
+  gap: 1rem;
+  
+  /* 背景和边框 */
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem; /* 12px - 更圆润的边角 */
+  
+  /* 增强的阴影效果 */
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.25),
+    0 10px 20px -5px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+  
+  /* 内边距 */
+  padding: 1.5rem;
+  
+  /* 平滑动画 */
+  transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  
+  /* 初始状态 */
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.95);
+  animation: slideIn 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 深色模式下的内容优化 */
+@media (prefers-color-scheme: dark) {
+  .content {
+    box-shadow: 
+      0 25px 50px -12px rgba(0, 0, 0, 0.5),
+      0 10px 20px -5px rgba(0, 0, 0, 0.3),
+      0 0 0 1px rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 640px) {
+  .content {
+    width: calc(100% - 2rem);
+    max-width: none;
+    margin: 1rem;
+    padding: 1rem;
+    
+    /* 移动端上稍微向上偏移 */
+    top: 45%;
+  }
+}
+
+@media (max-width: 480px) {
+  .content {
+    width: calc(100% - 1rem);
+    margin: 0.5rem;
+    top: 40%;
+    border-radius: 0.5rem; /* 8px - 移动端稍小的边角 */
+  }
+}
+
+/* 关闭按钮增强 */
+.closeButton {
+  position: absolute;
+  right: 1rem;
+  top: 1rem;
+  
+  border-radius: 0.375rem; /* 6px */
+  opacity: 0.7;
+  
+  /* 过渡效果 */
+  transition: all 150ms ease-in-out;
+  
+  /* 环形焦点指示器 */
+  outline: none;
+  ring-offset: 2px;
+  ring-offset-color: var(--background);
+}
+
+.closeButton:hover {
+  opacity: 1;
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.closeButton:focus {
+  ring: 2px solid var(--ring);
+}
+
+/* 标题区域 */
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem; /* 6px */
+  text-align: center;
+}
+
+@media (min-width: 640px) {
+  .header {
+    text-align: left;
+  }
+}
+
+.title {
+  font-size: 1.125rem; /* 18px */
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.025em;
+  color: var(--foreground);
+}
+
+.description {
+  font-size: 0.875rem; /* 14px */
+  color: var(--muted-foreground);
+  line-height: 1.4;
+}
+
+/* 底部操作区域 */
+.footer {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+@media (min-width: 640px) {
+  .footer {
+    flex-direction: row;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+}
+
+/* 内容区域滚动 */
+.scrollArea {
+  max-height: calc(100vh - 8rem);
+  overflow-y: auto;
+  
+  /* 平滑滚动 */
+  scroll-behavior: smooth;
+  
+  /* 自定义滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted) transparent;
+}
+
+.scrollArea::-webkit-scrollbar {
+  width: 4px;
+}
+
+.scrollArea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollArea::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: 2px;
+}
+
+.scrollArea::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+
+/* 表单区域优化 */
+.formSection {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.fieldLabel {
+  font-size: 0.875rem; /* 14px */
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.fieldError {
+  font-size: 0.75rem; /* 12px */
+  color: var(--destructive);
+  margin-top: 0.25rem;
+}
+
+/* 动画关键帧 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* 退出动画 */
+.overlay[data-state="closed"] {
+  animation: fadeOut 150ms ease-in forwards;
+}
+
+.content[data-state="closed"] {
+  animation: slideOut 150ms ease-in forwards;
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+}
+
+/* 高对比度模式支持 */
+@media (prefers-contrast: high) {
+  .overlay {
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: none;
+  }
+  
+  .content {
+    border-width: 2px;
+  }
+}
+
+/* 减少动画首选项支持 */
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .content,
+  .closeButton {
+    transition: none;
+    animation: none;
+  }
+  
+  .scrollArea {
+    scroll-behavior: auto;
+  }
+}
+
+/* 聚焦可见性增强 */
+.content:focus-within {
+  ring: 1px solid var(--ring);
+  ring-offset: 2px;
+}
+
+/* 加载状态样式 */
+.loading {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.loading .content {
+  cursor: wait;
+}
+
+/* 错误状态样式 */
+.error .content {
+  border-color: var(--destructive);
+  box-shadow: 
+    0 25px 50px -12px rgba(220, 38, 38, 0.25),
+    0 10px 20px -5px rgba(220, 38, 38, 0.1),
+    0 0 0 1px rgba(220, 38, 38, 0.1);
+}

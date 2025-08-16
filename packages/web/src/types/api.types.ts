@@ -89,6 +89,76 @@ export interface AiConfigStats {
   byToolType: Record<string, number>
 }
 
+// 仓库相关类型
+export type RepositoryType = 'git' | 'local' | 'svn'
+
+export type ErrorType = 'auth' | 'host' | 'not_found' | 'timeout' | 'unknown'
+
+export interface TestResult {
+  success: boolean
+  message: string
+  timestamp: string
+  details?: {
+    branches?: string[]
+    defaultBranch?: string
+    isGitRepo?: boolean
+    errorType?: ErrorType
+    retryCount?: number
+    error?: string
+  }
+}
+
+export interface RepositorySettings {
+  autoUpdate?: boolean
+  cachePath?: string
+  retryCount?: number
+  connectionTimeout?: number
+}
+
+export interface RepositoryMetadata {
+  lastTestDate?: string
+  lastTestResult?: TestResult
+  availableBranches?: string[]
+  defaultBranch?: string
+}
+
+export interface Repository extends BaseEntity {
+  name: string
+  description?: string
+  url: string
+  type: RepositoryType
+  branch?: string
+  localPath?: string
+  enabled: boolean
+  credentials?: string
+  settings?: RepositorySettings
+  metadata?: RepositoryMetadata
+}
+
+export interface CreateRepositoryDto {
+  name: string
+  description?: string
+  url: string
+  type: RepositoryType
+  branch?: string
+  localPath?: string
+  enabled?: boolean
+  credentials?: string
+  settings?: RepositorySettings
+}
+
+export interface UpdateRepositoryDto {
+  name?: string
+  description?: string
+  url?: string
+  type?: RepositoryType
+  branch?: string
+  localPath?: string
+  enabled?: boolean
+  credentials?: string
+  settings?: RepositorySettings
+}
+
 export interface TestConnectionResult {
   success: boolean
   message: string

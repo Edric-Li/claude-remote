@@ -1,0 +1,245 @@
+/* 搜索输入组件样式 */
+
+.searchContainer {
+  @apply bg-white border border-gray-200 rounded-lg p-4 space-y-4;
+}
+
+.searchBar {
+  @apply flex items-center gap-3;
+}
+
+.inputWrapper {
+  @apply flex-1 relative;
+}
+
+.searchIcon {
+  @apply absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none;
+}
+
+.searchIconNormal {
+  @apply h-4 w-4 text-gray-400;
+}
+
+.searchIconLoading {
+  @apply h-4 w-4 text-blue-400 animate-pulse;
+}
+
+.searchInput {
+  @apply w-full pl-10 pr-10 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400 text-sm transition-colors;
+}
+
+.searchInputDisabled {
+  @apply bg-gray-50 cursor-not-allowed;
+}
+
+.clearButton {
+  @apply absolute inset-y-0 right-0 pr-3 flex items-center;
+}
+
+.clearButtonDisabled {
+  @apply cursor-not-allowed;
+}
+
+.clearIcon {
+  @apply h-4 w-4 text-gray-400 hover:text-gray-600 transition-colors;
+}
+
+.filterButton {
+  @apply px-3 py-2 border rounded-lg flex items-center gap-2 text-sm transition-colors;
+}
+
+.filterButtonDisabled {
+  @apply cursor-not-allowed opacity-50;
+}
+
+.filterButtonActive {
+  @apply bg-gray-900 text-white border-gray-900;
+}
+
+.filterButtonInactive {
+  @apply border-gray-200 hover:bg-gray-50;
+}
+
+.filterIcon {
+  @apply w-4 h-4;
+}
+
+.activeIndicator {
+  @apply w-2 h-2 bg-blue-400 rounded-full;
+}
+
+.clearSearchButton {
+  @apply px-3 py-2 text-gray-600 hover:text-gray-800 text-sm transition-colors;
+}
+
+.clearSearchButtonDisabled {
+  @apply cursor-not-allowed opacity-50;
+}
+
+.filtersPanel {
+  @apply border-t pt-4 grid grid-cols-1 md:grid-cols-2 gap-4;
+}
+
+.filterGroup {
+  @apply space-y-2;
+}
+
+.filterLabel {
+  @apply block text-xs font-medium text-gray-700 mb-2;
+}
+
+.filterSelect {
+  @apply w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400 text-sm;
+}
+
+.filterSelectDisabled {
+  @apply bg-gray-50 cursor-not-allowed;
+}
+
+.searchHint {
+  @apply text-xs text-gray-500 bg-blue-50 px-3 py-2 rounded border border-blue-200;
+}
+
+.hintContent {
+  @apply flex items-center gap-2;
+}
+
+.hintIcon {
+  @apply w-3 h-3;
+}
+
+.hintText {
+  @apply font-medium;
+}
+
+.hintBadge {
+  @apply px-2 py-0.5 rounded text-xs;
+}
+
+.hintBadgeBlue {
+  @apply bg-blue-100 text-blue-700;
+}
+
+.hintBadgeGreen {
+  @apply bg-green-100 text-green-700;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .searchBar {
+    @apply flex-col gap-2;
+  }
+  
+  .inputWrapper {
+    @apply order-1;
+  }
+  
+  .filterButton,
+  .clearSearchButton {
+    @apply order-2 self-start;
+  }
+  
+  .filtersPanel {
+    @apply grid-cols-1;
+  }
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .searchContainer {
+    @apply bg-gray-800 border-gray-700;
+  }
+  
+  .searchInput {
+    @apply bg-gray-800 border-gray-600 text-white;
+  }
+  
+  .searchInput:focus {
+    @apply border-gray-500;
+  }
+  
+  .searchIconNormal {
+    @apply text-gray-400;
+  }
+  
+  .filterButtonInactive {
+    @apply border-gray-600 text-gray-300 hover:bg-gray-700;
+  }
+  
+  .clearSearchButton {
+    @apply text-gray-300 hover:text-white;
+  }
+  
+  .filterLabel {
+    @apply text-gray-300;
+  }
+  
+  .filterSelect {
+    @apply bg-gray-800 border-gray-600 text-white;
+  }
+  
+  .filterSelect:focus {
+    @apply border-gray-500;
+  }
+  
+  .searchHint {
+    @apply bg-gray-700 border-gray-600 text-gray-300;
+  }
+}
+
+/* 动画效果 */
+.searchContainer {
+  animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.filtersPanel {
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 焦点状态 */
+.searchInput:focus {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.filterSelect:focus {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* 加载状态 */
+.searchInputDisabled {
+  position: relative;
+}
+
+.searchInputDisabled::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: inherit;
+  pointer-events: none;
+}

@@ -60,7 +60,7 @@ export class Agent {
   @Column({ type: 'simple-json', nullable: true })
   allowedTools: string[]
 
-  @Column('timestamp', { nullable: true })
+  @Column('datetime', { nullable: true })
   lastSeenAt: Date
 
   @Column('varchar', { length: 50 })

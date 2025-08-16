@@ -43,7 +43,7 @@ export class User {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date
 
-  @Column({ type: 'timestamp', nullable: true, name: 'last_login_at' })
+  @Column({ type: 'datetime', nullable: true, name: 'last_login_at' })
   lastLoginAt?: Date
 
 

@@ -6,16 +6,34 @@ import * as dotenv from 'dotenv'
 dotenv.config()
 
 export const getDatabaseConfig = (): TypeOrmModuleOptions => {
+  const dbType = process.env.DB_TYPE as 'postgres' | 'sqlite' || 'postgres'
+  
+  const baseConfig = {
+    entities: [
+      join(__dirname, '..', 'entities', 'user.entity.{ts,js}'),
+      join(__dirname, '..', 'entities', 'repository.entity.{ts,js}')
+    ],
+    synchronize: process.env.DB_SYNCHRONIZE === 'true' || process.env.NODE_ENV === 'development',
+    logging: process.env.DB_LOGGING === 'true'
+  }
+  
+  if (dbType === 'sqlite') {
+    return {
+      ...baseConfig,
+      type: 'sqlite',
+      database: process.env.DB_DATABASE || './data/database.sqlite'
+    }
+  }
+  
+  // PostgreSQL configuration
   return {
+    ...baseConfig,
     type: 'postgres',
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT || '5432'),
     username: process.env.DB_USER || 'postgres',
     password: process.env.DB_PASSWORD || 'postgres',
     database: process.env.DB_NAME || 'ai_orchestra',
-    entities: [join(__dirname, '..', '**', '*.entity.{ts,js}')],
-    synchronize: true, // 开启自动同步，创建数据库表
-    logging: process.env.DB_LOGGING === 'true',
     ssl:
       process.env.DB_SSL === 'true'
         ? {

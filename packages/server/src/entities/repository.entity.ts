@@ -1,4 +1,5 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm'
+import { RepositoryType, RepositorySettings, RepositoryMetadata } from '../types/repository.types'
 
 @Entity('repositories')
 export class RepositoryEntity {
@@ -15,7 +16,7 @@ export class RepositoryEntity {
   url: string
 
   @Column({ default: 'git' })
-  type: 'git' | 'local' | 'svn'
+  type: RepositoryType
 
   @Column({ nullable: true })
   branch: string
@@ -27,13 +28,13 @@ export class RepositoryEntity {
   enabled: boolean
 
   @Column({ nullable: true })
-  credentials: string // 加密存储的凭据
+  credentials: string // 使用随机 IV 加密存储
 
-  @Column({ type: 'simple-json', nullable: true })
-  settings: {
-    autoUpdate?: boolean // 是否在任务开始前自动拉取最新代码
-    cachePath?: string // Agent端缓存路径（可选，默认使用系统路径）
-  }
+  @Column({ type: 'text', nullable: true })
+  settings?: string // JSON string for SQLite compatibility
+
+  @Column({ type: 'text', nullable: true })
+  metadata?: string // JSON string for SQLite compatibility
 
   @CreateDateColumn()
   createdAt: Date
