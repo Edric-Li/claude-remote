@@ -9,6 +9,12 @@ import {
 
 @Entity('agents')
 @Index(['secretKey'], { unique: true })
+@Index(['status'])
+@Index(['createdBy'])
+@Index(['lastSeenAt'])
+@Index(['lastValidatedAt'])
+@Index(['name', 'status'])
+@Index(['createdBy', 'status'])
 export class Agent {
   @PrimaryGeneratedColumn('uuid')
   id: string
@@ -60,8 +66,51 @@ export class Agent {
   @Column({ type: 'simple-json', nullable: true })
   allowedTools: string[]
 
+  @Column({ type: 'simple-json', nullable: true })
+  metadata: {
+    lastValidationResult?: {
+      success: boolean
+      timestamp: Date
+      responseTime?: number
+      errorMessage?: string
+      warnings?: string[]
+      metrics?: {
+        connectivity: boolean
+        authentication: boolean
+        resourceAvailability: boolean
+      }
+    }
+    monitoringConfig?: {
+      enabled: boolean
+      heartbeatInterval: number
+      alertThresholds: {
+        cpuUsage: number
+        memoryUsage: number
+        diskUsage: number
+        responseTime: number
+      }
+      notificationChannels: string[]
+    }
+    alertRules?: Array<{
+      id: string
+      name: string
+      condition: string
+      threshold: number
+      severity: 'low' | 'medium' | 'high' | 'critical'
+      enabled: boolean
+    }>
+    permissions?: {
+      allowedOperations: string[]
+      accessLevel: 'read' | 'write' | 'admin'
+      restrictions: string[]
+    }
+  }
+
   @Column('datetime', { nullable: true })
   lastSeenAt: Date
+
+  @Column('datetime', { nullable: true })
+  lastValidatedAt: Date
 
   @Column('varchar', { length: 50 })
   createdBy: string

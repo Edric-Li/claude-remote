@@ -1100,4 +1100,274 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // 转发给请求的客户端
     this.server.emit('history:list:data', data)
   }
+
+  // === Agent监控相关WebSocket事件 ===
+
+  /**
+   * 通知Agent状态变化
+   */
+  notifyAgentStatusChange(agentId: string, status: string): void {
+    this.server.emit('agent:status_changed', {
+      agentId,
+      status,
+      timestamp: new Date()
+    })
+
+    // 同时通知WebSocket客户端
+    this.broadcastToWebClients('agent:status_changed', {
+      agentId,
+      status,
+      timestamp: new Date()
+    })
+
+    console.log(`Notified agent status change: ${agentId} -> ${status}`)
+  }
+
+  /**
+   * 通知Agent告警事件
+   */
+  notifyAgentAlerts(agentId: string, alerts: any[]): void {
+    this.server.emit('agent:alerts', {
+      agentId,
+      alerts,
+      timestamp: new Date()
+    })
+
+    // 同时通知WebSocket客户端
+    this.broadcastToWebClients('agent:alerts', {
+      agentId,
+      alerts,
+      timestamp: new Date()
+    })
+
+    console.log(`Notified agent alerts: ${agentId}, ${alerts.length} alerts`)
+  }
+
+  /**
+   * 通知Agent健康数据更新
+   */
+  notifyAgentHealthUpdate(agentId: string, healthData: any): void {
+    this.server.emit('agent:health_update', {
+      agentId,
+      healthData,
+      timestamp: new Date()
+    })
+
+    // 同时通知WebSocket客户端
+    this.broadcastToWebClients('agent:health_update', {
+      agentId,
+      healthData,
+      timestamp: new Date()
+    })
+  }
+
+  /**
+   * 通知批量操作进度
+   */
+  notifyBatchOperationProgress(operationId: string, progress: any): void {
+    this.server.emit('batch_operation:progress', {
+      operationId,
+      progress,
+      timestamp: new Date()
+    })
+
+    // 同时通知WebSocket客户端
+    this.broadcastToWebClients('batch_operation:progress', {
+      operationId,
+      progress,
+      timestamp: new Date()
+    })
+  }
+
+  /**
+   * 处理Agent健康心跳
+   */
+  @SubscribeMessage('agent:health_heartbeat')
+  handleAgentHealthHeartbeat(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: {
+      agentId: string
+      metrics: any
+      timestamp: Date
+    }
+  ): void {
+    // 转发健康心跳数据给所有客户端
+    this.server.emit('agent:health_heartbeat', data)
+
+    // 同时通知WebSocket客户端
+    this.broadcastToWebClients('agent:health_heartbeat', data)
+  }
+
+  /**
+   * 处理Agent资源使用情况更新
+   */
+  @SubscribeMessage('agent:resources_update')
+  handleAgentResourcesUpdate(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: {
+      agentId: string
+      resources: any
+      timestamp: Date
+    }
+  ): void {
+    // 转发资源使用情况给监控客户端
+    this.server.emit('agent:resources_update', data)
+
+    // 同时通知WebSocket客户端
+    this.broadcastToWebClients('agent:resources_update', data)
+  }
+
+  /**
+   * 处理Agent日志推送
+   */
+  @SubscribeMessage('agent:log')
+  handleAgentLog(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: {
+      agentId: string
+      level: 'debug' | 'info' | 'warn' | 'error'
+      message: string
+      timestamp: Date
+      context?: any
+    }
+  ): void {
+    // 转发日志给监控客户端
+    this.server.emit('agent:log', data)
+
+    // 同时通知WebSocket客户端
+    this.broadcastToWebClients('agent:log', data)
+  }
+
+  /**
+   * 订阅Agent监控数据
+   */
+  @SubscribeMessage('monitoring:subscribe')
+  handleMonitoringSubscribe(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: {
+      agentIds?: string[]
+      types: string[] // ['health', 'alerts', 'logs', 'resources']
+    }
+  ): void {
+    // 加入监控房间
+    for (const type of data.types) {
+      client.join(`monitoring:${type}`)
+    }
+
+    // 如果指定了特定Agent，加入Agent特定的监控房间
+    if (data.agentIds) {
+      for (const agentId of data.agentIds) {
+        for (const type of data.types) {
+          client.join(`monitoring:${type}:${agentId}`)
+        }
+      }
+    }
+
+    client.emit('monitoring:subscribed', {
+      agentIds: data.agentIds,
+      types: data.types
+    })
+
+    console.log(`Client ${client.id} subscribed to monitoring:`, data)
+  }
+
+  /**
+   * 取消订阅Agent监控数据
+   */
+  @SubscribeMessage('monitoring:unsubscribe')
+  handleMonitoringUnsubscribe(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: {
+      agentIds?: string[]
+      types: string[] // ['health', 'alerts', 'logs', 'resources']
+    }
+  ): void {
+    // 离开监控房间
+    for (const type of data.types) {
+      client.leave(`monitoring:${type}`)
+    }
+
+    // 如果指定了特定Agent，离开Agent特定的监控房间
+    if (data.agentIds) {
+      for (const agentId of data.agentIds) {
+        for (const type of data.types) {
+          client.leave(`monitoring:${type}:${agentId}`)
+        }
+      }
+    }
+
+    client.emit('monitoring:unsubscribed', {
+      agentIds: data.agentIds,
+      types: data.types
+    })
+
+    console.log(`Client ${client.id} unsubscribed from monitoring:`, data)
+  }
+
+  /**
+   * 获取连接的Agent列表
+   */
+  @SubscribeMessage('agents:get_connected')
+  handleGetConnectedAgents(
+    @ConnectedSocket() client: Socket
+  ): void {
+    const agents = Array.from(this.connectedAgents.values()).map(agent => ({
+      id: agent.agentId,
+      name: agent.name,
+      connectedAt: agent.connectedAt,
+      latency: agent.latency
+    }))
+
+    client.emit('agents:connected_list', { agents })
+  }
+
+  /**
+   * 请求Agent执行连接测试
+   */
+  @SubscribeMessage('agent:test_connection')
+  async handleAgentTestConnection(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { agentId: string }
+  ): Promise<void> {
+    const agent = this.connectedAgents.get(data.agentId)
+    if (agent) {
+      // 发送测试请求给Agent
+      this.server.to(agent.socketId).emit('agent:connection_test', {
+        requestId: `test-${Date.now()}`,
+        timestamp: new Date()
+      })
+
+      client.emit('agent:test_connection_sent', {
+        agentId: data.agentId,
+        timestamp: new Date()
+      })
+    } else {
+      client.emit('agent:test_connection_failed', {
+        agentId: data.agentId,
+        error: 'Agent not connected'
+      })
+    }
+  }
+
+  /**
+   * 处理Agent连接测试结果
+   */
+  @SubscribeMessage('agent:connection_test_result')
+  handleAgentConnectionTestResult(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: {
+      agentId: string
+      requestId: string
+      success: boolean
+      responseTime: number
+      error?: string
+      timestamp: Date
+    }
+  ): void {
+    // 广播测试结果给所有监控客户端
+    this.server.emit('agent:connection_test_result', data)
+
+    // 同时通知WebSocket客户端
+    this.broadcastToWebClients('agent:connection_test_result', data)
+  }
 }

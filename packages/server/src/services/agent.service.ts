@@ -4,7 +4,7 @@ import {
   ConflictException,
   BadRequestException
 } from '@nestjs/common'
-import { AgentRepository } from '../repositories/agent.repository'
+import { AgentRepository, AgentFilters, PaginationOptions, PaginatedResult } from '../repositories/agent.repository'
 import { Agent } from '../entities/agent.entity'
 import * as crypto from 'crypto'
 
@@ -27,6 +27,66 @@ export interface UpdateAgentDto {
     mode: 'auto' | 'manual' | 'dynamic'
     config: Record<string, any>
   }
+  metadata?: {
+    monitoringConfig?: {
+      enabled: boolean
+      heartbeatInterval: number
+      alertThresholds: {
+        cpuUsage: number
+        memoryUsage: number
+        diskUsage: number
+        responseTime: number
+      }
+      notificationChannels: string[]
+    }
+    alertRules?: Array<{
+      id: string
+      name: string
+      condition: string
+      threshold: number
+      severity: 'low' | 'medium' | 'high' | 'critical'
+      enabled: boolean
+    }>
+    permissions?: {
+      allowedOperations: string[]
+      accessLevel: 'read' | 'write' | 'admin'
+      restrictions: string[]
+    }
+  }
+}
+
+export interface ValidationResult {
+  success: boolean
+  timestamp: Date
+  responseTime?: number
+  errorMessage?: string
+  warnings?: string[]
+  metrics?: {
+    connectivity: boolean
+    authentication: boolean
+    resourceAvailability: boolean
+  }
+}
+
+export interface BatchOperationDto {
+  type: 'delete' | 'update_status' | 'update_tags' | 'update_monitoring'
+  agentIds: string[]
+  payload?: any
+  userId: string
+}
+
+export interface BatchOperationResult {
+  totalCount: number
+  successCount: number
+  failureCount: number
+  skippedCount: number
+  results: Array<{
+    agentId: string
+    success: boolean
+    error?: string
+    skipped?: boolean
+    reason?: string
+  }>
 }
 
 export interface ConnectAgentDto {
@@ -256,5 +316,284 @@ export class AgentService {
     }
 
     await this.agentRepository.update(id, updateData)
+  }
+
+  /**
+   * 高级查询和筛选 Agent
+   */
+  async getAgentsWithFilters(
+    filters: AgentFilters,
+    pagination?: PaginationOptions
+  ): Promise<PaginatedResult<Agent>> {
+    return this.agentRepository.findWithFilters(filters, pagination)
+  }
+
+  /**
+   * 更新 Agent 验证结果
+   */
+  async updateValidationResult(id: string, result: ValidationResult): Promise<void> {
+    const agent = await this.getAgentById(id)
+    
+    const updatedMetadata = {
+      ...agent.metadata,
+      lastValidationResult: result
+    }
+
+    await this.agentRepository.update(id, {
+      metadata: updatedMetadata,
+      lastValidatedAt: new Date()
+    })
+  }
+
+  /**
+   * 更新 Agent 监控配置
+   */
+  async updateMonitoringConfig(
+    id: string,
+    config: {
+      enabled: boolean
+      heartbeatInterval: number
+      alertThresholds: {
+        cpuUsage: number
+        memoryUsage: number
+        diskUsage: number
+        responseTime: number
+      }
+      notificationChannels: string[]
+    }
+  ): Promise<void> {
+    const agent = await this.getAgentById(id)
+    
+    const updatedMetadata = {
+      ...agent.metadata,
+      monitoringConfig: config
+    }
+
+    await this.agentRepository.update(id, { metadata: updatedMetadata })
+  }
+
+  /**
+   * 添加或更新告警规则
+   */
+  async updateAlertRules(
+    id: string,
+    rules: Array<{
+      id: string
+      name: string
+      condition: string
+      threshold: number
+      severity: 'low' | 'medium' | 'high' | 'critical'
+      enabled: boolean
+    }>
+  ): Promise<void> {
+    const agent = await this.getAgentById(id)
+    
+    const updatedMetadata = {
+      ...agent.metadata,
+      alertRules: rules
+    }
+
+    await this.agentRepository.update(id, { metadata: updatedMetadata })
+  }
+
+  /**
+   * 获取需要验证的 Agent
+   */
+  async getAgentsNeedingValidation(olderThanMinutes: number = 30): Promise<Agent[]> {
+    return this.agentRepository.findAgentsNeedingValidation(olderThanMinutes)
+  }
+
+  /**
+   * 根据标签查找 Agent
+   */
+  async getAgentsByTags(tags: string[]): Promise<Agent[]> {
+    return this.agentRepository.findByTags(tags)
+  }
+
+  /**
+   * 获取 Agent 统计信息
+   */
+  async getAgentStatistics(): Promise<{
+    total: number
+    byStatus: Record<string, number>
+    byPlatform: Record<string, number>
+    recentlyActive: number
+    withMonitoring: number
+  }> {
+    return this.agentRepository.getStatistics()
+  }
+
+  /**
+   * 批量操作 Agent
+   */
+  async performBatchOperation(operation: BatchOperationDto): Promise<BatchOperationResult> {
+    const { type, agentIds, payload, userId } = operation
+    
+    const result: BatchOperationResult = {
+      totalCount: agentIds.length,
+      successCount: 0,
+      failureCount: 0,
+      skippedCount: 0,
+      results: []
+    }
+
+    switch (type) {
+      case 'delete':
+        const deleteResult = await this.agentRepository.batchDelete(agentIds)
+        result.successCount = deleteResult.successCount
+        result.failureCount = deleteResult.failureCount
+        result.results = deleteResult.results
+        break
+
+      case 'update_status':
+        if (!payload?.status) {
+          throw new BadRequestException('Status is required for update_status operation')
+        }
+        
+        const updateResult = await this.agentRepository.batchUpdate({
+          ids: agentIds,
+          updates: { status: payload.status },
+          userId
+        })
+        result.successCount = updateResult.successCount
+        result.failureCount = updateResult.failureCount
+        result.results = updateResult.results
+        break
+
+      case 'update_tags':
+        if (!payload?.tags) {
+          throw new BadRequestException('Tags are required for update_tags operation')
+        }
+        
+        const tagsResult = await this.agentRepository.batchUpdate({
+          ids: agentIds,
+          updates: { tags: payload.tags },
+          userId
+        })
+        result.successCount = tagsResult.successCount
+        result.failureCount = tagsResult.failureCount
+        result.results = tagsResult.results
+        break
+
+      case 'update_monitoring':
+        if (!payload?.monitoringConfig) {
+          throw new BadRequestException('Monitoring config is required for update_monitoring operation')
+        }
+        
+        // 批量更新监控配置需要特殊处理
+        for (const agentId of agentIds) {
+          try {
+            await this.updateMonitoringConfig(agentId, payload.monitoringConfig)
+            result.results.push({ agentId, success: true })
+            result.successCount++
+          } catch (error) {
+            result.results.push({ agentId, success: false, error: error.message })
+            result.failureCount++
+          }
+        }
+        break
+
+      default:
+        throw new BadRequestException(`Unsupported batch operation type: ${type}`)
+    }
+
+    return result
+  }
+
+  /**
+   * 创建默认监控配置
+   */
+  private createDefaultMonitoringConfig() {
+    return {
+      enabled: false,
+      heartbeatInterval: 30000, // 30秒
+      alertThresholds: {
+        cpuUsage: 80,
+        memoryUsage: 85,
+        diskUsage: 90,
+        responseTime: 5000
+      },
+      notificationChannels: []
+    }
+  }
+
+  /**
+   * 创建 Agent 时初始化默认配置
+   */
+  async createAgentWithDefaults(data: CreateAgentDto): Promise<Agent> {
+    const agentData = {
+      ...data,
+      metadata: {
+        monitoringConfig: this.createDefaultMonitoringConfig(),
+        alertRules: [],
+        permissions: {
+          allowedOperations: ['read', 'validate', 'update'],
+          accessLevel: 'read' as const,
+          restrictions: []
+        }
+      }
+    }
+
+    // 生成唯一密钥
+    let secretKey = this.generateSecretKey()
+    let attempts = 0
+
+    while (!(await this.agentRepository.isSecretKeyUnique(secretKey)) && attempts < 10) {
+      secretKey = this.generateSecretKey()
+      attempts++
+    }
+
+    if (attempts >= 10) {
+      throw new Error('Failed to generate unique secret key')
+    }
+
+    const agent = await this.agentRepository.create({
+      ...agentData,
+      secretKey,
+      status: 'pending'
+    })
+
+    return agent
+  }
+
+  /**
+   * 验证 Agent 配置
+   */
+  validateAgentConfiguration(data: CreateAgentDto | UpdateAgentDto): string[] {
+    const errors: string[] = []
+
+    if ('name' in data && data.name) {
+      if (data.name.length < 2 || data.name.length > 100) {
+        errors.push('Agent name must be between 2 and 100 characters')
+      }
+    }
+
+    if ('maxWorkers' in data && data.maxWorkers !== undefined) {
+      if (data.maxWorkers < 1 || data.maxWorkers > 32) {
+        errors.push('Max workers must be between 1 and 32')
+      }
+    }
+
+    if ('tags' in data && data.tags) {
+      if (data.tags.length > 20) {
+        errors.push('Maximum 20 tags allowed')
+      }
+      
+      for (const tag of data.tags) {
+        if (tag.length > 50) {
+          errors.push('Tag length cannot exceed 50 characters')
+        }
+      }
+    }
+
+    if ('allowedTools' in data && data.allowedTools) {
+      const validTools = ['claude', 'qwen', 'gpt', 'gemini']
+      const invalidTools = data.allowedTools.filter(tool => !validTools.includes(tool))
+      if (invalidTools.length > 0) {
+        errors.push(`Invalid tools: ${invalidTools.join(', ')}`)
+      }
+    }
+
+    return errors
   }
 }
