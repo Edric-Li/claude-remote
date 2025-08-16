@@ -7,6 +7,10 @@ import { PrivateRoute } from './components/PrivateRoute'
 import { LoginPage } from './pages/next/LoginPage'
 import { ModernHomePage } from './pages/next/ModernHomePage'
 import { SettingsPage } from './pages/next/SettingsPage'
+import { ChatNewPage } from './pages/next/ChatNewPage'
+
+// 测试页面
+import { ComponentTestPage } from './pages/ComponentTestPage'
 
 type Theme = 'light' | 'dark' | 'system'
 type FontSize = 'small' | 'medium' | 'large'
@@ -111,6 +115,7 @@ export function App() {
           <Route path="/home" element={<ModernHomePage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/admin" element={<AdminPage />} />
+          <Route path="/test" element={<ComponentTestPage />} />
         </Route>
 
         {/* 兼容性路由 */}
@@ -118,6 +123,7 @@ export function App() {
         <Route element={<PrivateRoute />}>
           <Route path="/next/home" element={<ModernHomePage />} />
           <Route path="/next/settings" element={<SettingsPage />} />
+          <Route path="/next/chat/new" element={<ChatNewPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
+import { JwtModule } from '@nestjs/jwt'
 import { Agent } from '../entities/agent.entity'
 import { AgentHealth } from '../entities/agent-health.entity'
 import { OperationLog } from '../entities/operation-log.entity'
@@ -11,6 +12,7 @@ import { AgentService } from '../services/agent.service'
 // import { BatchOperationService } from '../services/batch-operation.service'
 // import { MonitoringService } from '../services/monitoring.service'
 import { AgentController } from '../controllers/agent.controller'
+import { TestAuthGuard } from '../auth/test-auth.guard'
 // import { HealthController } from '../controllers/health.controller'
 import { ChatModule } from '../chat/chat.module'
 
@@ -21,6 +23,10 @@ import { ChatModule } from '../chat/chat.module'
       // AgentHealth, 
       // OperationLog
     ]),
+    JwtModule.register({
+      secret: process.env.JWT_SECRET || 'defaultSecret',
+      signOptions: { expiresIn: '24h' }
+    }),
     forwardRef(() => ChatModule)
   ],
   controllers: [AgentController],
@@ -28,7 +34,8 @@ import { ChatModule } from '../chat/chat.module'
     AgentRepository,
     // AgentHealthRepository, 
     // OperationLogRepository,
-    AgentService
+    AgentService,
+    TestAuthGuard
     // AgentValidationService,
     // BatchOperationService,
     // MonitoringService

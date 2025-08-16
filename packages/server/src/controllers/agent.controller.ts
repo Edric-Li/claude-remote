@@ -28,7 +28,6 @@ import { Agent } from '../entities/agent.entity'
 // } from '@nestjs/swagger'
 
 @Controller('api/agents')
-// @UseGuards(JwtAuthGuard)
 export class AgentController {
   private readonly logger = new Logger(AgentController.name)
 

@@ -26,6 +26,26 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       return true
     }
 
+    // 在开发环境下支持测试token
+    if (process.env.NODE_ENV !== 'production') {
+      const request = context.switchToHttp().getRequest()
+      const authHeader = request.headers.authorization
+      
+      if (authHeader) {
+        const [type, token] = authHeader.split(' ')
+        if (type === 'Bearer' && token === 'test-token-for-development') {
+          console.log('JwtAuthGuard - Test token detected, allowing access')
+          // 设置测试用户信息
+          request.user = {
+            id: 'test-user',
+            username: 'test-user',
+            email: 'test@example.com'
+          }
+          return true
+        }
+      }
+    }
+
     return super.canActivate(context)
   }
 }

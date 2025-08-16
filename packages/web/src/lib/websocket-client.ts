@@ -1,8 +1,9 @@
 /**
  * WebSocket 通信客户端
- * 替代 HTTP + SSE，使用原生 WebSocket
+ * 使用 Socket.IO 与后端通信
  */
 
+import { io, Socket } from 'socket.io-client'
 import { useAuthStore } from '../store/auth.store'
 
 export interface AgentInfo {
@@ -28,16 +29,35 @@ export interface WorkerStatus {
   tool?: 'claude' | 'qwcoder'
 }
 
+export interface ConversationState {
+  sessionId: string
+  messages: any[]
+  metadata?: Record<string, any>
+}
+
+export interface WebSocketEventCallbacks {
+  onConversationStateUpdated?: (data: ConversationState) => void
+  onConversationStateUpdateFailed?: (error: string) => void
+}
+
 // WebSocket客户端配置
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://localhost:${import.meta.env.VITE_API_PORT || 3000}`
 const WS_RECONNECT_INTERVAL = 3000
 const WS_MAX_RECONNECT_ATTEMPTS = 10
+
+// 对话事件类型
+const CONVERSATION_EVENTS = {
+  STATE_UPDATE: 'conversation:state_update',
+  STATE_UPDATE_ACK: 'conversation:state_update_ack',
+  STATE_UPDATE_FAILED: 'conversation:state_update_failed',
+  STATE_UPDATED: 'conversation:state_updated'
+} as const
 
 /**
  * WebSocket通信客户端类
  */
 export class WebSocketCommunicationClient {
-  private ws: WebSocket | null = null
+  private socket: Socket | null = null
   private listeners: Map<string, Set<Function>> = new Map()
   private connected = false
   private reconnectAttempts = 0
@@ -62,79 +82,85 @@ export class WebSocketCommunicationClient {
   }
 
   /**
-   * 建立 WebSocket 连接
+   * 建立 Socket.IO 连接
    */
   async connect(): Promise<void> {
-    if (this.ws && (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)) {
-      console.log('WebSocket 连接已存在，跳过重复连接')
+    if (this.socket && this.socket.connected) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Socket.IO 连接已存在，跳过重复连接')
+      }
       return
     }
 
     const { accessToken } = useAuthStore.getState()
-    if (!accessToken) {
-      throw new Error('缺少认证token')
-    }
-
-    const wsUrl = this.getWebSocketUrl(accessToken)
+    const serverUrl = this.getServerUrl()
     
     try {
-      this.ws = new WebSocket(wsUrl)
+      this.socket = io(serverUrl, {
+        transports: ['polling', 'websocket'],
+        autoConnect: false,
+        forceNew: true,
+        upgrade: true,
+        auth: {
+          token: accessToken || process.env.NODE_ENV === 'development' ? 'dev-token' : undefined
+        }
+      })
       this.setupEventHandlers()
+      this.socket.connect()
       this.reconnectAttempts = 0
     } catch (error) {
-      console.error('WebSocket 连接创建失败:', error)
+      console.error('Socket.IO 连接创建失败:', error)
       this.scheduleReconnect()
     }
   }
 
   /**
-   * 获取 WebSocket URL
+   * 获取服务器 URL
    */
-  private getWebSocketUrl(token: string): string {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const host = BASE_URL ? new URL(BASE_URL).host : window.location.host
-    return `${protocol}//${host}/ws?token=${encodeURIComponent(token)}`
+  private getServerUrl(): string {
+    return BASE_URL || `http://localhost:${import.meta.env.VITE_API_PORT || 3000}`
   }
 
   /**
    * 设置事件处理器
    */
   private setupEventHandlers(): void {
-    if (!this.ws) return
+    if (!this.socket) return
 
-    this.ws.onopen = () => {
-      console.log('✅ WebSocket 连接已建立')
+    this.socket.on('connect', () => {
+      console.log('✅ Socket.IO 连接已建立')
       this.connected = true
       this.reconnectAttempts = 0
       this.startHeartbeat()
       this.emit('connect')
-    }
+    })
 
-    this.ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data)
-        this.handleServerMessage(data)
-      } catch (error) {
-        console.error('WebSocket 消息解析失败:', error)
-      }
-    }
-
-    this.ws.onclose = (event) => {
-      console.log('❌ WebSocket 连接关闭:', event.code, event.reason)
+    this.socket.on('disconnect', (reason) => {
+      console.log('❌ Socket.IO 连接断开:', reason)
       this.connected = false
       this.stopHeartbeat()
       this.emit('disconnect')
       
-      // 如果不是手动关闭，尝试重连
-      if (event.code !== 1000) {
+      // 如果不是手动断开，尝试重连
+      if (reason !== 'io client disconnect') {
         this.scheduleReconnect()
       }
-    }
+    })
 
-    this.ws.onerror = (error) => {
-      console.error('WebSocket 连接错误:', error)
+    this.socket.on('connect_error', (error) => {
+      console.error('Socket.IO 连接错误:', error)
       this.connected = false
-    }
+    })
+
+    // 监听所有服务器消息
+    this.socket.onAny((eventName, ...args) => {
+      if (eventName === 'connect' || eventName === 'disconnect' || eventName === 'connect_error') {
+        return // 这些事件已经单独处理
+      }
+      
+      // 处理其他消息
+      this.handleServerMessage({ type: eventName, payload: args[0] })
+    })
   }
 
   /**
@@ -151,28 +177,51 @@ export class WebSocketCommunicationClient {
 
     // 处理连接确认
     if (type === 'connected') {
-      console.log('WebSocket 连接确认:', payload.message)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('WebSocket 连接确认:', payload.message)
+      }
       return
     }
+
+    // 处理对话事件
+    this.handleConversationEvents(type, payload)
 
     // 分发其他事件
     this.emit(type, payload)
   }
 
   /**
+   * 处理对话相关事件
+   */
+  private handleConversationEvents(type: string, payload: any): void {
+    switch (type) {
+      case CONVERSATION_EVENTS.STATE_UPDATE_ACK:
+        if (process.env.NODE_ENV === 'development') {
+          console.log('对话状态更新确认:', payload)
+        }
+        break
+      case CONVERSATION_EVENTS.STATE_UPDATE_FAILED:
+        console.error('对话状态更新失败:', payload)
+        this.emit('conversation_update_failed', payload.error || '更新失败')
+        break
+      case CONVERSATION_EVENTS.STATE_UPDATED:
+        if (process.env.NODE_ENV === 'development') {
+          console.log('对话状态已更新:', payload)
+        }
+        this.emit('conversation_state_updated', payload)
+        break
+    }
+  }
+
+  /**
    * 发送消息到服务器
    */
   private send(type: string, payload: any): void {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      const message = {
-        type,
-        payload,
-        timestamp: new Date().toISOString()
-      }
-      this.ws.send(JSON.stringify(message))
+    if (this.socket && this.socket.connected) {
+      this.socket.emit(type, payload)
     } else {
-      console.warn('WebSocket 未连接，无法发送消息:', type)
-      throw new Error('WebSocket 连接未建立')
+      console.warn('Socket.IO 未连接，无法发送消息:', type)
+      throw new Error('Socket.IO 连接未建立')
     }
   }
 
@@ -187,9 +236,9 @@ export class WebSocketCommunicationClient {
 
     this.stopHeartbeat()
 
-    if (this.ws) {
-      this.ws.close(1000, 'Manual disconnect')
-      this.ws = null
+    if (this.socket) {
+      this.socket.disconnect()
+      this.socket = null
     }
 
     this.connected = false
@@ -321,9 +370,13 @@ export class WebSocketCommunicationClient {
   async getAgentList(): Promise<AgentInfo[]> {
     // 通过 HTTP API 获取，因为这是一次性数据请求
     const { accessToken } = useAuthStore.getState()
+    if (!accessToken && process.env.NODE_ENV !== 'development') {
+      throw new Error('未授权：缺少访问令牌')
+    }
+    
     const response = await fetch(`${BASE_URL}/api/agents`, {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        'Authorization': `Bearer ${accessToken || 'dev-token'}`,
         'Content-Type': 'application/json'
       }
     })
@@ -342,6 +395,26 @@ export class WebSocketCommunicationClient {
     this.send('chat:message', {
       to: agentId,
       content
+    })
+  }
+
+  /**
+   * 发送 Claude 命令
+   */
+  async sendClaudeCommand(command: string, options: any = {}): Promise<void> {
+    this.send('claude:command', {
+      command,
+      options,
+      sessionId: options.sessionId
+    })
+  }
+
+  /**
+   * 终止 Claude 会话
+   */
+  async abortClaudeSession(sessionId: string): Promise<void> {
+    this.send('claude:abort', {
+      sessionId
     })
   }
 
@@ -397,6 +470,16 @@ export class WebSocketCommunicationClient {
   }
 
   /**
+   * 发送对话状态更新
+   */
+  updateConversationState(sessionId: string, conversationState: ConversationState): void {
+    this.send(CONVERSATION_EVENTS.STATE_UPDATE, {
+      sessionId,
+      conversationState
+    })
+  }
+
+  /**
    * 获取连接状态
    */
   isConnected(): boolean {
@@ -415,6 +498,30 @@ export class WebSocketCommunicationClient {
       connected: this.connected,
       reconnectAttempts: this.reconnectAttempts,
       lastHeartbeat: this.lastHeartbeat
+    }
+  }
+
+  /**
+   * 设置对话事件回调函数
+   */
+  setConversationCallbacks(callbacks: WebSocketEventCallbacks): void {
+    if (callbacks.onConversationStateUpdated) {
+      this.on('conversation_state_updated', callbacks.onConversationStateUpdated)
+    }
+    if (callbacks.onConversationStateUpdateFailed) {
+      this.on('conversation_update_failed', callbacks.onConversationStateUpdateFailed)
+    }
+  }
+
+  /**
+   * 移除对话事件回调函数
+   */
+  removeConversationCallbacks(callbacks: WebSocketEventCallbacks): void {
+    if (callbacks.onConversationStateUpdated) {
+      this.off('conversation_state_updated', callbacks.onConversationStateUpdated)
+    }
+    if (callbacks.onConversationStateUpdateFailed) {
+      this.off('conversation_update_failed', callbacks.onConversationStateUpdateFailed)
     }
   }
 }

@@ -69,6 +69,23 @@ export class Session {
     tokenUsage?: number
     workerStatus?: 'idle' | 'busy'
     workerConfig?: any
+    conversationState?: {
+      aiTool: 'claude' | 'codex'
+      toolPermissions: string[]
+      inputHistory: {
+        timestamp: Date
+        content: string
+        type: 'text' | 'command'
+      }[]
+      preferences: {
+        responseFormat?: 'brief' | 'detailed'
+        codeStyle?: 'typescript' | 'javascript' | 'python'
+        outputLanguage?: 'en' | 'zh'
+        autoSave?: boolean
+        debugMode?: boolean
+        [key: string]: any
+      }
+    }
   }
 
   // 统计信息
@@ -129,6 +146,15 @@ export class SessionMessage {
       output_tokens: number
     }
     error?: string
+    // 工具调用相关元数据
+    toolCall?: {
+      toolName: string          // 工具名称，如Edit、Write、Bash等
+      toolInput: any            // 工具输入参数
+      toolOutput: any           // 工具输出结果
+      isToolUse: boolean        // 是否为工具调用消息
+      toolId: string            // 工具调用唯一ID
+      executionTime: number     // 执行时间ms
+    }
   }
 
   @CreateDateColumn()

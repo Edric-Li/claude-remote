@@ -31,6 +31,16 @@ interface WorkerOutputItem {
   }
 }
 
+export interface ConversationState {
+  id: string
+  agentId: string
+  repositoryId: string
+  aiTool: 'claude' | 'codex'
+  status: 'initializing' | 'active' | 'paused' | 'completed'
+  lastActivity: Date
+  messageCount: number
+}
+
 interface Worker {
   id: string
   agentId: string
@@ -60,6 +70,11 @@ interface WebSocketCommunicationState {
   selectedWorkerId: string | null
   selectedTool: 'claude' | 'qwcoder' | null
 
+  // 对话状态
+  conversations: Map<string, ConversationState>
+  activeConversationId: string | null
+  conversationLoading: boolean
+
   // 网络状态
   isOnline: boolean
   lastSyncTime: Date | null
@@ -76,6 +91,12 @@ interface WebSocketCommunicationState {
   setSelectedTool: (tool: 'claude' | 'qwcoder' | null) => void
   refreshAgentList: () => Promise<void>
   clearError: () => void
+
+  // 对话管理 Actions
+  createConversation: (agentId: string, repositoryId: string, config: any) => void
+  updateConversationState: (conversationId: string, state: Partial<ConversationState>) => void
+  setActiveConversation: (conversationId: string | null) => void
+  removeConversation: (conversationId: string) => void
 }
 
 export const useWebSocketCommunicationStore = create<WebSocketCommunicationState>((set, get) => ({
@@ -92,6 +113,9 @@ export const useWebSocketCommunicationStore = create<WebSocketCommunicationState
   workers: [],
   selectedWorkerId: null,
   selectedTool: null,
+  conversations: new Map(),
+  activeConversationId: null,
+  conversationLoading: false,
   isOnline: navigator.onLine,
   lastSyncTime: null,
 
@@ -376,6 +400,75 @@ export const useWebSocketCommunicationStore = create<WebSocketCommunicationState
   // 清除错误
   clearError: () => {
     set({ error: null })
+  },
+
+  // 创建对话
+  createConversation: (agentId: string, repositoryId: string, config: any) => {
+    const conversationId = `conversation-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const aiTool = config.aiTool || 'claude'
+    
+    const newConversation: ConversationState = {
+      id: conversationId,
+      agentId,
+      repositoryId,
+      aiTool,
+      status: 'initializing',
+      lastActivity: new Date(),
+      messageCount: 0
+    }
+
+    set(state => {
+      const newConversations = new Map(state.conversations)
+      newConversations.set(conversationId, newConversation)
+      return {
+        conversations: newConversations,
+        activeConversationId: conversationId
+      }
+    })
+  },
+
+  // 更新对话状态
+  updateConversationState: (conversationId: string, updates: Partial<ConversationState>) => {
+    set(state => {
+      const conversation = state.conversations.get(conversationId)
+      if (!conversation) {
+        console.warn(`对话 ${conversationId} 不存在`)
+        return state
+      }
+
+      const updatedConversation = {
+        ...conversation,
+        ...updates,
+        lastActivity: new Date()
+      }
+
+      const newConversations = new Map(state.conversations)
+      newConversations.set(conversationId, updatedConversation)
+
+      return {
+        conversations: newConversations
+      }
+    })
+  },
+
+  // 设置活跃对话
+  setActiveConversation: (conversationId: string | null) => {
+    set({ activeConversationId: conversationId })
+  },
+
+  // 移除对话
+  removeConversation: (conversationId: string) => {
+    set(state => {
+      const newConversations = new Map(state.conversations)
+      newConversations.delete(conversationId)
+
+      return {
+        conversations: newConversations,
+        activeConversationId: state.activeConversationId === conversationId 
+          ? null 
+          : state.activeConversationId
+      }
+    })
   }
 }))
 

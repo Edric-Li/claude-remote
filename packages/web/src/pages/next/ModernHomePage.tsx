@@ -281,6 +281,19 @@ export function ModernHomePage() {
             </div>
           ) : (
             <div className="p-2">
+              {/* 新建助手按钮 */}
+              <div className="mb-3">
+                <button
+                  onClick={() => navigate('/admin?tab=agents')}
+                  className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors group"
+                >
+                  <div className="flex items-center justify-center gap-2 text-gray-600 group-hover:text-blue-600">
+                    <Plus className="w-4 h-4" />
+                    <span className="text-sm font-medium">新建助手</span>
+                  </div>
+                </button>
+              </div>
+              
               {assistants.length > 0 ? (
                 assistants.map(assistant => (
                   <div

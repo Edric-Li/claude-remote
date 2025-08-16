@@ -70,9 +70,9 @@ export function useAgents(): UseAgentsState & UseAgentsActions {
       const result = await agentService.getAgents(accessToken, state.filters, state.pagination)
       
       updateState({
-        agents: result.items,
-        totalCount: result.totalCount,
-        totalPages: result.totalPages,
+        agents: result.agents || result.items || [],
+        totalCount: result.totalCount || result.total || 0,
+        totalPages: result.totalPages || 0,
         loading: false
       })
     } catch (error) {

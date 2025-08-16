@@ -15,6 +15,7 @@ import { TaskService } from '../services/task.service'
 import { SessionService } from '../services/session.service'
 import { RepositoryService } from '../services/repository.service'
 // import { ClaudeService } from '../services/claude.service' // 已移除
+import { ClaudeCliService, ClaudeOptions, ClaudeMessage } from '../services/claude-cli.service'
 import { OnEvent } from '@nestjs/event-emitter'
 
 interface ConnectedAgent {
@@ -66,6 +67,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @Inject(forwardRef(() => RepositoryService))
     private readonly repositoryService: RepositoryService,
     // private readonly claudeService: ClaudeService
+    private readonly claudeCliService: ClaudeCliService,
   ) {
     // Services will be used for agent/worker management
   }
@@ -102,6 +104,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         break
       case 'worker:recreate_request':
         this.handleWebWorkerRecreateRequest(payload)
+        break
+      case 'claude:command':
+      case 'claude:abort':
+        this.handleWebSocketClaudeMessage(eventType, payload)
         break
       default:
         console.log(`未处理的WebSocket事件类型: ${eventType}`)
@@ -1369,5 +1375,288 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // 同时通知WebSocket客户端
     this.broadcastToWebClients('agent:connection_test_result', data)
+  }
+
+  /**
+   * 处理对话状态更新事件
+   */
+  @SubscribeMessage('conversation:state_update')
+  async handleConversationStateUpdate(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: {
+      sessionId: string
+      conversationState: {
+        aiTool?: 'claude' | 'codex'
+        toolPermissions?: string[]
+        preferences?: object
+      }
+    }
+  ): Promise<void> {
+    try {
+      console.log(`Received conversation state update for session ${data.sessionId}`)
+
+      // 验证会话存在性 - 使用SessionService的findOne方法
+      // 注意：这里我们需要userId，但WebSocket连接可能没有用户信息
+      // 我们可以先尝试获取会话，如果失败则说明会话不存在
+      let session
+      try {
+        // 直接从数据库查询会话，不限制userId
+        session = await this.sessionService['sessionRepository'].findOne({
+          where: { id: data.sessionId }
+        })
+      } catch (error) {
+        console.error(`Failed to find session ${data.sessionId}:`, error)
+        client.emit('conversation:state_update_failed', {
+          sessionId: data.sessionId,
+          error: 'Session not found'
+        })
+        return
+      }
+
+      if (!session) {
+        console.error(`Session ${data.sessionId} not found`)
+        client.emit('conversation:state_update_failed', {
+          sessionId: data.sessionId,
+          error: 'Session not found'
+        })
+        return
+      }
+
+      // 更新Session.metadata.conversationState
+      const updatedMetadata = {
+        ...session.metadata,
+        conversationState: {
+          ...session.metadata?.conversationState,
+          ...data.conversationState,
+          // 保留inputHistory和其他现有字段
+          inputHistory: session.metadata?.conversationState?.inputHistory || [],
+          preferences: {
+            ...session.metadata?.conversationState?.preferences,
+            ...data.conversationState.preferences
+          }
+        },
+        lastActivity: new Date()
+      }
+
+      // 使用SessionService的update方法更新会话
+      await this.sessionService['sessionRepository'].save({
+        ...session,
+        metadata: updatedMetadata
+      })
+
+      // 向前端发送状态更新确认
+      client.emit('conversation:state_update_ack', {
+        sessionId: data.sessionId,
+        conversationState: updatedMetadata.conversationState,
+        success: true,
+        timestamp: new Date()
+      })
+
+      // 向会话房间的所有客户端广播状态更新
+      const roomName = `session:${data.sessionId}`
+      this.server.to(roomName).emit('conversation:state_updated', {
+        sessionId: data.sessionId,
+        conversationState: updatedMetadata.conversationState,
+        timestamp: new Date()
+      })
+
+      // 同时通知WebSocket客户端
+      this.broadcastToWebClients('conversation:state_updated', {
+        sessionId: data.sessionId,
+        conversationState: updatedMetadata.conversationState,
+        timestamp: new Date()
+      })
+
+      console.log(`Successfully updated conversation state for session ${data.sessionId}`)
+    } catch (error) {
+      console.error(`Failed to update conversation state for session ${data.sessionId}:`, error)
+      
+      // 发送错误响应
+      client.emit('conversation:state_update_failed', {
+        sessionId: data.sessionId,
+        error: error.message || 'Failed to update conversation state'
+      })
+    }
+  }
+
+  // ===== Claude 对话相关消息处理器 =====
+
+  /**
+   * 处理 Claude 对话命令
+   */
+  @SubscribeMessage('claude:command')
+  async handleClaudeCommand(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: {
+      command?: string
+      options?: ClaudeOptions
+      sessionId?: string
+    }
+  ): Promise<void> {
+    try {
+      console.log('💬 User message:', data.command || '[Continue/Resume]')
+      console.log('📁 Project:', data.options?.projectPath || 'Unknown')
+      console.log('🔄 Session:', data.options?.sessionId ? 'Resume' : 'New')
+
+      // 创建消息回调函数，将 Claude 响应转发给客户端
+      const messageCallback = (message: ClaudeMessage) => {
+        client.emit('claude:response', message)
+        
+        // 如果指定了会话ID，也向会话房间广播
+        if (data.sessionId) {
+          const roomName = `session:${data.sessionId}`
+          this.server.to(roomName).emit('claude:response', message)
+        }
+
+        // 同时通知 WebSocket 客户端
+        this.broadcastToWebClients('claude:response', message)
+      }
+
+      // 调用 Claude CLI 服务
+      await this.claudeCliService.spawnClaude(
+        data.command || '',
+        data.options || {},
+        messageCallback
+      )
+
+    } catch (error) {
+      console.error('❌ Claude command error:', error.message)
+      client.emit('claude:response', {
+        type: 'claude-error',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * 处理 Claude 会话中止
+   */
+  @SubscribeMessage('claude:abort')
+  handleClaudeAbort(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { sessionId: string }
+  ): void {
+    console.log('🛑 Abort session request:', data.sessionId)
+    
+    const success = this.claudeCliService.abortClaudeSession(data.sessionId)
+    
+    const response = {
+      type: 'session-aborted',
+      sessionId: data.sessionId,
+      success
+    }
+
+    // 发送给请求客户端
+    client.emit('claude:response', response)
+
+    // 如果有会话房间，也广播给会话成员
+    const roomName = `session:${data.sessionId}`
+    this.server.to(roomName).emit('claude:response', response)
+
+    // 同时通知 WebSocket 客户端
+    this.broadcastToWebClients('claude:response', response)
+  }
+
+  /**
+   * 获取活跃的 Claude 会话列表
+   */
+  @SubscribeMessage('claude:sessions')
+  handleClaudeSessions(@ConnectedSocket() client: Socket): void {
+    const activeSessions = this.claudeCliService.getActiveSessionIds()
+    
+    client.emit('claude:sessions', {
+      sessions: activeSessions,
+      timestamp: new Date()
+    })
+  }
+
+  /**
+   * 处理来自 WebSocket 的 Claude 消息
+   */
+  public handleWebSocketClaudeMessage(eventType: string, payload: any) {
+    switch (eventType) {
+      case 'claude:command':
+        this.handleWebClaudeCommand(payload)
+        break
+      case 'claude:abort':
+        this.handleWebClaudeAbort(payload)
+        break
+      default:
+        console.log(`未处理的Claude WebSocket事件类型: ${eventType}`)
+    }
+  }
+
+  /**
+   * 处理来自Web的Claude命令
+   */
+  private async handleWebClaudeCommand(data: {
+    command?: string
+    options?: ClaudeOptions
+    sessionId?: string
+  }) {
+    try {
+      console.log('💬 Web Claude message:', data.command || '[Continue/Resume]')
+      console.log('📁 Project:', data.options?.projectPath || 'Unknown')
+      console.log('🔄 Session:', data.options?.sessionId ? 'Resume' : 'New')
+
+      // 创建消息回调函数，将 Claude 响应转发给所有客户端
+      const messageCallback = (message: ClaudeMessage) => {
+        // 广播给所有 Socket.IO 客户端
+        this.server.emit('claude:response', message)
+        
+        // 如果指定了会话ID，也向会话房间广播
+        if (data.sessionId) {
+          const roomName = `session:${data.sessionId}`
+          this.server.to(roomName).emit('claude:response', message)
+        }
+
+        // 通知 WebSocket 客户端
+        this.broadcastToWebClients('claude:response', message)
+      }
+
+      // 调用 Claude CLI 服务
+      await this.claudeCliService.spawnClaude(
+        data.command || '',
+        data.options || {},
+        messageCallback
+      )
+
+    } catch (error) {
+      console.error('❌ Web Claude command error:', error.message)
+      
+      const errorMessage = {
+        type: 'claude-error' as const,
+        error: error.message
+      }
+
+      // 广播错误给所有客户端
+      this.server.emit('claude:response', errorMessage)
+      this.broadcastToWebClients('claude:response', errorMessage)
+    }
+  }
+
+  /**
+   * 处理来自Web的Claude会话中止
+   */
+  private handleWebClaudeAbort(data: { sessionId: string }) {
+    console.log('🛑 Web abort session request:', data.sessionId)
+    
+    const success = this.claudeCliService.abortClaudeSession(data.sessionId)
+    
+    const response = {
+      type: 'session-aborted' as const,
+      sessionId: data.sessionId,
+      success
+    }
+
+    // 广播给所有客户端
+    this.server.emit('claude:response', response)
+    
+    // 如果有会话房间，也广播给会话成员
+    const roomName = `session:${data.sessionId}`
+    this.server.to(roomName).emit('claude:response', response)
+
+    // 通知 WebSocket 客户端
+    this.broadcastToWebClients('claude:response', response)
   }
 }

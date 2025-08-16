@@ -8,6 +8,7 @@ import { SessionModule } from '../modules/session.module'
 import { RepositoryModule } from '../modules/repository.module'
 // import { ClaudeService } from '../services/claude.service' // 已移除
 // import { ClaudeConfig } from '../entities/claude-config.entity' // 已移除
+import { ClaudeCliService } from '../services/claude-cli.service'
 
 @Module({
   imports: [
@@ -18,6 +19,6 @@ import { RepositoryModule } from '../modules/repository.module'
     forwardRef(() => SessionModule),
     forwardRef(() => RepositoryModule)
   ],
-  providers: [ChatGateway] // ClaudeService 已移除
+  providers: [ChatGateway, ClaudeCliService] // ClaudeService 已移除
 })
 export class ChatModule {}

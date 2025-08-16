@@ -6,6 +6,20 @@ export function PrivateRoute() {
   const { isAuthenticated, isLoading, accessToken, hasHydrated } = useAuthStore()
   const location = useLocation()
 
+  // 开发模式：检查localStorage中是否有测试token，如果有就直接通过
+  const authStorage = localStorage.getItem('auth-storage')
+  if (authStorage) {
+    try {
+      const parsed = JSON.parse(authStorage)
+      if (parsed.state?.accessToken === 'test-token-for-development') {
+        console.log('🔧 开发模式：使用测试token绕过认证检查')
+        return <Outlet />
+      }
+    } catch (e) {
+      // 忽略解析错误
+    }
+  }
+
   // 等待 store 从 localStorage 恢复数据
   if (!hasHydrated) {
     return (

@@ -69,3 +69,14 @@ temp/
 test-*.js
 test-*.sh
 browser-test.js
+
+# Playwright screenshots
+.playwright-mcp/
+screenshots/
+
+# Claude Code generated files
+claudecodeui/
+
+# Original/backup files
+*.original.ts
+*.original.js

@@ -117,7 +117,7 @@ export class AgentRepository extends BaseRepository<Agent> {
    * 高级筛选和搜索
    */
   async findWithFilters(
-    filters: AgentFilters,
+    filters?: AgentFilters,
     pagination?: PaginationOptions
   ): Promise<PaginatedResult<Agent>> {
     const queryBuilder = this.createFilteredQueryBuilder(filters)
@@ -155,11 +155,11 @@ export class AgentRepository extends BaseRepository<Agent> {
   /**
    * 创建筛选查询构建器
    */
-  private createFilteredQueryBuilder(filters: AgentFilters): SelectQueryBuilder<Agent> {
+  private createFilteredQueryBuilder(filters?: AgentFilters): SelectQueryBuilder<Agent> {
     const queryBuilder = this.repository.createQueryBuilder('agent')
 
     // 文本搜索
-    if (filters.search) {
+    if (filters && filters.search) {
       queryBuilder.andWhere(
         '(agent.name ILIKE :search OR agent.description ILIKE :search OR agent.hostname ILIKE :search)',
         { search: `%${filters.search}%` }
@@ -167,45 +167,45 @@ export class AgentRepository extends BaseRepository<Agent> {
     }
 
     // 状态筛选
-    if (filters.status) {
+    if (filters && filters.status) {
       queryBuilder.andWhere('agent.status = :status', { status: filters.status })
     }
 
     // 创建者筛选
-    if (filters.createdBy) {
+    if (filters && filters.createdBy) {
       queryBuilder.andWhere('agent.createdBy = :createdBy', { createdBy: filters.createdBy })
     }
 
     // 平台筛选
-    if (filters.platform) {
+    if (filters && filters.platform) {
       queryBuilder.andWhere('agent.platform = :platform', { platform: filters.platform })
     }
 
     // 标签筛选
-    if (filters.tags && filters.tags.length > 0) {
+    if (filters && filters.tags && filters.tags.length > 0) {
       // PostgreSQL JSONB 查询，检查是否包含任一标签
       queryBuilder.andWhere('agent.tags ?| array[:...tags]', { tags: filters.tags })
     }
 
     // 时间范围筛选
-    if (filters.lastSeenAfter) {
+    if (filters && filters.lastSeenAfter) {
       queryBuilder.andWhere('agent.lastSeenAt >= :lastSeenAfter', { lastSeenAfter: filters.lastSeenAfter })
     }
 
-    if (filters.lastSeenBefore) {
+    if (filters && filters.lastSeenBefore) {
       queryBuilder.andWhere('agent.lastSeenAt <= :lastSeenBefore', { lastSeenBefore: filters.lastSeenBefore })
     }
 
-    if (filters.createdAfter) {
+    if (filters && filters.createdAfter) {
       queryBuilder.andWhere('agent.createdAt >= :createdAfter', { createdAfter: filters.createdAfter })
     }
 
-    if (filters.createdBefore) {
+    if (filters && filters.createdBefore) {
       queryBuilder.andWhere('agent.createdAt <= :createdBefore', { createdBefore: filters.createdBefore })
     }
 
     // 验证结果筛选
-    if (filters.hasValidationResult !== undefined) {
+    if (filters && filters.hasValidationResult !== undefined) {
       if (filters.hasValidationResult) {
         queryBuilder.andWhere("agent.metadata->>'lastValidationResult' IS NOT NULL")
       } else {
@@ -214,7 +214,7 @@ export class AgentRepository extends BaseRepository<Agent> {
     }
 
     // 监控配置筛选
-    if (filters.monitoringEnabled !== undefined) {
+    if (filters && filters.monitoringEnabled !== undefined) {
       queryBuilder.andWhere(
         "agent.metadata->'monitoringConfig'->>'enabled' = :monitoringEnabled",
         { monitoringEnabled: filters.monitoringEnabled.toString() }

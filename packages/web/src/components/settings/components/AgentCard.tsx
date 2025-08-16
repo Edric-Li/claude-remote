@@ -176,9 +176,16 @@ export function AgentCard({
     }
   }
 
-  const formatTestTime = (date: Date) => {
+  const formatTestTime = (date: Date | string | number) => {
     const now = new Date()
-    const diff = now.getTime() - date.getTime()
+    const testDate = new Date(date)
+    
+    // 检查日期是否有效
+    if (isNaN(testDate.getTime())) {
+      return '时间未知'
+    }
+    
+    const diff = now.getTime() - testDate.getTime()
     const minutes = Math.floor(diff / (1000 * 60))
 
     if (minutes < 1) return '刚刚测试'
