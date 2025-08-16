@@ -54,6 +54,12 @@ export class AgentRepository extends BaseRepository<Agent> {
     })
   }
 
+  async findByName(name: string): Promise<Agent | null> {
+    return this.repository.findOne({
+      where: { name }
+    })
+  }
+
   async findByStatus(status: 'pending' | 'connected' | 'offline'): Promise<Agent[]> {
     return this.repository.find({
       where: { status },
@@ -337,13 +343,10 @@ export class AgentRepository extends BaseRepository<Agent> {
 
     // 最近活跃的Agent（24小时内）
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
-    const recentlyActive = await this.repository.count({
-      where: {
-        lastSeenAt: this.repository.createQueryBuilder()
-          .where('lastSeenAt >= :date', { date: twentyFourHoursAgo })
-          .getSql()
-      }
-    })
+    const recentlyActive = await this.repository
+      .createQueryBuilder('agent')
+      .where('agent.lastSeenAt >= :date', { date: twentyFourHoursAgo })
+      .getCount()
 
     // 启用监控的Agent数量
     const withMonitoring = await this.repository

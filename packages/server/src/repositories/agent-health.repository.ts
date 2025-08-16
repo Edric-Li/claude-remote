@@ -141,7 +141,7 @@ export class AgentHealthRepository extends BaseRepository<AgentHealth> {
         acc.cpuUsage += record.metrics.cpuUsage
         acc.memoryUsage += record.metrics.memoryUsage
         acc.diskUsage += record.metrics.diskUsage
-        acc.responseTime += record.metrics.responseTime
+        acc.responseTime += record.responseTime || 0
         acc.networkLatency += record.metrics.networkLatency
         return acc
       },

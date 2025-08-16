@@ -44,6 +44,7 @@ export interface ValidationResult {
 export interface MonitoringConfig {
   enabled: boolean
   heartbeatInterval: number
+  checkInterval?: number
   alertThresholds: {
     cpuUsage: number
     memoryUsage: number
@@ -60,6 +61,8 @@ export interface AlertRule {
   threshold: number
   severity: 'low' | 'medium' | 'high' | 'critical'
   enabled: boolean
+  metric?: string
+  cooldownPeriod?: number
 }
 
 export interface PermissionConfig {

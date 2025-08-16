@@ -35,7 +35,7 @@ export class OperationLog {
     type: 'varchar',
     length: 50
   })
-  operation: 'create' | 'update' | 'delete' | 'validate' | 'batch_operation' | 'connect' | 'disconnect' | 'reset_key' | 'import' | 'export'
+  operation: 'create' | 'update' | 'delete' | 'validate' | 'batch_operation' | 'connect' | 'disconnect' | 'reset_key' | 'import' | 'export' | 'alert_triggered'
 
   @Column({ type: 'simple-json', nullable: true })
   details: {
@@ -51,6 +51,14 @@ export class OperationLog {
       memory: number
       cpu: number
     }
+    operationType?: string
+    successCount?: number
+    failureCount?: number
+    skippedCount?: number
+    alertId?: string
+    alertType?: string
+    severity?: string
+    message?: string
   }
 
   @Column('boolean', { default: true })

@@ -14,8 +14,8 @@ import {
   Logger
 } from '@nestjs/common'
 import { AgentService, CreateAgentDto, UpdateAgentDto } from '../services/agent.service'
-import { BatchOperationService } from '../services/batch-operation.service'
-import { AgentValidationService } from '../services/agent-validation.service'
+// import { BatchOperationService } from '../services/batch-operation.service'
+// import { AgentValidationService } from '../services/agent-validation.service'
 import { Agent } from '../entities/agent.entity'
 // import { JwtAuthGuard } from '../auth/jwt-auth.guard'
 // import { 
@@ -33,9 +33,9 @@ export class AgentController {
   private readonly logger = new Logger(AgentController.name)
 
   constructor(
-    private readonly agentService: AgentService,
-    private readonly batchOperationService: BatchOperationService,
-    private readonly agentValidationService: AgentValidationService
+    private readonly agentService: AgentService
+    // private readonly batchOperationService: BatchOperationService,
+    // private readonly agentValidationService: AgentValidationService
   ) {}
 
   /**
@@ -44,10 +44,55 @@ export class AgentController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() createAgentDto: Omit<CreateAgentDto, 'createdBy'>, @Request() req): Promise<Agent> {
-    return this.agentService.createAgent({
+    return this.agentService.create({
       ...createAgentDto,
-      createdBy: req.user.id
+      createdBy: req.user?.id || 'anonymous'
     })
+  }
+
+  /**
+   * 高级搜索Agents (支持分页、过滤、排序)
+   * 必须放在 /:id 路由之前，避免被捕获
+   */
+  @Get('search')
+  async searchAgents(
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('tags') tags?: string,
+    @Query('platform') platform?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'ASC' | 'DESC'
+  ): Promise<{
+    items: Agent[]
+    totalCount: number
+    page: number
+    limit: number
+    totalPages: number
+  }> {
+    try {
+      const filters = {
+        search,
+        status: status as any,
+        tags: tags ? tags.split(',').map(tag => tag.trim()) : undefined,
+        platform
+      }
+
+      const pagination = {
+        page: page || 1,
+        limit: limit || 20,
+        sortBy: sortBy || 'createdAt',
+        sortOrder: sortOrder || 'DESC'
+      }
+
+      // 调用 AgentService 的 findAll 方法
+      const result = await this.agentService.findAll(filters, pagination)
+      return result
+    } catch (error) {
+      this.logger.error('Failed to search agents:', error)
+      throw error
+    }
   }
 
   /**
@@ -64,6 +109,40 @@ export class AgentController {
   @Get('connected')
   async findConnected(): Promise<Agent[]> {
     return this.agentService.getConnectedAgents()
+  }
+
+  /**
+   * 获取统计信息
+   */
+  @Get('statistics')
+  async getStatistics(): Promise<{
+    total: number
+    connected: number
+    offline: number
+    pending: number
+    byPlatform: Record<string, number>
+    byStatus: Record<string, number>
+    avgResponseTime: number
+    recentlyCreated: number
+  }> {
+    try {
+      // 返回模拟数据
+      const stats = {
+        total: 0,
+        connected: 0,
+        offline: 0,
+        pending: 0,
+        byPlatform: {},
+        byStatus: {},
+        avgResponseTime: 0,
+        recentlyCreated: 0
+      }
+
+      return stats
+    } catch (error) {
+      this.logger.error('Failed to get agent statistics:', error)
+      throw error
+    }
   }
 
   /**
@@ -149,49 +228,6 @@ export class AgentController {
     }
   }
 
-  /**
-   * 高级搜索Agents (支持分页、过滤、排序)
-   */
-  @Get('search')
-  async searchAgents(
-    @Query('search') search?: string,
-    @Query('status') status?: string,
-    @Query('tags') tags?: string,
-    @Query('platform') platform?: string,
-    @Query('page') page?: number,
-    @Query('limit') limit?: number,
-    @Query('sortBy') sortBy?: string,
-    @Query('sortOrder') sortOrder?: 'ASC' | 'DESC'
-  ): Promise<{
-    agents: Agent[]
-    total: number
-    page: number
-    limit: number
-    totalPages: number
-  }> {
-    try {
-      const filters = {
-        search,
-        status: status as any,
-        tags: tags ? tags.split(',').map(tag => tag.trim()) : undefined,
-        platform
-      }
-
-      const pagination = {
-        page: page || 1,
-        limit: limit || 20,
-        sortBy: sortBy || 'createdAt',
-        sortOrder: sortOrder || 'DESC'
-      }
-
-      // TODO: 实现 searchAgents 方法
-      const result = { agents: [], total: 0, page: pagination.page, limit: pagination.limit, totalPages: 0 }
-      return result
-    } catch (error) {
-      this.logger.error('Failed to search agents:', error)
-      throw error
-    }
-  }
 
   /**
    * 测试Agent连接
@@ -276,11 +312,11 @@ export class AgentController {
     }>
   }> {
     try {
-      const result = await this.batchOperationService.batchUpdateStatus(
-        data.agentIds,
-        data.status,
-        data.userId
-      )
+      const result = await this.agentService.performBatchOperation({
+        type: 'update_status',
+        agentIds: data.agentIds,
+        payload: { status: data.status }
+      })
       return result
     } catch (error) {
       this.logger.error('Batch status update failed:', error)
@@ -310,12 +346,11 @@ export class AgentController {
     }>
   }> {
     try {
-      const result = await this.batchOperationService.batchUpdateTags(
-        data.agentIds,
-        data.tags,
-        data.mode,
-        data.userId
-      )
+      const result = await this.agentService.performBatchOperation({
+        type: 'update_tags',
+        agentIds: data.agentIds,
+        payload: { tags: data.tags, mode: data.mode }
+      })
       return result
     } catch (error) {
       this.logger.error('Batch tags update failed:', error)

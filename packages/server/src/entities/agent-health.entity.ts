@@ -35,12 +35,14 @@ export class AgentHealth {
   })
   status: 'healthy' | 'warning' | 'critical' | 'offline'
 
+  @Column('integer', { nullable: true })
+  responseTime: number
+
   @Column({ type: 'simple-json' })
   metrics: {
     cpuUsage: number
     memoryUsage: number
     diskUsage: number
-    responseTime: number
     networkLatency: number
   }
 
