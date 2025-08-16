@@ -1,4 +1,3 @@
-import React from 'react'
 import {
   ChevronLeft,
   ChevronRight,
@@ -256,5 +255,5 @@ export function PaginationControls({
 // 默认导出组件
 export default PaginationControls
 
-// 导出类型供外部使用
-export type { PaginationState, PaginationControlsProps }
+// 导出类型供外部使用  
+export type { PaginationControlsProps }

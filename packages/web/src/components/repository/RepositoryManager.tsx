@@ -452,7 +452,7 @@ export function RepositoryManager() {
 
   // 检查是否有活跃的搜索
   const hasActiveSearch = useMemo(() => {
-    return searchState.query || searchState.type || searchState.enabled
+    return Boolean(searchState.query || searchState.type || searchState.enabled)
   }, [searchState.query, searchState.type, searchState.enabled])
 
   // 清理防抖定时器

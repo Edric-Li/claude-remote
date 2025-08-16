@@ -30,11 +30,33 @@ module.exports = {
         DB_PASSWORD: 'ai_orchestra_pass',
         DB_NAME: 'ai_orchestra',
         DB_SSL: false,
-        DB_LOGGING: true
+        DB_LOGGING: true,
+        watch: true,
+        ignore_watch: ['node_modules', 'logs', '*.log']
       },
       error_file: './logs/server-error.log',
       out_file: './logs/server-out.log',
       log_file: './logs/server-combined.log',
+      time: true
+    },
+    {
+      name: 'ai-orchestra-web-dev',
+      script: 'pnpm',
+      args: '--filter @ai-orchestra/web dev',
+      cwd: './',
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '1G',
+      env_development: {
+        NODE_ENV: 'development'
+      },
+      env: {
+        NODE_ENV: 'production'
+      },
+      error_file: './logs/web-dev-error.log',
+      out_file: './logs/web-dev-out.log',
+      log_file: './logs/web-dev-combined.log',
       time: true
     },
     {
@@ -64,6 +86,11 @@ module.exports = {
       max_memory_restart: '512M',
       env: {
         NODE_ENV: 'production'
+      },
+      env_development: {
+        NODE_ENV: 'development',
+        watch: true,
+        ignore_watch: ['node_modules', 'logs', '*.log']
       },
       error_file: './logs/agent-error.log',
       out_file: './logs/agent-out.log',

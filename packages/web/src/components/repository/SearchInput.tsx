@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Search, X, Filter } from 'lucide-react'
 
 export interface SearchState {
@@ -197,4 +197,4 @@ export function SearchInput({
 export default SearchInput
 
 // 导出类型供外部使用
-export type { SearchState }
+// SearchState is already exported above via export interface

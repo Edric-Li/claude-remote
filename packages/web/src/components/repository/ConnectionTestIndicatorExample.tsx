@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { ConnectionTestIndicator, TestState } from './ConnectionTestIndicator'
+import { useState, useEffect } from 'react'
+import ConnectionTestIndicator, { type TestState } from './ConnectionTestIndicator'
 
 /**
  * ConnectionTestIndicator 组件示例

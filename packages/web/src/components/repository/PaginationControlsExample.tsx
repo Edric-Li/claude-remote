@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { PaginationControls, type PaginationState } from './PaginationControls'
+import { useState } from 'react'
+import PaginationControls, { type PaginationState } from './PaginationControls'
 
 /**
  * PaginationControls 组件使用示例

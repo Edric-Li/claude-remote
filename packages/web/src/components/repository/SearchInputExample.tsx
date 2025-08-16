@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react'
-import { SearchInput, SearchState } from './SearchInput'
+import { useState, useCallback } from 'react'
+import SearchInput, { type SearchState } from './SearchInput'
 
 /**
  * SearchInput组件使用示例
@@ -51,7 +51,7 @@ export function SearchInputExample() {
   }, [])
 
   // 检查是否有活跃的搜索条件
-  const hasActiveSearch = searchState.query || searchState.type || searchState.enabled
+  const hasActiveSearch = Boolean(searchState.query || searchState.type || searchState.enabled)
 
   return (
     <div className="space-y-6 p-6">

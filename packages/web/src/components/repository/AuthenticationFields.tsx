@@ -273,7 +273,7 @@ export const AuthenticationFields: React.FC<AuthenticationFieldsProps> = ({
           : tokenValidation.isValid && value.token)
 
       onValidationChange({
-        isValid: isFormValid,
+        isValid: Boolean(isFormValid),
         error: tokenValidation.error || usernameValidation.error
       })
     }

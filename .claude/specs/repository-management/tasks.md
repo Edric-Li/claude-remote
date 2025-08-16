@@ -207,7 +207,7 @@
   - _Leverage: 现有测试连接逻辑_
   - _Requirements: Requirement 3_
 
-- [ ] 20. 创建搜索输入组件
+- [x] 20. 创建搜索输入组件
   - File: packages/web/src/components/repository/SearchInput.tsx
   - 创建搜索输入框和类型过滤器
   - 实现防抖优化搜索输入（300ms 延迟）
@@ -236,7 +236,7 @@
 
 ### Phase 3: Integration and Testing
 
-- [ ] 23. 创建仓库 CRUD 操作单元测试
+- [x] 23. 创建仓库 CRUD 操作单元测试
   - File: packages/server/src/services/__tests__/repository-crud.test.ts
   - 测试 create, findAll, update, delete 方法
   - 模拟数据库操作和异常情况
@@ -245,7 +245,7 @@
   - _Leverage: 现有测试工具和模式_
   - _Requirements: Requirement 1_
 
-- [ ] 24. 创建连接测试功能单元测试
+- [x] 24. 创建连接测试功能单元测试
   - File: packages/server/src/services/__tests__/connection-test.test.ts
   - 测试连接重试机制和错误处理
   - 模拟网络超时和认证失败场景
@@ -263,7 +263,7 @@
   - _Leverage: 现有测试框架_
   - _Requirements: Requirement 2_
 
-- [ ] 16. 创建前端组件集成测试
+- [x] 16. 创建前端组件集成测试
   - File: packages/web/src/components/repository/__tests__/RepositoryManager.test.tsx
   - 测试完整的 CRUD 操作流程
   - 测试对话框的打开关闭和表单验证
@@ -272,7 +272,7 @@
   - _Leverage: 现有前端测试框架_
   - _Requirements: All frontend requirements_
 
-- [ ] 17. 实现 React 仓库测试用例
+- [x] 17. 实现 React 仓库测试用例
   - File: packages/server/src/services/__tests__/react-repo.integration.test.ts
   - 使用 React 仓库 URL 测试公共仓库访问
   - 验证分支列表获取和默认分支选择
@@ -281,7 +281,7 @@
   - _Leverage: 现有集成测试框架_
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [ ] 18. 创建 API 端点集成测试
+- [x] 18. 创建 API 端点集成测试
   - File: packages/server/src/controllers/__tests__/repository.controller.integration.test.ts
   - 测试所有 API 端点的请求响应
   - 测试认证和权限控制
