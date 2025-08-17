@@ -20,6 +20,7 @@ import { AuthModule } from './modules/auth/auth.module'
 import { ChatModule } from './chat/chat.module'
 import { WebSocketModule } from './websocket.module'
 import { RepositoryModule } from './modules/repository.module'
+import { SessionModule } from './modules/session.module'
 import { JwtModule } from '@nestjs/jwt'
 
 @Module({
@@ -38,7 +39,8 @@ import { JwtModule } from '@nestjs/jwt'
     AuthModule,
     ChatModule,
     WebSocketModule,
-    RepositoryModule
+    RepositoryModule,
+    SessionModule
   ],
   controllers: [
     UserController

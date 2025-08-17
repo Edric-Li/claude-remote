@@ -11,6 +11,7 @@ import {
 } from 'typeorm'
 import { User } from './user.entity'
 import { RepositoryEntity } from './repository.entity'
+import { Agent } from './agent.entity'
 
 /**
  * 会话实体 - 用户与AI的对话会话
@@ -56,6 +57,10 @@ export class Session {
 
   @Column('varchar', { nullable: true, length: 100 })
   agentId: string
+
+  @ManyToOne(() => Agent, { nullable: true })
+  @JoinColumn({ name: 'agentId' })
+  agent: Agent
 
   // Claude会话ID，用于恢复对话
   @Column('varchar', { nullable: true, length: 100 })

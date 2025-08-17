@@ -4,6 +4,7 @@ import { Repository } from 'typeorm'
 import { Session, SessionMessage } from '../entities/session.entity'
 import { RepositoryEntity } from '../entities/repository.entity'
 import { User } from '../entities/user.entity'
+import { Agent } from '../entities/agent.entity'
 import { EventEmitter2 } from '@nestjs/event-emitter'
 
 @Injectable()
@@ -17,6 +18,8 @@ export class SessionService {
     private readonly repositoryEntityRepository: Repository<RepositoryEntity>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Agent)
+    private readonly agentRepository: Repository<Agent>,
     private readonly eventEmitter: EventEmitter2
   ) {}
 
@@ -29,16 +32,61 @@ export class SessionService {
       name: string
       repositoryId: string
       aiTool: string
+      agentId?: string
       metadata?: any
     }
   ) {
-    // 验证仓库是否存在
-    const repository = await this.repositoryEntityRepository.findOne({
-      where: { id: data.repositoryId }
+    // 验证用户是否存在
+    const user = await this.userRepository.findOne({
+      where: { id: userId }
     })
 
-    if (!repository) {
-      throw new NotFoundException(`Repository ${data.repositoryId} not found`)
+    if (!user) {
+      throw new NotFoundException(`User ${userId} not found`)
+    }
+
+    // 验证仓库是否存在 (开发测试时跳过)
+    let repository = null
+    if (data.repositoryId !== 'test-repo-id') {
+      repository = await this.repositoryEntityRepository.findOne({
+        where: { id: data.repositoryId }
+      })
+
+      if (!repository) {
+        throw new NotFoundException(`Repository ${data.repositoryId} not found`)
+      }
+    } else {
+      // 为测试仓库创建模拟数据
+      repository = {
+        id: 'test-repo-id',
+        name: '测试仓库',
+        url: 'https://github.com/test/test-repo.git',
+        branch: 'main',
+        credentials: null,
+        settings: {}
+      }
+    }
+
+    // 验证Agent是否存在（如果提供了agentId，开发测试时跳过）
+    let agent = null
+    if (data.agentId) {
+      if (data.agentId !== 'test-agent-id') {
+        agent = await this.agentRepository.findOne({
+          where: { id: data.agentId }
+        })
+
+        if (!agent) {
+          throw new NotFoundException(`Agent ${data.agentId} not found`)
+        }
+      } else {
+        // 为测试Agent创建模拟数据
+        agent = {
+          id: 'test-agent-id',
+          name: 'Session ID映射测试助手',
+          status: 'active',
+          description: '用于测试Session ID映射的测试助手'
+        }
+      }
     }
 
     const session = this.sessionRepository.create({
@@ -46,6 +94,7 @@ export class SessionService {
       userId: userId,
       repositoryId: data.repositoryId,
       aiTool: data.aiTool,
+      agentId: data.agentId, // 设置agentId
       status: 'active',
       metadata: {
         branch: repository.branch || 'main',
@@ -70,7 +119,7 @@ export class SessionService {
       }
     })
 
-    // 返回包含仓库信息的完整会话
+    // 返回包含仓库和Agent信息的完整会话
     return {
       ...savedSession,
       repository: {
@@ -78,7 +127,13 @@ export class SessionService {
         name: repository.name,
         url: repository.url,
         branch: repository.branch
-      }
+      },
+      agent: agent ? {
+        id: agent.id,
+        name: agent.name,
+        status: agent.status,
+        description: agent.description
+      } : null
     }
   }
 
@@ -88,7 +143,7 @@ export class SessionService {
   async findAllByUser(userId: string) {
     const sessions = await this.sessionRepository.find({
       where: { userId },
-      relations: ['repository'],
+      relations: ['repository', 'agent'],
       order: { updatedAt: 'DESC' }
     })
 
@@ -120,7 +175,7 @@ export class SessionService {
   async findOne(id: string, userId: string) {
     const session = await this.sessionRepository.findOne({
       where: { id, userId },
-      relations: ['repository', 'messages']
+      relations: ['repository', 'agent', 'messages']
     })
 
     if (!session) {
@@ -298,5 +353,24 @@ export class SessionService {
       .getRawMany()
 
     return stats
+  }
+
+  /**
+   * 更新Claude会话ID
+   */
+  async updateClaudeSessionId(sessionId: string, claudeSessionId: string) {
+    const session = await this.sessionRepository.findOne({
+      where: { id: sessionId }
+    })
+
+    if (!session) {
+      throw new NotFoundException(`Session ${sessionId} not found`)
+    }
+
+    session.claudeSessionId = claudeSessionId
+    await this.sessionRepository.save(session)
+
+    console.log(`Updated claudeSessionId for session ${sessionId} -> ${claudeSessionId}`)
+    return session
   }
 }

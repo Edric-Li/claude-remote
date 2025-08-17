@@ -1499,7 +1499,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       console.log('🔄 Session:', data.options?.sessionId ? 'Resume' : 'New')
 
       // 创建消息回调函数，将 Claude 响应转发给客户端
-      const messageCallback = (message: ClaudeMessage) => {
+      const messageCallback = async (message: ClaudeMessage) => {
+        // 处理session创建事件，更新数据库中的claudeSessionId
+        // Claude CLI发送的是system/init消息，包含session_id
+        if (message.type === 'claude-response' && message.data?.type === 'system' && 
+            message.data?.subtype === 'init' && message.data?.session_id && data.sessionId) {
+          try {
+            console.log(`🔄 Updating claudeSessionId for session ${data.sessionId} -> ${message.data.session_id}`)
+            await this.sessionService.updateClaudeSessionId(data.sessionId, message.data.session_id)
+          } catch (error) {
+            console.error('Failed to update claudeSessionId:', error)
+          }
+        }
+
         client.emit('claude:response', message)
         
         // 如果指定了会话ID，也向会话房间广播

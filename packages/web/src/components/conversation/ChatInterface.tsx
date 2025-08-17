@@ -714,7 +714,6 @@ function ChatInterface({
 }: ChatInterfaceProps) {
   // Use conversation hook for WebSocket communication
   const {
-    conversation: currentConversation,
     loading: conversationLoading,
     error: conversationError,
     connected,
@@ -756,7 +755,7 @@ function ChatInterface({
   const [isLoading, setIsLoading] = useState(false)
   const [currentSessionId] = useState(conversationId)
   const [isInputFocused, setIsInputFocused] = useState(false)
-  const [isLoadingSessionMessages] = useState(false)
+  const [isLoadingSessionMessages, setIsLoadingSessionMessages] = useState(false)
   const [permissionMode, setPermissionMode] = useState<'default' | 'acceptEdits' | 'bypassPermissions' | 'plan'>('default')
   const [attachedImages, setAttachedImages] = useState<File[]>([])
   const [uploadingImages, setUploadingImages] = useState(new Map<string, number>())
@@ -1468,12 +1467,108 @@ function ChatInterface({
     return chatMessages.slice(-visibleMessageCount)
   }, [chatMessages, visibleMessageCount])
 
+  // Function to merge messages from different sources
+  const mergeMessages = useCallback((apiMessages: any[], cachedMessages: ChatMessage[]): ChatMessage[] => {
+    const allMessages = [...apiMessages, ...cachedMessages]
+    const messageMap = new Map<string, ChatMessage>()
+    
+    // Convert API messages to ChatMessage format and deduplicate
+    allMessages.forEach(msg => {
+      let chatMessage: ChatMessage
+      
+      if (msg.id && msg.from && msg.content && msg.createdAt) {
+        // API message format
+        chatMessage = {
+          type: msg.from === 'user' ? 'user' : msg.from === 'assistant' ? 'assistant' : 'error',
+          content: msg.content,
+          timestamp: new Date(msg.createdAt),
+          isToolUse: msg.metadata?.isToolUse || false,
+          toolName: msg.metadata?.toolName,
+          toolInput: msg.metadata?.toolInput,
+          toolId: msg.metadata?.toolId,
+          toolResult: msg.metadata?.toolResult
+        }
+      } else if (msg.type && msg.content && msg.timestamp) {
+        // ChatMessage format (from localStorage)
+        chatMessage = msg
+      } else {
+        return // Skip invalid messages
+      }
+      
+      // Create unique key for deduplication
+      const key = `${chatMessage.timestamp.getTime()}-${chatMessage.content.slice(0, 50)}-${chatMessage.type}`
+      
+      // Keep the most recent version of duplicate messages
+      if (!messageMap.has(key) || messageMap.get(key)!.timestamp < chatMessage.timestamp) {
+        messageMap.set(key, chatMessage)
+      }
+    })
+    
+    // Sort by timestamp
+    return Array.from(messageMap.values())
+      .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+  }, [])
+
   // Load conversation history on mount or when conversation changes
   useEffect(() => {
-    // For now, we'll handle messages through WebSocket events
-    // Conversation history loading will be implemented when the backend provides message history
-    console.log('Conversation loaded:', currentConversation)
-  }, [currentConversation])
+    const loadConversationHistory = async () => {
+      if (!conversationId || !repositoryId || isLoadingSessionMessages) {
+        return
+      }
+      
+      console.log('Loading conversation history for:', conversationId)
+      setIsLoadingSessionMessages(true)
+      
+      try {
+        // Load from API
+        const response = await fetch(`/api/sessions/${conversationId}/messages`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth-token') || 'dev-token'}`,
+            'Content-Type': 'application/json'
+          }
+        })
+        
+        let apiMessages: any[] = []
+        if (response.ok) {
+          apiMessages = await response.json()
+          console.log('Loaded API messages:', apiMessages.length)
+        } else {
+          console.warn('Failed to load API messages:', response.status)
+        }
+        
+        // Load from localStorage cache
+        const cachedMessages: ChatMessage[] = JSON.parse(
+          safeLocalStorage.getItem(`chat_messages_${repositoryId}`) || '[]'
+        )
+        console.log('Loaded cached messages:', cachedMessages.length)
+        
+        // Merge and deduplicate messages
+        const mergedMessages = mergeMessages(apiMessages, cachedMessages)
+        console.log('Merged messages:', mergedMessages.length)
+        
+        // Only update if we have messages or if it's a fresh load
+        if (mergedMessages.length > 0 || chatMessages.length === 0) {
+          setChatMessages(mergedMessages)
+        }
+        
+      } catch (error) {
+        console.error('Failed to load conversation history:', error)
+        
+        // Fallback to localStorage only
+        const cachedMessages: ChatMessage[] = JSON.parse(
+          safeLocalStorage.getItem(`chat_messages_${repositoryId}`) || '[]'
+        )
+        if (cachedMessages.length > 0) {
+          setChatMessages(cachedMessages)
+          console.log('Loaded cached messages as fallback:', cachedMessages.length)
+        }
+      } finally {
+        setIsLoadingSessionMessages(false)
+      }
+    }
+    
+    loadConversationHistory()
+  }, [conversationId, repositoryId, mergeMessages]) // Remove chatMessages from dependencies to avoid loops
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -1494,7 +1589,8 @@ function ChatInterface({
       {/* Messages Area - Scrollable Middle Section */}
       <ScrollArea 
         ref={scrollContainerRef}
-        className="flex-1 px-0 py-3 sm:p-4 space-y-3 sm:space-y-4"
+        className="flex-1 px-0 py-3 sm:p-4 space-y-3 sm:space-y-4 min-h-0"
+        style={{ maxHeight: 'calc(100vh - 200px)' }}
         onScroll={handleScroll}
       >
         {isLoadingSessionMessages && chatMessages.length === 0 ? (

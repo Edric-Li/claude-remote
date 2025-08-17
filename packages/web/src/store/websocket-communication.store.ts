@@ -39,6 +39,7 @@ export interface ConversationState {
   status: 'initializing' | 'active' | 'paused' | 'completed'
   lastActivity: Date
   messageCount: number
+  claudeSessionId?: string  // Claude CLI实际会话ID
 }
 
 interface Worker {
@@ -204,6 +205,55 @@ export const useWebSocketCommunicationStore = create<WebSocketCommunicationState
       webSocketClient.on('worker:message', (data: any) => {
         console.log('🔧 收到Worker消息:', data)
         // 处理Worker消息，可以在组件中单独处理
+      })
+
+      webSocketClient.on('claude:response', (data: any) => {
+        console.log('🤖 收到Claude响应:', data)
+        
+        // 处理session-created事件（兼容旧版本）
+        if (data.type === 'session-created' && data.sessionId) {
+          const state = get()
+          const updatedConversations = new Map(state.conversations)
+          
+          // 找到对应的conversation并更新claudeSessionId
+          for (const [conversationId, conversation] of updatedConversations.entries()) {
+            if (conversation.status === 'initializing' && !conversation.claudeSessionId) {
+              const updatedConversation = {
+                ...conversation,
+                claudeSessionId: data.sessionId,
+                status: 'active' as const
+              }
+              updatedConversations.set(conversationId, updatedConversation)
+              console.log(`🔄 Updated conversation ${conversationId} with claudeSessionId: ${data.sessionId}`)
+              break
+            }
+          }
+          
+          set({ conversations: updatedConversations })
+        }
+        
+        // 处理Claude CLI的system/init消息，获取Claude session ID
+        if (data.type === 'claude-response' && data.data?.type === 'system' && 
+            data.data?.subtype === 'init' && data.data?.session_id) {
+          const state = get()
+          const updatedConversations = new Map(state.conversations)
+          
+          // 找到状态为initializing且没有claudeSessionId的conversation
+          for (const [conversationId, conversation] of updatedConversations.entries()) {
+            if (conversation.status === 'initializing' && !conversation.claudeSessionId) {
+              const updatedConversation = {
+                ...conversation,
+                claudeSessionId: data.data.session_id,
+                status: 'active' as const
+              }
+              updatedConversations.set(conversationId, updatedConversation)
+              console.log(`🔄 Updated conversation ${conversationId} with Claude session ID from system/init: ${data.data.session_id}`)
+              break
+            }
+          }
+          
+          set({ conversations: updatedConversations })
+        }
       })
 
       webSocketClient.on('worker:status', (data: any) => {

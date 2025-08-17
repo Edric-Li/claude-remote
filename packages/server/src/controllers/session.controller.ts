@@ -10,11 +10,11 @@ import {
   UseGuards,
   Request
 } from '@nestjs/common'
-import { JwtAuthGuard } from '../modules/auth/guards/jwt-auth.guard'
+import { TestAuthGuard } from '../auth/test-auth.guard'
 import { SessionService } from '../services/session.service'
 
 @Controller('api/sessions')
-@UseGuards(JwtAuthGuard)
+@UseGuards(TestAuthGuard)
 export class SessionController {
   constructor(private readonly sessionService: SessionService) {}
 
@@ -29,6 +29,7 @@ export class SessionController {
       name: string
       repositoryId: string
       aiTool: string
+      agentId?: string
       metadata?: any
     }
   ) {

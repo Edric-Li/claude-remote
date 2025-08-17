@@ -34,9 +34,10 @@ export class TestAuthGuard implements CanActivate {
         if (process.env.NODE_ENV !== 'production') {
           console.log('TestAuthGuard - Allowing test token (not production)')
           request.user = {
-            id: 'test-user',
-            username: 'test-user',
-            email: 'test@example.com'
+            id: '80a0cc23-d7af-4806-a4a0-222c4c8368cc', // 使用真实的用户ID
+            userId: '80a0cc23-d7af-4806-a4a0-222c4c8368cc', // 添加userId字段
+            username: 'testuser2',
+            email: 'testuser2@example.com'
           }
           return true
         } else {

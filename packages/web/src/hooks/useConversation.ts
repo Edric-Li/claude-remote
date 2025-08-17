@@ -85,10 +85,21 @@ export function useConversation({
       
       if (messageType === 'claude') {
         // 使用直接的 Claude 命令（替代 Worker 架构）
+        // 关键修复：从WebSocket store的conversation中获取claude session ID
+        const conversation = conversations.get(conversationId)
+        const claudeSessionId = conversation?.claudeSessionId
+        const shouldResume = !!claudeSessionId
+        
+        console.log(`[useConversation] Sending Claude command:`)
+        console.log(`  - conversationId: ${conversationId}`)
+        console.log(`  - claudeSessionId: ${claudeSessionId}`)
+        console.log(`  - shouldResume: ${shouldResume}`)
+        
         await webSocketClient.sendClaudeCommand(content, {
           projectPath: `/repositories/${repositoryId}`,
-          sessionId: conversationId,
+          sessionId: claudeSessionId || conversationId, // 使用Claude session ID，如果没有则用conversation ID
           repositoryId: repositoryId,
+          resume: shouldResume, // 只有当存在Claude session ID时才恢复
           model: 'claude-3-5-sonnet-20241022',
           toolSettings: options?.toolSettings
         })

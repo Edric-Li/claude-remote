@@ -76,6 +76,12 @@ screenshots/
 
 # Claude Code generated files
 claudecodeui/
+.claude/
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
 
 # Original/backup files
 *.original.ts

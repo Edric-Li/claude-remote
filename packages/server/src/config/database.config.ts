@@ -14,7 +14,8 @@ export const getDatabaseConfig = (): TypeOrmModuleOptions => {
       join(__dirname, '..', 'entities', 'repository.entity.{ts,js}'),
       join(__dirname, '..', 'entities', 'agent.entity.{ts,js}'),
       join(__dirname, '..', 'entities', 'agent-health.entity.{ts,js}'),
-      join(__dirname, '..', 'entities', 'operation-log.entity.{ts,js}')
+      join(__dirname, '..', 'entities', 'operation-log.entity.{ts,js}'),
+      join(__dirname, '..', 'entities', 'session.entity.{ts,js}')
     ],
     synchronize: process.env.DB_SYNCHRONIZE === 'true' || process.env.NODE_ENV === 'development',
     logging: process.env.DB_LOGGING === 'true'

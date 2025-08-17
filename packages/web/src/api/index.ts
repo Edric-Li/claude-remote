@@ -2,22 +2,32 @@
 import { authApi } from './auth.api'
 import { usersApi } from './users.api'
 import { aiConfigsApi } from './ai-configs.api'
+import { sessionsApi } from './sessions.api'
+import { agentsApi } from './agents.api'
+import { repositoriesApi } from './repositories.api'
 import { ApiErrorClass } from './base.api'
 
 // 重新导出API实例
 export { authApi } from './auth.api'
 export { usersApi } from './users.api'
 export { aiConfigsApi } from './ai-configs.api'
+export { sessionsApi } from './sessions.api'
+export { agentsApi } from './agents.api'
+export { repositoriesApi } from './repositories.api'
 
 // 导出基础类和类型
 export { BaseApi, CrudApi, ApiErrorClass } from './base.api'
 export * from '../types/api.types'
+export * from '../types/session.types'
 
 // 创建API实例的组合对象
 export const api = {
   auth: authApi,
   users: usersApi,
-  aiConfigs: aiConfigsApi
+  aiConfigs: aiConfigsApi,
+  sessions: sessionsApi,
+  agents: agentsApi,
+  repositories: repositoriesApi
 }
 
 // 全局错误处理器

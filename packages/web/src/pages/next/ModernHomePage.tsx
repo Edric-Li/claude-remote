@@ -18,19 +18,17 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '../../store/auth.store'
 import { useWebSocketCommunicationStore } from '../../store/websocket-communication.store'
+import { useAssistants, useCurrentAssistant } from '../../store/assistant.store'
+import { CreateAssistantDialog } from '../../components/assistant/CreateAssistantDialog'
+import { AssistantCard } from '../../components/assistant/AssistantCard'
+import ChatInterface from '../../components/conversation/ChatInterface'
+import type { Assistant } from '../../types/session.types'
 
 interface Conversation {
   id: string
   title: string
   lastMessage: string
   timestamp: Date
-}
-
-interface Assistant {
-  id: string
-  name: string
-  description: string
-  avatar: string
 }
 
 export function ModernHomePage() {
@@ -47,10 +45,17 @@ export function ModernHomePage() {
     refreshAgentList,
     clearError
   } = useWebSocketCommunicationStore()
+  
+  // 助手相关状态
+  const { assistants, isLoading: isLoadingAssistants, loadAssistants, deleteAssistant } = useAssistants()
+  const { currentAssistant, selectAssistant, clearCurrentAssistant } = useCurrentAssistant()
 
   const [activeTab, setActiveTab] = useState<'conversations' | 'assistants'>('conversations')
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null)
+  const [showCreateAssistant, setShowCreateAssistant] = useState(false)
+  const [selectedAssistant, setSelectedAssistant] = useState<Assistant | null>(null)
+  const [chatAssistant, setChatAssistant] = useState<Assistant | null>(null)
 
   // 模拟对话数据 - 这些将来会从API获取
   const [conversations] = useState<Conversation[]>([
@@ -74,20 +79,19 @@ export function ModernHomePage() {
     }
   ])
 
-  // 将真实的Agent数据转换为Assistant格式
-  const assistants: Assistant[] = agents.map(agent => ({
-    id: agent.id,
-    name: agent.name,
-    description: agent.status === 'online' ? '在线 - 可以立即响应' : '离线',
-    avatar: agent.status === 'online' ? '🟢' : '⚪'
-  }))
+  // 已移除这个转换，现在使用真实的Assistant数据
 
   useEffect(() => {
     // 初始化WebSocket通信
     if (!connected && !connecting) {
       connect()
     }
-  }, [connected, connecting, connect])
+  }, [connected, connecting]) // 移除函数依赖，避免无限重渲染
+
+  useEffect(() => {
+    // 加载助手列表
+    loadAssistants()
+  }, []) // 只在组件挂载时加载一次
 
   const handleLogout = async () => {
     await logout()
@@ -119,6 +123,49 @@ export function ModernHomePage() {
   const handleRetryConnection = () => {
     clearError()
     connect()
+  }
+
+  // 助手相关处理函数
+  const handleCreateAssistant = () => {
+    setShowCreateAssistant(true)
+  }
+
+  const handleAssistantCreated = (assistant: Assistant) => {
+    setShowCreateAssistant(false)
+    // 自动选择新创建的助手
+    handleAssistantSelect(assistant)
+  }
+
+  const handleAssistantSelect = (assistant: Assistant) => {
+    setSelectedAssistant(assistant)
+    selectAssistant(assistant)
+  }
+
+  const handleAssistantChat = (assistant: Assistant) => {
+    handleAssistantSelect(assistant)
+    setChatAssistant(assistant)
+  }
+
+  const handleCloseChatInterface = () => {
+    setChatAssistant(null)
+  }
+
+  const handleAssistantEdit = (assistant: Assistant) => {
+    // TODO: 实现编辑助手功能
+    console.log('Edit assistant:', assistant)
+  }
+
+  const handleAssistantDelete = async (assistant: Assistant) => {
+    try {
+      await deleteAssistant(assistant.id)
+      // 如果删除的是当前选中的助手，清除选择
+      if (selectedAssistant?.id === assistant.id) {
+        setSelectedAssistant(null)
+        clearCurrentAssistant()
+      }
+    } catch (error) {
+      console.error('Failed to delete assistant:', error)
+    }
   }
 
   const renderConnectionStatus = () => {
@@ -284,7 +331,7 @@ export function ModernHomePage() {
               {/* 新建助手按钮 */}
               <div className="mb-3">
                 <button
-                  onClick={() => navigate('/admin?tab=agents')}
+                  onClick={handleCreateAssistant}
                   className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors group"
                 >
                   <div className="flex items-center justify-center gap-2 text-gray-600 group-hover:text-blue-600">
@@ -294,32 +341,38 @@ export function ModernHomePage() {
                 </button>
               </div>
               
-              {assistants.length > 0 ? (
-                assistants.map(assistant => (
-                  <div
-                    key={assistant.id}
-                    className="p-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors mb-1"
-                    onClick={() => navigate(`/next/chat/new?assistant=${assistant.id}`)}
-                  >
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="text-lg">{assistant.avatar}</span>
-                      <h3 className="font-medium text-gray-900 text-sm">{assistant.name}</h3>
-                    </div>
-                    <p className="text-xs text-gray-600">{assistant.description}</p>
-                  </div>
-                ))
+              {/* 助手列表 */}
+              {isLoadingAssistants ? (
+                <div className="p-8 text-center text-gray-500">
+                  <RefreshCw className="w-6 h-6 mx-auto mb-2 animate-spin text-blue-500" />
+                  <p className="text-sm">加载助手中...</p>
+                </div>
+              ) : assistants.length > 0 ? (
+                <div className="space-y-2">
+                  {assistants.map(assistant => (
+                    <AssistantCard
+                      key={assistant.id}
+                      assistant={assistant}
+                      selected={selectedAssistant?.id === assistant.id}
+                      onSelect={handleAssistantSelect}
+                      onChat={handleAssistantChat}
+                      onEdit={handleAssistantEdit}
+                      onDelete={handleAssistantDelete}
+                      className="cursor-pointer"
+                    />
+                  ))}
+                </div>
               ) : (
                 <div className="p-8 text-center text-gray-500">
                   <Bot className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm mb-2">没有可用的助手</p>
-                  {!connected && (
-                    <button
-                      onClick={handleRetryConnection}
-                      className="text-xs text-blue-600 hover:text-blue-800 underline"
-                    >
-                      重试连接
-                    </button>
-                  )}
+                  <p className="text-sm mb-2">还没有助手</p>
+                  <p className="text-xs text-gray-400 mb-3">创建你的第一个AI助手开始对话</p>
+                  <button
+                    onClick={handleCreateAssistant}
+                    className="text-xs text-blue-600 hover:text-blue-800 underline"
+                  >
+                    立即创建
+                  </button>
                 </div>
               )}
             </div>
@@ -398,33 +451,54 @@ export function ModernHomePage() {
         </div>
 
         {/* 主要内容 */}
-        <div className="flex-1 flex items-center justify-center bg-gray-50">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-gray-900 rounded-full flex items-center justify-center mb-4 mx-auto">
-              <Bot className="w-8 h-8 text-white" />
-            </div>
-            <h2 className="text-xl font-medium text-gray-900 mb-2">AI Orchestra</h2>
-            <p className="text-gray-600 mb-6 max-w-md">
-              基于现代HTTP协议的AI助手平台，使用Server-Sent Events实现实时通信
-            </p>
-            <div className="space-y-2">
-              <button
-                onClick={handleNewConversation}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
-                disabled={!connected || agents.length === 0}
-              >
-                <Plus className="w-4 h-4" />
-                开始新对话
-              </button>
-              {(!connected || agents.length === 0) && (
-                <div className="text-sm text-gray-500">
-                  {!connected ? '等待连接到服务器...' : '没有可用的AI助手'}
+        <div className="flex-1 flex overflow-hidden">
+          {chatAssistant ? (
+            // 聊天界面
+            <ChatInterface
+              conversationId={chatAssistant.id}
+              agentId={chatAssistant.session?.agentId || ''}
+              repositoryId={chatAssistant.session?.repositoryId || ''}
+              onClose={handleCloseChatInterface}
+              className="w-full h-full"
+            />
+          ) : (
+            // 默认欢迎界面
+            <div className="flex-1 flex items-center justify-center bg-gray-50">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gray-900 rounded-full flex items-center justify-center mb-4 mx-auto">
+                  <Bot className="w-8 h-8 text-white" />
                 </div>
-              )}
+                <h2 className="text-xl font-medium text-gray-900 mb-2">AI Orchestra</h2>
+                <p className="text-gray-600 mb-6 max-w-md">
+                  基于现代HTTP协议的AI助手平台，使用Server-Sent Events实现实时通信
+                </p>
+                <div className="space-y-2">
+                  <button
+                    onClick={handleNewConversation}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
+                    disabled={!connected || agents.length === 0}
+                  >
+                    <Plus className="w-4 h-4" />
+                    开始新对话
+                  </button>
+                  {(!connected || agents.length === 0) && (
+                    <div className="text-sm text-gray-500">
+                      {!connected ? '等待连接到服务器...' : '没有可用的AI助手'}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
+
+      {/* 创建助手对话框 */}
+      <CreateAssistantDialog
+        open={showCreateAssistant}
+        onOpenChange={setShowCreateAssistant}
+        onSuccess={handleAssistantCreated}
+      />
     </div>
   )
 }
